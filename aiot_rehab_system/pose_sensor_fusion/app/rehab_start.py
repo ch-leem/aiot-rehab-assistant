@@ -167,8 +167,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 cv2.resizeWindow(win_name, 1280, 960)
 
             while not stop_flag.is_set():
-                # bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
-                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=True)
+                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
                 frame = bundle.rgb
                 depth_z16 = bundle.depth
                 if frame is None or depth_z16 is None:
