@@ -1,5 +1,5 @@
 ndjson:
-  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/예진센서.ndjson"
+  path: "/home/a203/workspace/re/S14P11A203/aiot_rehab_system/pose_sensor_fusion/logs/예진센서.ndjson"
 
 range:
   start_idx: 0
@@ -32,7 +32,7 @@ plot:
     y_label: kg
     y_min: 0
     y_max: 60
-    color_bgr: [255, 0, 0]
+    color_bgr: [0, 255, 255]
 
   speed:
     title: Wrist speed
