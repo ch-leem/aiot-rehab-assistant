@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: rehab-timescale
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [appnet]
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: rehab-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks: [appnet]
+
+  iot-api:
+    build: ./backend-iot
+    container_name: rehab-iot-api
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      # Postgres JDBC
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8081:8080"
+    networks: [appnet]
+
+  user-api:
+    build: ./backend-user
+    container_name: rehab-user-api
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    networks: [appnet]
+
+  frontend:
+    build: ./frontend
+    container_name: rehab-frontend
+    restart: unless-stopped
+    depends_on: [iot-api, user-api]
+    ports:
+      - "3000:80"
+    networks: [appnet]
+
+networks:
+  appnet:
+
+volumes:
+  db-data:
+  redis-data:
