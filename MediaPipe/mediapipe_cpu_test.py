@@ -84,6 +84,11 @@ def main():
             landmarker.detect_async(mp_image, ts_ms)
         frame_i += 1
 
+        # print(latest_result)
+        # if(latest_result is not None):
+        #     print(type(latest_result))
+        #     assert False, "latest_result is None"
+
         out = draw_pose(frame, latest_result)
 
         now = time.time()
