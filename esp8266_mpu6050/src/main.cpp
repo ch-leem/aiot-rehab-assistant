@@ -3,7 +3,58 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 
+#include "wifi_manager.h"
+#include "secrets.h"
+#include <ESP8266WiFi.h>
+
+#include "udp_sender.h"
+
+void scanWiFiOnce() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(200);
+
+  Serial.println("=== WiFi Scan Start ===");
+  int n = WiFi.scanNetworks();
+  Serial.print("Found: ");
+  Serial.println(n);
+
+  for (int i = 0; i < n; i++) {
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.print(WiFi.SSID(i));
+    Serial.print("  RSSI=");
+    Serial.print(WiFi.RSSI(i));
+    Serial.print("  CH=");
+    Serial.println(WiFi.channel(i));
+  }
+  Serial.println("=== WiFi Scan End ===");
+}
+
 MPU6050 mpu;
+
+// WIFI 설정
+static const WifiConfig WIFI_CFG = {
+  WIFI_SSID,
+  WIFI_PASS,
+
+  WIFI_USE_STATIC,
+  WIFI_LOCAL_IP,
+  WIFI_GATEWAY,
+  WIFI_SUBNET,
+  WIFI_DNS1,
+  WIFI_DNS2,
+
+  15000
+};
+
+// UDP 설정
+static const UdpConfig UDP_CFG = {
+  UDP_TARGET_IP,
+  UDP_TARGET_PORT
+};
+
+static uint32_t seq = 0;
 
 // ===== 샘플링 =====
 static const float sampleHz = 100.0f;
@@ -69,6 +120,32 @@ void calibrateGyroBias(int samples = 300) {
 void setup() {
   Serial.begin(115200);
   delay(200);
+
+  scanWiFiOnce();
+  delay(500);
+
+  // WIFI 연결
+  if (!wifiConnect(WIFI_CFG)) {
+    Serial.println("WIFI FAIL");
+  } else {
+    Serial.print("WIFI OK, IP = ");
+    Serial.println(WiFi.localIP());
+    Serial.print("DNS1 = ");
+    Serial.println(WiFi.dnsIP(0));
+    Serial.print("DNS2 = ");
+    Serial.println(WiFi.dnsIP(1));
+  }
+
+  // UDP 연결
+  if (WiFi.status() == WL_CONNECTED) {
+    udpBegin(UDP_CFG);
+    Serial.print("UDP target = ");
+    Serial.print(UDP_TARGET_IP);
+    Serial.print(":");
+    Serial.println(UDP_TARGET_PORT);
+  }
+
+
 
   Wire.begin(D2, D1);        // NodeMCU: SDA=D2(GPIO4), SCL=D1(GPIO5)
   Wire.setClock(100000);     // 안정적으로 100k부터
@@ -180,9 +257,23 @@ void loop() {
     float yawDeg   = yaw   * RAD_TO_DEG;
 
     // speed yaw pitch roll
-    Serial.print(speed);   Serial.print('\t');
-    Serial.print(yawDeg);  Serial.print('\t');
-    Serial.print(pitchDeg);Serial.print('\t');
-    Serial.println(rollDeg);
+    // Serial.print("speed (cm/s): ");
+    // Serial.print(speed * 100.0f);   Serial.print('\n');
+
+    char line[128];
+
+    // millis()는 부팅 이후 ms라서 Jetson 쪽 ts로 써도 되고,
+    // 원하면 time.time() 느낌의 epoch는 NTP가 필요함.
+    uint32_t ts_ms = millis();
+
+    snprintf(line, sizeof(line),
+            "{\"v\":%.3f,\"seq\":%lu,\"ts\":%lu}",
+            speed * 100.0f, (unsigned long)seq++, (unsigned long)ts_ms);
+
+    udpSendLine(line);
+
+    // Serial.print(yawDeg);  Serial.print('\t');
+    // Serial.print(pitchDeg);Serial.print('\t');
+    // Serial.println(rollDeg);
   }
 }
