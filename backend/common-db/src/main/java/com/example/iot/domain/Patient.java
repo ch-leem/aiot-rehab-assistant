@@ -1,14 +1,17 @@
 package com.example.iot.domain;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "patient")
 @Getter @Setter
+@Builder
+@AllArgsConstructor // Builder가 사용할 모든 필드 생성자 생성
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA를 위한 기본 생성자
 public class Patient {
 
     @Id
@@ -26,13 +29,9 @@ public class Patient {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    protected Patient() {}
-
-    public Patient(String name, LocalDate birthDate, String gender, String rehabPhase) {
-        this.name = name;
-        this.birthDate = birthDate;
-        this.gender = gender;
-        this.rehabPhase = rehabPhase;
+    // 데이터가 DB에 저장되기 직전에 현재 시간을 자동으로 설정합니다.
+    @PrePersist
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
 }
