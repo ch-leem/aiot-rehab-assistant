@@ -1,0 +1,11 @@
+dependencies {
+    // 공통 모듈 참조
+    implementation project(':common-db')
+
+    // IoT 서비스 전용 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
