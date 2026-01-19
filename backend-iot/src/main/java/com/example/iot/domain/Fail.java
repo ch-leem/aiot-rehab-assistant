@@ -3,8 +3,8 @@ package com.example.iot.domain;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "failmaster")
-public class FailMaster {
+@Table(name = "fail")
+public class Fail {
     @Id
     @Column(name = "fail_id", length = 10)
     private String id;
@@ -15,9 +15,9 @@ public class FailMaster {
     @Column(name = "fail_description", length = 255)
     private String description;
 
-    protected FailMaster() {}
+    protected Fail() {}
 
-    public FailMaster(String id, String name, String description){
+    public Fail(String id, String name, String description){
         this.id = id;
         this.name = name;
         this.description = description;

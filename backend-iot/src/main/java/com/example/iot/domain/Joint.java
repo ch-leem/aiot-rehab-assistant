@@ -3,8 +3,8 @@ package com.example.iot.domain;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "sensormaster")
-public class JointMaster {
+@Table(name = "joint")
+public class Joint {
     @Id
     @Column(name = "joint_id", length = 20)
     private String id;
@@ -12,9 +12,9 @@ public class JointMaster {
     @Column(name = "joint_name", nullable = false, length = 50)
     private String name;
 
-    protected JointMaster() {}
+    protected Joint() {}
 
-    public JointMaster(String id, String name) {
+    public Joint(String id, String name) {
         this.id = id;
         this.name = name;
     }
