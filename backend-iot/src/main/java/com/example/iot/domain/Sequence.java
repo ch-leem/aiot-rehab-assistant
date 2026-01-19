@@ -16,10 +16,11 @@ public class Sequence {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "patient_id")
+    @JoinColumn(name = "patient_id", nullable = false) // 필수 관계 명시
     private Patient patient;
 
     private LocalDateTime startedAt;
+
     private LocalDateTime endedAt;
 
     @Column(columnDefinition = "TEXT")

@@ -1,18 +1,22 @@
 package com.example.iot.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "fail")
+@Getter @Setter
 public class Fail {
+
     @Id
     @Column(name = "fail_id", length = 10)
     private String id;
 
-    @Column(name = "fail_name", nullable = false, length = 50)
+    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(name = "fail_description", length = 255)
+    @Column(length = 255)
     private String description;
 
     protected Fail() {}
@@ -22,17 +26,4 @@ public class Fail {
         this.name = name;
         this.description = description;
     }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
 }

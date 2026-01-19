@@ -16,15 +16,17 @@ public class Session {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sequence_id")
+    @JoinColumn(name = "sequence_id", nullable = false)
     private Sequence sequence;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exercise_id")
+    @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
     private String goal;
+
     private LocalDateTime startedAt;
+
     private LocalDateTime endedAt;
 
     protected Session() {}

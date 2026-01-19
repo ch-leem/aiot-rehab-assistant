@@ -12,11 +12,15 @@ public class Device {
 
     @Id
     @Column(name = "device_id")
-    private String id; // 수동 입력 PK
+    private String id;
 
+    @Column(nullable = false, length = 100)
     private String model;
+
+    @Column(length = 50)
     private String firmwareVersion;
-    private boolean occupied;
+
+    private boolean occupied = false;
 
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
@@ -27,7 +31,7 @@ public class Device {
         this.id = id;
         this.model = model;
         this.firmwareVersion = firmwareVersion;
-        this.occupied = false;
+        // occupied = false;
         this.registeredAt = LocalDateTime.now();
     }
 }

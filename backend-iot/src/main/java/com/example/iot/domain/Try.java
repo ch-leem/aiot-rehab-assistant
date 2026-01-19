@@ -16,16 +16,19 @@ public class Try {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "session_id")
+    @JoinColumn(name = "session_id", nullable = false)
     private Session session;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fail_id")
-    private Fail failMaster;
+    private Fail fail;
 
     private String goalVision;
+
     private String goalSensor;
+
     private LocalDateTime startedAt;
+
     private LocalDateTime endedAt;
 
     protected Try() {}

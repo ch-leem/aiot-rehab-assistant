@@ -15,14 +15,16 @@ public class ExercisePatientMapping {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exercise_id")
+    @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "patient_id")
+    @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    private String side; // left, right, both
+    @Column(length = 10)
+    private String side;
+
     private String goalVision;
     private String goalSensor;
 

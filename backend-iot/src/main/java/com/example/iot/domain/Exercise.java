@@ -1,11 +1,13 @@
 package com.example.iot.domain;
 
-
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "exercise")
+@Getter @Setter
 public class Exercise {
 
     @Id
@@ -28,21 +30,5 @@ public class Exercise {
         this.name = name;
         this.description = description;
         this.createdAt = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
     }
 }

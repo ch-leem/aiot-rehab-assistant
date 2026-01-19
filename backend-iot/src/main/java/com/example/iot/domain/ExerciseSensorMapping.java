@@ -15,13 +15,14 @@ public class ExerciseSensorMapping {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exercise_id")
+    @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sensor_id")
+    @JoinColumn(name = "sensor_id", nullable = false)
     private Sensor sensor;
 
+    @Column(length = 50)
     private String role;
 
     protected ExerciseSensorMapping() {}

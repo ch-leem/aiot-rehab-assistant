@@ -10,11 +10,12 @@ import lombok.Setter;
 public class SessionSummary {
 
     @Id
-    private Long sequenceId;
+    @Column(name = "sequence_id")
+    private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
-    @JoinColumn(name = "sequence_id")
+    @JoinColumn(name = "sequence_id", nullable = false)
     private Sequence sequence;
 
     private Integer totalTrials;
