@@ -4,3 +4,4 @@ venv_yolo/
 tmp/
 __pycache__
 requirements.txt
+logs/
