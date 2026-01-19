@@ -6,13 +6,28 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "therapist")
 @Getter @Setter
 public class Therapist {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long TherapistId;
+    @Column(name = "therapist_id")
+    private Long id;
 
-    private String Name;
-    private String LicenseNo;
-    private LocalDateTime CreatedAt = LocalDateTime.now();
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    private String licenseNo;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    protected Therapist() {}
+
+    public Therapist(String name, String licenseNo) {
+        this.name = name;
+        this.licenseNo = licenseNo;
+        this.createdAt = LocalDateTime.now();
+    }
 }

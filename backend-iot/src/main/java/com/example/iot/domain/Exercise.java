@@ -1,21 +1,48 @@
 package com.example.iot.domain;
 
+
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Getter @Setter
+@Table(name = "exercise")
 public class Exercise {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long ExerciseId;
+    @Column(name = "exercise_id")
+    private Long id;
 
-    private String Name;
+    @Column(nullable = false, length = 100)
+    private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String Description;
+    @Column(length = 500)
+    private String description;
 
-    private LocalDateTime CreatedAt = LocalDateTime.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    protected Exercise() {}
+
+    public Exercise(String name, String description) {
+        this.name = name;
+        this.description = description;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
 }
