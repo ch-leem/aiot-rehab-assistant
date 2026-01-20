@@ -24,6 +24,7 @@ public class Patient {
 
     private LocalDate birthDate;
     private String gender;
+    private String diseaseName;
     private String rehabPhase;
 
     @Column(name = "created_at", nullable = false, updatable = false)
