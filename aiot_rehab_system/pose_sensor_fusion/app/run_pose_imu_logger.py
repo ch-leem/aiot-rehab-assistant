@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# pose_imu_logger_main_full17.py
 
 import os
 import time
@@ -9,7 +8,7 @@ from typing import Dict, Optional, Tuple, List
 import cv2
 import numpy as np
 
-from pose_imu_logger.config import (
+from pose_sensor_fusion.config import (
     IMU_UDP_IP,
     IMU_UDP_PORT,
     IMU_MATCH,
@@ -17,11 +16,11 @@ from pose_imu_logger.config import (
     IMU_MAX_ABS_AGE_MS,
     LOG_DIR,
 )
-from pose_imu_logger.imu.udp_buffer import ImuUdpBuffer
-from pose_imu_logger.log.csv_logger import CsvLogger
+from pose_sensor_fusion.imu.udp_buffer import ImuUdpBuffer
+from pose_sensor_fusion.log.csv_logger import CsvLogger
 
-from pose_imu_logger.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
-import pose_imu_logger.vendor.yolo11m_vDepth as pose
+from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
+import pose_sensor_fusion.vendor.yolo11m_vDepth as pose
 
 
 def _nan3():

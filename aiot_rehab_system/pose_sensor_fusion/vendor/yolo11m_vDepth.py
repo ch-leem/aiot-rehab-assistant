@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import tensorrt as trt
 
-from pose_imu_logger.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle, Intrinsics
+from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle, Intrinsics
 
 
 # =========================
