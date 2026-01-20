@@ -27,28 +27,30 @@ export default function Login({ onSubmit }: LoginProps) {
           });
         }}
       >
-        <label className="field">
-          <span>환자 번호</span>
-          <input
-            className="field-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="예: 1203"
-            value={nextPatientId}
-            onChange={(event) => setNextPatientId(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>의료인 번호</span>
-          <input
-            className="field-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="예: 8451"
-            value={nextNurseId}
-            onChange={(event) => setNextNurseId(event.target.value)}
-          />
-        </label>
+        <div className="login-box">
+          <label className="field">
+            <span>환자 번호</span>
+            <input
+              className="field-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="예시"
+              value={nextPatientId}
+              onChange={(event) => setNextPatientId(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>의료인 번호</span>
+            <input
+              className="field-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="예시"
+              value={nextNurseId}
+              onChange={(event) => setNextNurseId(event.target.value)}
+            />
+          </label>
+        </div>
         <div className="cta-row">
           <button className="primary-button" type="submit" disabled={!isReady}>
             확인하고 시작
@@ -58,7 +60,6 @@ export default function Login({ onSubmit }: LoginProps) {
           </button>
         </div>
       </form>
-      <div className="progress-hint">다음: 환자 확인 화면</div>
     </div>
   );
 }

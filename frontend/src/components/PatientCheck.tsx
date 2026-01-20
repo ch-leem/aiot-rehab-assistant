@@ -37,7 +37,6 @@ export default function PatientCheck({ onStart, onBack }: PatientCheckProps) {
           되돌아가기
         </button>
       </div>
-      <div className="progress-hint">다음: 오늘의 재활 운동 목록</div>
     </div>
   );
 }
