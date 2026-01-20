@@ -7,16 +7,22 @@ from dataclasses import dataclass
 from typing import Optional, Deque, Tuple
 
 
+# IMU sample 데이터 구조
 @dataclass
 class ImuSample:
     host_ts_ms: float
     imu_ts_ms: int
-    v_cmps: float
+    strength_cmps: float
     seq: int
 
 
 class ImuUdpBuffer:
-    """Background UDP receiver with a small in-memory buffer."""
+    '''
+    UDP 소켓 관리
+    백그라운드 수신 스레드 관리
+    시간 기준 버퍼 유지
+    카메라 프레임 기준 IMU 매칭
+    '''
 
     def __init__(self, listen_ip: str = "0.0.0.0", listen_port: int = 9999, max_age_sec: float = 8.0):
         self.listen_ip = listen_ip
@@ -64,7 +70,7 @@ class ImuUdpBuffer:
                     ts = int(msg.get("ts", msg.get("board_ts", -1)))
 
                     seq = int(msg.get("seq", -1))
-                    s = ImuSample(host_ts_ms=now_ms, imu_ts_ms=ts, v_cmps=v, seq=seq)
+                    s = ImuSample(host_ts_ms=now_ms, imu_ts_ms=ts, strength_cmps=v, seq=seq)
                     with self._lock:
                         self.buf.append(s)
                 except Exception:
@@ -116,12 +122,12 @@ class ImuUdpBuffer:
             t0, t1 = prev.host_ts_ms, nxt.host_ts_ms
             w = (target_host_ts_ms - t0) / (t1 - t0)
 
-            v = (1.0 - w) * prev.v_cmps + w * nxt.v_cmps
+            v = (1.0 - w) * prev.strength_cmps + w * nxt.strength_cmps
             imu_ts = -1
             if prev.imu_ts_ms >= 0 and nxt.imu_ts_ms >= 0:
                 imu_ts = int(round((1.0 - w) * prev.imu_ts_ms + w * nxt.imu_ts_ms))
 
             seq = prev.seq if abs(target_host_ts_ms - t0) <= abs(t1 - target_host_ts_ms) else nxt.seq
 
-            samp = ImuSample(host_ts_ms=target_host_ts_ms, imu_ts_ms=imu_ts, v_cmps=float(v), seq=int(seq))
+            samp = ImuSample(host_ts_ms=target_host_ts_ms, imu_ts_ms=imu_ts, strength_cmps=float(v), seq=int(seq))
             return samp, 0.0, True
