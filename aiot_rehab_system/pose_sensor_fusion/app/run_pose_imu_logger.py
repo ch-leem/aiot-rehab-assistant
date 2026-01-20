@@ -8,14 +8,6 @@ from typing import Dict, Optional, Tuple, List, Any
 import cv2
 import numpy as np
 
-from pose_sensor_fusion.config import (
-    IMU_UDP_IP,
-    IMU_UDP_PORT,
-    IMU_MATCH,
-    IMU_BUFFER_SEC,
-    IMU_MAX_ABS_AGE_MS,
-    LOG_DIR,
-)
 from pose_sensor_fusion.imu.udp_buffer import ImuUdpBuffer
 from pose_sensor_fusion.log.csv_logger import CsvLogger
 
@@ -69,6 +61,8 @@ def build_header_full17() -> List[str]:
 
 
 def main(cfg: Dict[str, Any]) -> None:
+
+    # config file parameters
     engine_path = cfg["engine"]["path"]
 
     conf_th = float(cfg["inference"]["conf_th"])
@@ -90,15 +84,25 @@ def main(cfg: Dict[str, Any]) -> None:
     rgb_h = int(cfg["stream"]["rgb"]["height"])
     fps = int(cfg["stream"]["fps"])
 
-    imu = ImuUdpBuffer(listen_ip=IMU_UDP_IP, listen_port=IMU_UDP_PORT, max_age_sec=IMU_BUFFER_SEC)
+    imu_cfg = cfg["imu"]
+    IMU_MATCH = imu_cfg["match"]
+    IMU_MAX_ABS_AGE_MS = float(imu_cfg["max_abs_age_ms"])
+
+
+    imu = ImuUdpBuffer(
+        listen_ip=imu_cfg["udp_ip"], 
+        listen_port=imu_cfg["udp_port"], 
+        max_age_sec=imu_cfg["buffer_sec"]
+    )
+
     imu.start()
 
-    logger = CsvLogger(LOG_DIR, prefix="pose_imu_full17")
+    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose_imu_full17")
     header = build_header_full17()
     logger.write_header(header)
 
     print(f"[LOG] CSV -> {logger.path}")
-    print(f"[IMU] udp :{IMU_UDP_PORT} match={IMU_MATCH} buffer={IMU_BUFFER_SEC:.1f}s")
+    print(f"[IMU] udp :{imu_cfg['udp_port']} match={IMU_MATCH} buffer={imu_cfg['buffer_sec']:.1f}s")
 
     trt_engine = pose.TrtEngine(engine_path)
     filters_3d: Dict[int, pose.OneEuroFilter3D] = {

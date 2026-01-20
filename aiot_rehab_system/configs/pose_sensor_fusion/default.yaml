@@ -41,4 +41,11 @@ stream:
 logging:
   enable: true                # 로그 파일 저장 여부
   output_dir: logs            # 로그(csv) 저장 디렉터리 경로
-  prefix: pose_sensor_fusion  # 로그 파일 이름 접두사
+  
+imu:
+  udp_ip: 0.0.0.0        # IMU UDP 수신 IP
+  udp_port: 9999         # IMU UDP 수신 포트
+  match: nearest         # imu 매칭 방식, nearest 또는 interp
+  buffer_sec: 8.0        # IMU 버퍼 유지 시간
+  max_abs_age_ms: 500.0  # 허용 가능한 IMU 타임스탬프 최대 오차
+
