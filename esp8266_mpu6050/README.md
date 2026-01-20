@@ -1,4 +1,9 @@
+
+빌드 방법
+
 ```bash
+# pwd : esp8266_mpu6050/
+
 # build
 pio run
 
