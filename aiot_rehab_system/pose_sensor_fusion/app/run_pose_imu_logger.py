@@ -3,7 +3,7 @@
 import os
 import time
 import math
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, Any
 
 import cv2
 import numpy as np
@@ -21,6 +21,8 @@ from pose_sensor_fusion.log.csv_logger import CsvLogger
 
 from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
 import pose_sensor_fusion.vendor.yolo11m_vDepth as pose
+
+from pose_sensor_fusion.utils.config_loader import load_yaml_config
 
 
 def _nan3():
@@ -66,27 +68,27 @@ def build_header_full17() -> List[str]:
     return header
 
 
-def main():
-    engine_path = os.getenv("ENGINE_PATH", "/home/a203/yolo11m-pose_fp16.engine")
+def main(cfg: Dict[str, Any]) -> None:
+    engine_path = cfg["engine"]["path"]
 
-    conf_th = float(os.getenv("CONF_TH", "0.25"))
-    iou_th = float(os.getenv("IOU_TH", "0.45"))
-    kp_th = float(os.getenv("KP_TH", "0.25"))
+    conf_th = float(cfg["inference"]["conf_th"])
+    iou_th = float(cfg["inference"]["iou_th"])
+    kp_th = float(cfg["inference"]["kp_th"])
 
-    hold_sec = float(os.getenv("HOLD_SEC", "0.5"))
-    stick_iou = float(os.getenv("STICK_IOU", "0.2"))
+    hold_sec = float(cfg["tracking"]["hold_sec"])
+    stick_iou = float(cfg["tracking"]["stick_iou"])
 
-    depth_roi = int(os.getenv("DEPTH_ROI", "5"))
-    min_valid_ratio = float(os.getenv("DEPTH_MIN_VALID_RATIO", "0.25"))
-    outlier_mad_k = float(os.getenv("DEPTH_OUTLIER_MAD_K", "3.5"))
+    depth_roi = int(cfg["depth"]["roi"])
+    min_valid_ratio = float(cfg["depth"]["min_valid_ratio"])
+    outlier_mad_k = float(cfg["depth"]["outlier_mad_k"])
 
-    filt_min_cutoff = float(os.getenv("FILT_MIN_CUTOFF", "1.5"))
-    filt_beta = float(os.getenv("FILT_BETA", "0.02"))
-    filt_d_cutoff = float(os.getenv("FILT_D_CUTOFF", "1.0"))
+    filt_min_cutoff = float(cfg["filter"]["min_cutoff"])
+    filt_beta = float(cfg["filter"]["beta"])
+    filt_d_cutoff = float(cfg["filter"]["d_cutoff"])
 
-    rgb_w = int(os.getenv("RGB_W", "640"))
-    rgb_h = int(os.getenv("RGB_H", "480"))
-    fps = int(os.getenv("FPS", "30"))
+    rgb_w = int(cfg["stream"]["rgb"]["width"])
+    rgb_h = int(cfg["stream"]["rgb"]["height"])
+    fps = int(cfg["stream"]["fps"])
 
     imu = ImuUdpBuffer(listen_ip=IMU_UDP_IP, listen_port=IMU_UDP_PORT, max_age_sec=IMU_BUFFER_SEC)
     imu.start()
@@ -340,4 +342,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    config_path = os.getenv("CONFIG_PATH", "configs/pose_sensor_fusion/default.yaml")
+    cfg = load_yaml_config(config_path)
+    main(cfg)

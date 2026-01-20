@@ -1,0 +1,44 @@
+# =========================
+# Pose Sensor Fusion Config
+# =========================
+# 카메라 기반 자세 추정과 IMU 센서 융합을 위한 기본 설정 파일
+
+## YOLO Pose 추론에 사용하는 TensorRT 엔진 파일 경로
+engine:
+  path: /home/a203/yolo11m-pose_fp16.engine   # TensorRT로 변환된 YOLO Pose 엔진 파일 경로
+
+## 포즈 추론 관련 임계값 설정
+inference:
+  conf_th: 0.25    # 객체(사람) 검출 최소 confidence threshold
+  iou_th: 0.45     # NMS 적용 시 IoU 임계값
+  kp_th: 0.25      # keypoint 유효성 판단을 위한 confidence threshold
+
+## 프레임 간 객체 유지 및 추적 관련 설정
+tracking:
+  hold_sec: 0.5    # 일시적으로 검출이 끊겨도 동일 객체로 유지하는 시간 (초)
+  stick_iou: 0.2   # 이전 프레임 객체와 동일 인물로 판단하기 위한 IoU 기준
+
+## 깊이(Depth) 값 처리 및 이상치 제거 설정
+depth:
+  roi: 5                 # keypoint 주변에서 깊이 값을 샘플링할 ROI 반경 (픽셀)
+  min_valid_ratio: 0.25  # ROI 내에서 유효한 depth 픽셀의 최소 비율
+  outlier_mad_k: 3.5     # MAD 기반 이상치 제거 계수 (값이 클수록 관대)
+
+## One Euro Filter 기반 노이즈 제거 필터 설정
+filter:
+  min_cutoff: 1.5   # 최소 cutoff 주파수, 값이 클수록 반응은 빠르나 노이즈 증가
+  beta: 0.02        # 속도에 따른 cutoff 조절 계수, 값이 클수록 급격한 움직임에 민감
+  d_cutoff: 1.0     # 미분 신호에 적용되는 cutoff 주파수
+
+## 카메라 스트림 설정
+stream:
+  rgb:
+    width: 640      # RGB 카메라 해상도 너비
+    height: 480     # RGB 카메라 해상도 높이
+  fps: 30           # 카메라 프레임 레이트
+
+## 로그 저장 관련 설정
+logging:
+  enable: true                # 로그 파일 저장 여부
+  output_dir: logs            # 로그(csv) 저장 디렉터리 경로
+  prefix: pose_sensor_fusion  # 로그 파일 이름 접두사
