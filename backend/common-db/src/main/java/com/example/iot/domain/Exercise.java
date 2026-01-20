@@ -31,4 +31,9 @@ public class Exercise {
         this.description = description;
         this.createdAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
 }

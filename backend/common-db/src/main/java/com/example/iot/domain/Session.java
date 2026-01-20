@@ -37,4 +37,9 @@ public class Session {
         this.goal = goal;
         this.startedAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (startedAt == null) startedAt = LocalDateTime.now();
+    }
 }

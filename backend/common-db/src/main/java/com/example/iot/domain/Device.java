@@ -34,4 +34,9 @@ public class Device {
         // occupied = false;
         this.registeredAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (registeredAt == null) registeredAt = LocalDateTime.now();
+    }
 }

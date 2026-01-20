@@ -30,4 +30,9 @@ public class Therapist {
         this.licenseNo = licenseNo;
         this.createdAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
 }

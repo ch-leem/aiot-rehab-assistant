@@ -32,4 +32,9 @@ public class Sequence {
         this.patient = patient;
         this.startedAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (startedAt == null) startedAt = LocalDateTime.now();
+    }
 }

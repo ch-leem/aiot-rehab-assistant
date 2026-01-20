@@ -1,11 +1,9 @@
 package com.example.iot.controller;
 
 import com.example.iot.domain.Exercise;
+import com.example.iot.dto.request.PatientExerciseAssignRequest;
 import com.example.iot.service.PatientExerciseService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -22,6 +20,16 @@ public class PatientExerciseController {
     @GetMapping("/{patientId}/exercises")
     public List<Exercise> getPatientExercises(@PathVariable Long patientId) {
         return patientExerciseService.getExercisesByPatient(patientId);
+    }
+
+    //환자의 운동 목록 추가
+    @PostMapping("/{patientId}/exercises/{exerciseId}")
+    public void addExerciseToPatient(
+            @PathVariable Long patientId,
+            @PathVariable Long exerciseId,
+            @RequestBody PatientExerciseAssignRequest request
+    ) {
+        patientExerciseService.addExerciseToPatient(patientId, exerciseId, request);
     }
 
 }
