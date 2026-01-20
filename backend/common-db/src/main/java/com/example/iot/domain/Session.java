@@ -31,10 +31,9 @@ public class Session {
 
     protected Session() {}
 
-    public Session(Sequence sequence, Exercise exercise, String goal) {
+    public Session(Sequence sequence, Exercise exercise) {
         this.sequence = sequence;
         this.exercise = exercise;
-        this.goal = goal;
         this.startedAt = LocalDateTime.now();
     }
 
