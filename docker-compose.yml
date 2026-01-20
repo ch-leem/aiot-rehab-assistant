@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: timescale/timescaledb:latest-pg16
-    container_name: rehab-timescale
+    container_name: rehab-iot-timescale
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: rehab-redis
+    container_name: rehab-iot-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -29,8 +29,10 @@ services:
     networks: [appnet]
 
   iot-api:
-    build: ./backend-iot
-    container_name: rehab-iot-api
+    build:
+      context: ./backend
+      dockerfile: backend-iot/Dockerfile
+    container_name: rehab-iot-api-server
     restart: unless-stopped
     depends_on: [db, redis]
     environment:
@@ -50,8 +52,10 @@ services:
     networks: [appnet]
 
   user-api:
-    build: ./backend-user
-    container_name: rehab-user-api
+    build:
+      context: ./backend
+      dockerfile: backend-user/Dockerfile
+    container_name: rehab-user-api-server
     restart: unless-stopped
     depends_on: [db, redis]
     environment:
@@ -70,7 +74,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: rehab-frontend
+    container_name: rehab-frontend-ui
     restart: unless-stopped
     depends_on: [iot-api, user-api]
     ports:
