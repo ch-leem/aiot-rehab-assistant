@@ -1,26 +1,365 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import "./App.css";
+import MainLayout from "./components/MainLayout";
+import PatientCheck from "./components/PatientCheck";
+import Login from "./components/Login";
+
+const SCREEN = {
+  LOGIN: "login",
+  PATIENT_CHECK: "patient-check",
+  EXERCISE_LIST: "exercise-list",
+  EXERCISE_INTRO: "exercise-intro",
+  EXERCISE_SESSION: "exercise-session",
+  EXERCISE_RESULT: "exercise-result",
+};
+
+const EXERCISES = [
+  {
+    title: "팔 들어 올리기",
+    duration: "약 3분",
+    caution: "어깨가 올라가지 않도록 자연스럽게 움직여주세요.",
+    instruction: "팔을 천천히 들어 올리고 2초 유지한 뒤 내려주세요.",
+  },
+  {
+    title: "팔 내리기",
+    duration: "약 2분",
+    caution: "호흡을 유지하면서 천천히 내려주세요.",
+    instruction: "팔을 천천히 내려 바닥을 향해 편안하게 움직여주세요.",
+  },
+  {
+    title: "팔 좌우 이동",
+    duration: "약 2분",
+    caution: "몸통은 고정한 채 팔만 움직여주세요.",
+    instruction: "팔을 좌우로 천천히 이동하며 범위를 유지해주세요.",
+  },
+];
+
+const ENCOURAGEMENTS = [
+  {
+    title: "오늘도 정말 고생하셨어요.",
+    detail: "지난주보다 움직임이 더 안정적으로 느껴졌어요.",
+  },
+  {
+    title: "끝까지 해낸 것이 가장 큰 성과입니다.",
+    detail: "오늘은 조금 힘들어 보였지만 잘 버텨주셨어요.",
+  },
+  {
+    title: "꾸준히 잘하고 계십니다.",
+    detail: "작은 변화가 쌓여 더 큰 회복으로 이어질 거예요.",
+  },
+];
 
 export default function App() {
-  const [userHealth, setUserHealth] = useState("loading...");
-  const [iotHealth, setIotHealth] = useState("loading...");
+  const [screen, setScreen] = useState(SCREEN.LOGIN);
+  const [patientId, setPatientId] = useState("");
+  const [nurseId, setNurseId] = useState("");
+  const stageTotal = 5;
+  const [postureChecked, setPostureChecked] = useState(false);
+  const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [setIndex, setSetIndex] = useState(1);
+  const [countdown, setCountdown] = useState(0);
+  const autoSeconds = 5;
+
+  const stageLabel = useMemo(() => {
+    switch (screen) {
+      case SCREEN.EXERCISE_RESULT:
+        return "운동 결과 단계";
+      case SCREEN.EXERCISE_SESSION:
+        return "운동 진행 단계";
+      case SCREEN.EXERCISE_INTRO:
+        return "운동 설명 단계";
+      case SCREEN.EXERCISE_LIST:
+        return "운동 목록 단계";
+      case SCREEN.PATIENT_CHECK:
+        return "환자 확인 단계";
+      case SCREEN.LOGIN:
+      default:
+        return "로그인";
+    }
+  }, [screen]);
+
+  const stageIndex = useMemo(() => {
+    switch (screen) {
+      case SCREEN.PATIENT_CHECK:
+        return 1;
+      case SCREEN.EXERCISE_LIST:
+        return 2;
+      case SCREEN.EXERCISE_INTRO:
+        return 3;
+      case SCREEN.EXERCISE_SESSION:
+        return 4;
+      case SCREEN.EXERCISE_RESULT:
+        return 5;
+      case SCREEN.LOGIN:
+      default:
+        return null;
+    }
+  }, [screen]);
+
+  const handleLogin = ({ nextPatientId, nextNurseId }) => {
+    setPatientId(nextPatientId);
+    setNurseId(nextNurseId);
+    setExerciseIndex(0);
+    setScreen(SCREEN.PATIENT_CHECK);
+  };
+
+  const moveToExerciseIntro = () => {
+    setPostureChecked(false);
+    setScreen(SCREEN.EXERCISE_INTRO);
+  };
+
+  const currentExercise = EXERCISES[exerciseIndex];
+  const encouragement = ENCOURAGEMENTS[exerciseIndex % ENCOURAGEMENTS.length];
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.text())
-      .then(setUserHealth)
-      .catch(() => setUserHealth("ERROR"));
+    if (screen !== SCREEN.EXERCISE_LIST) {
+      setCountdown(0);
+      return;
+    }
+    const endTime = Date.now() + autoSeconds * 1000;
+    const tick = () => {
+      const next = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+      setCountdown(next);
+    };
+    tick();
+    const interval = setInterval(tick, 250);
+    const timeout = setTimeout(() => {
+      moveToExerciseIntro();
+    }, autoSeconds * 1000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [screen, autoSeconds]);
 
-    fetch("/iot-api/health")
-      .then((r) => r.text())
-      .then(setIotHealth)
-      .catch(() => setIotHealth("ERROR"));
-  }, []);
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_INTRO) return;
+    setPostureChecked(false);
+    const timeout = setTimeout(() => {
+      setPostureChecked(true);
+    }, 6000);
+    return () => clearTimeout(timeout);
+  }, [screen, exerciseIndex]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
+    const timeout = setTimeout(() => {
+      setScreen(SCREEN.EXERCISE_SESSION);
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [screen, postureChecked]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION) return;
+    setSetIndex(1);
+  }, [screen, exerciseIndex]);
 
   return (
-    <div style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h2>Rehab Dashboard (Vite + React)</h2>
-      <p>User API: {userHealth}</p>
-      <p>IoT API: {iotHealth}</p>
-    </div>
+    <MainLayout
+      stageLabel={stageLabel}
+      patientId={patientId}
+      nurseId={nurseId}
+      stageIndex={stageIndex}
+      stageTotal={stageTotal}
+    >
+      {screen === SCREEN.LOGIN && <Login onSubmit={handleLogin} />}
+      {screen === SCREEN.PATIENT_CHECK && (
+        <PatientCheck
+          onStart={() => {
+            setExerciseIndex(0);
+            setScreen(SCREEN.EXERCISE_LIST);
+          }}
+          onBack={() => setScreen(SCREEN.LOGIN)}
+        />
+      )}
+      {screen === SCREEN.EXERCISE_LIST && (
+        <div className="placeholder-screen enter">
+          <div className="screen-label">오늘의 운동</div>
+          <h1>오늘의 재활 운동</h1>
+          <p className="lead">
+            오늘 해야 할 3가지 동작이 준비되어 있습니다.
+          </p>
+          <div className="auto-hint">
+            5초 뒤에 운동 설명으로 넘어갑니다{" "}
+            <strong className="countdown-chip">{countdown}초</strong>
+          </div>
+          <div className="placeholder-card">
+            <div>
+              <div className="card-title">1. 팔 들어 올리기</div>
+              <div className="card-meta">예상 3분</div>
+            </div>
+            <span className="card-badge">대표 동작</span>
+          </div>
+          <div className="placeholder-card muted">
+            <div>
+              <div className="card-title">2. 팔 내리기</div>
+              <div className="card-meta">예상 2분</div>
+            </div>
+            <span className="card-badge subtle">대기</span>
+          </div>
+          <div className="placeholder-card muted">
+            <div>
+              <div className="card-title">3. 팔 좌우 이동</div>
+              <div className="card-meta">예상 2분</div>
+            </div>
+            <span className="card-badge subtle">대기</span>
+          </div>
+          <div className="cta-row">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+            >
+              환자 확인으로
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={moveToExerciseIntro}
+            >
+              지금 시작
+            </button>
+          </div>
+        </div>
+      )}
+      {screen === SCREEN.EXERCISE_INTRO && (
+        <div className="placeholder-screen exercise-intro enter">
+          <div className="screen-label">운동 설명</div>
+          <h1>{currentExercise.title}</h1>
+          <p className="lead">{currentExercise.instruction}</p>
+          <div className="info-grid single">
+            <div className="info-card">
+              <div>
+                <div className="card-title">주의사항</div>
+                <div className="card-meta">
+                  {currentExercise.caution}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="check-row">
+            <div>
+              <div className="card-title">자세 확인</div>
+              <div className="card-meta">
+                카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.
+              </div>
+            </div>
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setPostureChecked(true)}
+              disabled={postureChecked}
+            >
+              {postureChecked ? "인식 완료" : "인식 확인"}
+            </button>
+          </div>
+          <div className="auto-hint">
+            {postureChecked
+              ? "인식 완료. 곧 운동을 시작합니다."
+              : "인식 대기 중입니다."}
+          </div>
+          <div className="cta-row">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.EXERCISE_LIST)}
+            >
+              목록으로
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.EXERCISE_SESSION)}
+              disabled={!postureChecked}
+            >
+              바로 시작
+            </button>
+          </div>
+        </div>
+      )}
+      {screen === SCREEN.EXERCISE_SESSION && (
+        <div className="placeholder-screen enter">
+          <div className="screen-label">운동 진행</div>
+          <h1>동작 진행 중</h1>
+          <p className="lead">
+            {currentExercise.title}을(를) 천천히 진행해주세요.
+          </p>
+          <div className="auto-hint">동작 인식 중입니다.</div>
+          <div className="session-visual">
+            3D 반응형 화면 자리
+          </div>
+          <div className="session-panel">
+            <div className="session-bar">
+              <span />
+            </div>
+            <div className="card-meta">현재 {setIndex}/3 세트</div>
+          </div>
+          <div className="cta-row">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.EXERCISE_INTRO)}
+            >
+              설명으로
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() =>
+                setSetIndex((prev) => (prev < 3 ? prev + 1 : prev))
+              }
+            >
+              동작 1회 완료
+            </button>
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => {
+                if (exerciseIndex < EXERCISES.length - 1) {
+                  setExerciseIndex((prev) => prev + 1);
+                  setScreen(SCREEN.EXERCISE_INTRO);
+                } else {
+                  setScreen(SCREEN.EXERCISE_RESULT);
+                }
+              }}
+            >
+              다음 단계
+            </button>
+          </div>
+        </div>
+      )}
+      {screen === SCREEN.EXERCISE_RESULT && (
+        <div className="placeholder-screen enter">
+          <div className="screen-label">운동 결과</div>
+          <h1>오늘의 기록</h1>
+          <p className="lead">{encouragement.title}</p>
+          <div className="info-grid single">
+            <div className="info-card accent">
+              <div>
+                <div className="card-title">격려 메시지</div>
+                <div className="card-meta">{encouragement.detail}</div>
+              </div>
+              <span className="card-badge">수고</span>
+            </div>
+          </div>
+          <div className="cta-row">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.EXERCISE_LIST)}
+            >
+              목록으로
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+            >
+              오늘 마치기
+            </button>
+          </div>
+        </div>
+      )}
+    </MainLayout>
   );
 }
