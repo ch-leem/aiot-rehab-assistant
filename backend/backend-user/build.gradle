@@ -1,10 +1,21 @@
+// backend/backend-user/build.gradle
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+// 이 모듈은 실행 가능한 서버이므로 bootJar를 활성화합니다 (기본값이 true이나 명시 가능)
+bootJar { enabled = true }
+
 dependencies {
-    // 공통 모듈 참조
+    // 공통 DB 모듈을 가져옴으로써 JPA, Entity, Repository를 모두 상속받음
     implementation project(':common-db')
 
-    // 사용자 서비스 전용 의존성
     implementation 'org.springframework.boot:spring-boot-starter-web'
     
+    // 테스트 및 런타임 의존성
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     runtimeOnly 'com.h2database:h2'
