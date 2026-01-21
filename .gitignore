@@ -18,3 +18,5 @@ tmp2/
 models/
 ip.md
 run.yaml
+data/
+valid_data.zip
