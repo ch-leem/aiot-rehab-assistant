@@ -72,6 +72,9 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
     num_joints = cfg["inference"]["num_joints"]
 
+    is_ingest = bool(cfg["ingest"]["enable"])
+    is_webrtc_in = bool(cfg["webrtc"].get("enable", True))
+
     # 센서 모듈 시작
     imu = ImuUdpBuffer(
         listen_ip=imu_cfg["udp_ip"],
@@ -91,14 +94,15 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     payload_template = load_data_payload(cfg["logging"]["payload_path"])
 
     # Redis 서버 Ingest 통신 시작
-    ingest_url = cfg["ingest"]["url"]
-    sender = IngestSender(
-        url=ingest_url,
-        max_queue=int(cfg["ingest"]["max_queue"]),
-        timeout_sec=float(cfg["ingest"]["timeout_sec"]),
-        drop_policy=cfg["ingest"]["drop_policy"],
-    )
-    sender.start()
+    if is_ingest:
+        ingest_url = cfg["ingest"]["url"]
+        sender = IngestSender(
+            url=ingest_url,
+            max_queue=int(cfg["ingest"]["max_queue"]),
+            timeout_sec=float(cfg["ingest"]["timeout_sec"]),
+            drop_policy=cfg["ingest"]["drop_policy"],
+        )
+        sender.start()
 
     # print(f"[INGEST] POST {ingest_url} queue={sender.maxsize} timeout={sender.timeout_sec}s policy={sender.drop_policy}")
 
@@ -352,7 +356,9 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                     strength=imu_v,
                     power=weight_kg,
                 )
-                sender.push({"frames": [frame_obj]})
+
+                if is_ingest:
+                    sender.push({"frames": [frame_obj]})
 
                 cv2.putText(
                     disp,
@@ -365,7 +371,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 )
 
                 # WebRTC로 보낼 프레임 push
-                buf.push(disp, {"frame_idx": frame_idx, "host_ts_ms": host_ts_ms})
+                if is_webrtc_in:
+                    buf.push(disp, {"frame_idx": frame_idx, "host_ts_ms": host_ts_ms})
 
                 # debug_lines = []
 
@@ -428,14 +435,20 @@ async def main_async():
     config_path = os.getenv("CONFIG_PATH", "configs/pose_sensor_fusion/run.yaml")
     cfg = load_yaml_config(config_path)
 
+    is_webrtc = bool(cfg.get("webrtc", {}).get("enable", True))
+
     buf = LatestFrameBuffer()
     stop_flag = threading.Event()
 
-    # 메인 처리 루프는 별도 thread
+    if not is_webrtc:
+        print("[WebRTC] disabled, run main_loop only (no ws connection).")
+        main_loop(cfg, buf, stop_flag)  # 여기서 블로킹으로 계속 돈다
+        return
+
+    # WebRTC 켜진 경우만, 기존 구조 유지
     t = threading.Thread(target=main_loop, args=(cfg, buf, stop_flag), daemon=True)
     t.start()
 
-    # WebRTC는 asyncio에서
     ws_url = cfg["webrtc"]["url"]
     fps = int(cfg["stream"]["fps"])
 
@@ -452,7 +465,6 @@ async def main_async():
     finally:
         stop_flag.set()
         t.join(timeout=2.0)
-
 
 if __name__ == "__main__":
     asyncio.run(main_async())
