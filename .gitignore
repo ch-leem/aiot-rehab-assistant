@@ -3,7 +3,6 @@ venv_mediapipe/
 venv_yolo/
 tmp/
 __pycache__
-requirements.txt
 logs/
 .pio
 .vscode/
