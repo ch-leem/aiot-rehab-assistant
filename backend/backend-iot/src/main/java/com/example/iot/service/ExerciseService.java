@@ -18,6 +18,7 @@ public class ExerciseService {
                 .orElseThrow(() -> new IllegalArgumentException("운동 없음"));
     }
 
+    //temp
     public Exercise createPatient(Exercise exercise) {
         return exerciseRepository.save(exercise);
     }
