@@ -22,4 +22,12 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     """)
     List<Session> findBySequenceIdWithExercise(@Param("sequenceId") Long sequenceId);
 
+
+    @Query("""
+    select se from Session se
+    join fetch se.exercise ex
+    join fetch se.sequence sq
+    where sq.id in :sequenceIds
+    """)
+    List<Session> findBySequenceIdsWithExercise(List<Long> sequenceIds);
 }
