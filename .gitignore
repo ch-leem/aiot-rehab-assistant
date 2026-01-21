@@ -12,7 +12,7 @@ logs/
 .vscode/ipch
 secrets.h
 __pycache__/
-venv_*/
+venv*/
 tmp/
 tmp2/
 models/
