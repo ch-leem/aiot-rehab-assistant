@@ -10,8 +10,18 @@ import numpy as np
 
 from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
 
-from pose_sensor_fusion.vision.realsense_ai_api import RealSenseAIApi, FrameBundle
-import pose_sensor_fusion.vision.yolo11m_vDepth as pose
+from pose_sensor_fusion.vision_utills.realsense_ai_api import RealSenseAIApi, FrameBundle
+from pose_sensor_fusion.vision_utills.trt_engine import TrtEngine
+from pose_sensor_fusion.vision_utills.pose_filter import OneEuroFilter3D
+from pose_sensor_fusion.vision_utills.img_preprocessing import preprocess_bgr_letterbox, unletterbox_points
+from pose_sensor_fusion.vision_utills.pose_2d_postprocessing import decode_pose, pick_person, TrackState
+from pose_sensor_fusion.vision_utills.depth_lift import robust_depth_at
+from pose_sensor_fusion.vision_utills.visualize_pose import (
+    draw_pose_2d,
+    angle_3pts,
+    COCO,
+    Joint3DState,
+)
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 from pose_sensor_fusion.utils.create_payload import load_data_payload, build_header_from_payload
@@ -83,14 +93,14 @@ def main(cfg: Dict[str, Any]) -> None:
     print(f"[LOG] CSV -> {logger.path}")
     print(f"[IMU] udp :{imu_cfg['udp_port']} match={IMU_MATCH} buffer={imu_cfg['buffer_sec']:.1f}s")
 
-    trt_engine = pose.TrtEngine(engine_path)
+    trt_engine = TrtEngine(engine_path)
 
-    filters_3d: Dict[int, pose.OneEuroFilter3D] = {
-        i: pose.OneEuroFilter3D(filt_min_cutoff, filt_beta, filt_d_cutoff) for i in range(num_joints)
+    filters_3d: Dict[int, OneEuroFilter3D] = {
+        i: OneEuroFilter3D(filt_min_cutoff, filt_beta, filt_d_cutoff) for i in range(num_joints)
     }
     prev_filt: Dict[int, Tuple[np.ndarray, float]] = {}
 
-    st = pose.TrackState()
+    st = TrackState()
     fps_ema = 0.0
     last_frame_t = time.time()
     frame_idx = 0
@@ -145,11 +155,11 @@ def main(cfg: Dict[str, Any]) -> None:
                     imu_ts = int(imu_s.imu_ts_ms)
                     imu_age_out = float(imu_age_ms)
 
-                inp, scale, dx, dy = pose.preprocess_bgr_letterbox(frame, 640)
+                inp, scale, dx, dy = preprocess_bgr_letterbox(frame, 640)
                 out_trt = trt_engine.infer(inp)
 
-                boxes, scores, kpts = pose.decode_pose(out_trt, conf_th=conf_th, iou_th=iou_th)
-                pick = pose.pick_person(boxes, scores, kpts, st, stick_iou=stick_iou)
+                boxes, scores, kpts = decode_pose(out_trt, conf_th=conf_th, iou_th=iou_th)
+                pick = pick_person(boxes, scores, kpts, st, stick_iou=stick_iou)
 
                 now = time.time()
 
@@ -179,23 +189,23 @@ def main(cfg: Dict[str, Any]) -> None:
                 lw_conf = float("nan")
 
                 if kpts_640 is not None:
-                    kpts_xy = pose.unletterbox_points(kpts_640.reshape(-1, 3), scale, dx, dy)
-                    pose.draw_pose_2d(disp, kpts_xy, kp_th=kp_th)
+                    kpts_xy = unletterbox_points(kpts_640.reshape(-1, 3), scale, dx, dy)
+                    draw_pose_2d(disp, kpts_xy, kp_th=kp_th)
 
-                    joint_states: Dict[int, pose.Joint3DState] = {}
+                    joint_states: Dict[int, Joint3DState] = {}
 
                     for i in range(17):
                         x, y, s = kpts_xy[i]
                         joint_conf_17[i] = float(s)
 
                         if float(s) < kp_th:
-                            joint_states[i] = pose.Joint3DState(None, None, None, None, False)
+                            joint_states[i] = Joint3DState(None, None, None, None, False)
                             continue
 
                         u = int(round(float(x)))
                         v = int(round(float(y)))
 
-                        ds = pose.robust_depth_at(
+                        ds = robust_depth_at(
                             depth_z16=depth_z16,
                             depth_scale=depth_scale,
                             intr=intr,
@@ -207,7 +217,7 @@ def main(cfg: Dict[str, Any]) -> None:
                         )
 
                         if not ds.valid or ds.xyz_m is None:
-                            joint_states[i] = pose.Joint3DState(None, None, None, None, False)
+                            joint_states[i] = Joint3DState(None, None, None, None, False)
                             continue
 
                         xyz_filt = filters_3d[i](ds.xyz_m, now)
@@ -224,7 +234,7 @@ def main(cfg: Dict[str, Any]) -> None:
                             speed = None
 
                         prev_filt[i] = (xyz_filt, now)
-                        joint_states[i] = pose.Joint3DState(ds.xyz_m, xyz_filt, v_xyz, speed, True)
+                        joint_states[i] = Joint3DState(ds.xyz_m, xyz_filt, v_xyz, speed, True)
 
                     def get3(i: int) -> Optional[np.ndarray]:
                         js = joint_states.get(i)
@@ -232,28 +242,28 @@ def main(cfg: Dict[str, Any]) -> None:
                             return js.xyz_filt
                         return None
 
-                    Ls = get3(pose.COCO["L_SHOULDER"])
-                    Le = get3(pose.COCO["L_ELBOW"])
-                    Lw = get3(pose.COCO["L_WRIST"])
-                    Rs = get3(pose.COCO["R_SHOULDER"])
-                    Re = get3(pose.COCO["R_ELBOW"])
-                    Rw = get3(pose.COCO["R_WRIST"])
+                    Ls = get3(COCO["L_SHOULDER"])
+                    Le = get3(COCO["L_ELBOW"])
+                    Lw = get3(COCO["L_WRIST"])
+                    Rs = get3(COCO["R_SHOULDER"])
+                    Re = get3(COCO["R_ELBOW"])
+                    Rw = get3(COCO["R_WRIST"])
 
                     if _finite_xyz(Ls) and _finite_xyz(Le) and _finite_xyz(Lw):
-                        l_elbow = float(pose.angle_3pts(Ls, Le, Lw))
+                        l_elbow = float(angle_3pts(Ls, Le, Lw))
                     if _finite_xyz(Rs) and _finite_xyz(Re) and _finite_xyz(Rw):
-                        r_elbow = float(pose.angle_3pts(Rs, Re, Rw))
+                        r_elbow = float(angle_3pts(Rs, Re, Rw))
 
-                    lw_state = joint_states.get(pose.COCO["L_WRIST"])
-                    rw_state = joint_states.get(pose.COCO["R_WRIST"])
+                    lw_state = joint_states.get(COCO["L_WRIST"])
+                    rw_state = joint_states.get(COCO["R_WRIST"])
                     if lw_state and lw_state.valid and lw_state.speed is not None:
                         l_wspd = float(lw_state.speed)
                     if rw_state and rw_state.valid and rw_state.speed is not None:
                         r_wspd = float(rw_state.speed)
 
                     try:
-                        rw_conf = float(kpts_xy[pose.COCO["R_WRIST"]][2])
-                        lw_conf = float(kpts_xy[pose.COCO["L_WRIST"]][2])
+                        rw_conf = float(kpts_xy[COCO["R_WRIST"]][2])
+                        lw_conf = float(kpts_xy[COCO["L_WRIST"]][2])
                     except Exception:
                         pass
 

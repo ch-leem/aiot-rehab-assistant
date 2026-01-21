@@ -3,7 +3,7 @@ from typing import Tuple, Optional
 import numpy as np
 import tensorrt as trt
 
-from pose_sensor_fusion.vision.cuda_runtime import (
+from pose_sensor_fusion.vision_utills.cuda_runtime import (
     cudaMalloc, cudaFree,
     cudaStreamCreate, cudaStreamDestroy,
     cudaMemcpyAsync, cudaStreamSynchronize,

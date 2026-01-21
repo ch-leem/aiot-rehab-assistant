@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from pose_sensor_fusion.vision.realsense_ai_api import Intrinsics
+from pose_sensor_fusion.vision_utills.realsense_ai_api import Intrinsics
 import numpy as np
 
 # =========================
