@@ -1,0 +1,68 @@
+{
+  "frames": [
+    {
+      "frame_idx": 0,
+      "ts": {
+        "video_ms": null,
+        "host_ms": null
+      },
+      "position": {
+        "left": {
+          "left_eye": { "x": null, "y": null, "z": null, "conf": null },
+          "left_ear": { "x": null, "y": null, "z": null, "conf": null },
+          "left_shoulder": { "x": null, "y": null, "z": null, "conf": null },
+          "left_elbow": { "x": null, "y": null, "z": null, "conf": null },
+          "left_wrist": { "x": null, "y": null, "z": null, "conf": null },
+          "left_hip": { "x": null, "y": null, "z": null, "conf": null },
+          "left_knee": { "x": null, "y": null, "z": null, "conf": null },
+          "left_ankle": { "x": null, "y": null, "z": null, "conf": null },
+          "left_heel": { "x": null, "y": null, "z": null, "conf": null },
+          "left_toe": { "x": null, "y": null, "z": null, "conf": null }
+        },
+        "right": {
+          "right_eye": { "x": null, "y": null, "z": null, "conf": null },
+          "right_ear": { "x": null, "y": null, "z": null, "conf": null },
+          "right_shoulder": { "x": null, "y": null, "z": null, "conf": null },
+          "right_elbow": { "x": null, "y": null, "z": null, "conf": null },
+          "right_wrist": { "x": null, "y": null, "z": null, "conf": null },
+          "right_hip": { "x": null, "y": null, "z": null, "conf": null },
+          "right_knee": { "x": null, "y": null, "z": null, "conf": null },
+          "right_ankle": { "x": null, "y": null, "z": null, "conf": null },
+          "right_heel": { "x": null, "y": null, "z": null, "conf": null },
+          "right_toe": { "x": null, "y": null, "z": null, "conf": null }
+        },
+        "mid": {
+          "nose": { "x": null, "y": null, "z": null, "conf": null }
+        }
+      },
+      "deg": {
+        "left": {
+          "shoulder_flexion": null,
+          "elbow_extension": null,
+          "ankle_plantarflexion": null,
+          "knee_flexion": null,
+          "ankle_inversion_eversion": null,
+          "hip_flexion": null
+        },
+        "right": {
+          "shoulder_flexion": null,
+          "elbow_extension": null,
+          "ankle_plantarflexion": null,
+          "knee_flexion": null,
+          "ankle_inversion_eversion": null,
+          "hip_flexion": null
+        },
+        "mid": {
+          "trunk_forward_tilt": null,
+          "trunk_rotation_lateral_flexion": null,
+          "pelvis_level": null,
+          "trunk_lateral_tilt": null
+        }   
+      },
+      "sensor": {
+        "strength": null,
+        "power": null
+      }
+    }
+  ]
+}
