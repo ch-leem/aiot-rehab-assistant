@@ -12,7 +12,10 @@ import yaml
 
 # 네 프로젝트 코드 사용 (경로 맞춰 수정)
 from pose_sensor_fusion.vision_utills.inference.trt_engine import TrtEngine
-from pose_sensor_fusion.vision_utills.preprocess.img_preprocessing import preprocess_bgr_letterbox, unletterbox_points
+from pose_sensor_fusion.vision_utills.preprocess.img_preprocessing import (
+    preprocess_bgr_letterbox,
+    unletterbox_points,
+)
 from pose_sensor_fusion.vision_utills.pose2d.pose_2d_postprocessing import decode_pose
 
 
@@ -26,6 +29,7 @@ class GTObj:
     kpts_xyv: np.ndarray         # (K,3) x,y,v in pixels on original image
     cls: int
 
+
 def _read_yolo_pose_label_txt(label_path: str, img_w: int, img_h: int, k: int) -> List[GTObj]:
     gts: List[GTObj] = []
     if not os.path.isfile(label_path):
@@ -37,14 +41,15 @@ def _read_yolo_pose_label_txt(label_path: str, img_w: int, img_h: int, k: int) -
             if not s:
                 continue
             parts = s.split()
-            # expected: 1 + 4 + K*3
+
+            # 최소 필요 토큰만 검사 (라벨이 21이어도 k=17이면 앞 17만 사용 가능)
             need = 1 + 4 + k * 3
             if len(parts) < need:
-                # skip malformed line
                 continue
 
             cls = int(float(parts[0]))
             cx, cy, bw, bh = map(float, parts[1:5])
+
             # normalized -> pixels
             cx *= img_w
             cy *= img_h
@@ -57,13 +62,15 @@ def _read_yolo_pose_label_txt(label_path: str, img_w: int, img_h: int, k: int) -
             kp = kp_all[:k, :]
             kp[:, 0] *= img_w
             kp[:, 1] *= img_h
-            # kp[:,2] is v (0,1,2) already, keep as is
+            # kp[:,2] is v (0,1,2) already
 
-            gts.append(GTObj(
-                bbox_xywh=np.array([x, y, bw, bh], dtype=np.float32),
-                kpts_xyv=kp,
-                cls=cls,
-            ))
+            gts.append(
+                GTObj(
+                    bbox_xywh=np.array([x, y, bw, bh], dtype=np.float32),
+                    kpts_xyv=kp,
+                    cls=cls,
+                )
+            )
     return gts
 
 
@@ -72,20 +79,13 @@ def _read_yolo_pose_label_txt(label_path: str, img_w: int, img_h: int, k: int) -
 # -------------------------
 
 def _oks(pred_xy: np.ndarray, gt_xyv: np.ndarray, area: float, sigmas: np.ndarray) -> float:
-    """
-    pred_xy: (K,2) predicted keypoints in pixels
-    gt_xyv : (K,3) GT in pixels with visibility v in {0,1,2}
-    area   : object area in pixels^2 (use bbox area)
-    sigmas : (K,) per-keypoint sigma
-    """
     if area <= 1.0:
         area = 1.0
-    vars_ = (sigmas * 2.0) ** 2  # COCO style denominator term
+    vars_ = (sigmas * 2.0) ** 2
 
     gt_xy = gt_xyv[:, :2]
     v = gt_xyv[:, 2]
 
-    # visibility mask: v > 0 means labeled/visible in COCO sense
     m = v > 0
     if not np.any(m):
         return 0.0
@@ -95,59 +95,15 @@ def _oks(pred_xy: np.ndarray, gt_xyv: np.ndarray, area: float, sigmas: np.ndarra
     e = (dx * dx + dy * dy) / (vars_[m] * (area + 1e-9) * 2.0)
     return float(np.mean(np.exp(-e)))
 
-def _match_image(
-    preds: List[Tuple[float, np.ndarray]],   # list of (score, pred_kpts_xy) for one image
-    gts: List[GTObj],
-    oks_thr: float,
-    sigmas: np.ndarray
-) -> Tuple[List[int], List[int]]:
-    """
-    Returns lists:
-      tp_flags aligned with preds order, 1 if TP else 0
-      fp_flags aligned with preds order, 1 if FP else 0
-    Matching rule: greedy by score descending, match to highest OKS GT not already matched if OKS >= thr.
-    """
-    if len(preds) == 0:
-        return [], []
-    if len(gts) == 0:
-        return [0] * len(preds), [1] * len(preds)
-
-    gt_used = [False] * len(gts)
-    tp = [0] * len(preds)
-    fp = [0] * len(preds)
-
-    for i, (sc, pk) in enumerate(preds):
-        best_j = -1
-        best_oks = -1.0
-        for j, gt in enumerate(gts):
-            if gt_used[j]:
-                continue
-            area = float(gt.bbox_xywh[2] * gt.bbox_xywh[3])
-            oks = _oks(pk, gt.kpts_xyv, area=area, sigmas=sigmas)
-            if oks > best_oks:
-                best_oks = oks
-                best_j = j
-        if best_j >= 0 and best_oks >= oks_thr:
-            tp[i] = 1
-            gt_used[best_j] = True
-        else:
-            fp[i] = 1
-
-    return tp, fp
 
 def _ap_from_pr(rec: np.ndarray, prec: np.ndarray) -> float:
-    """
-    101-point interpolation AP (COCO style-ish)
-    """
     if rec.size == 0:
         return 0.0
-
-    # make precision non-increasing
     mpre = np.maximum.accumulate(prec[::-1])[::-1]
-    # sample at 101 recall thresholds
     rs = np.linspace(0.0, 1.0, 101)
     p_at_r = np.interp(rs, rec, mpre, left=0.0, right=mpre[-1])
     return float(np.mean(p_at_r))
+
 
 def _compute_ap(
     all_preds: List[Tuple[str, float, np.ndarray]],  # (img_key, score, pred_kpts_xy)
@@ -155,15 +111,8 @@ def _compute_ap(
     oks_thr: float,
     sigmas: np.ndarray
 ) -> Tuple[float, float, float]:
-    """
-    Compute AP at one oks threshold.
-    Returns: (AP, Precision_at_end, Recall_at_end)
-    Precision/Recall here are final values after processing all detections.
-    """
-    # sort predictions by score descending
     all_preds = sorted(all_preds, key=lambda x: x[1], reverse=True)
 
-    # total GT count (only those with at least 1 labeled kp)
     total_gt = 0
     for gts in gt_map.values():
         for gt in gts:
@@ -173,8 +122,6 @@ def _compute_ap(
     if total_gt == 0:
         return 0.0, 0.0, 0.0
 
-    # group preds per image in sorted order (we need greedy matching by score globally, but matching is per-image)
-    # We'll process globally and keep per-image matched flags by storing gt_used sets.
     gt_used_map: Dict[str, List[bool]] = {k: [False] * len(v) for k, v in gt_map.items()}
 
     tp_list = []
@@ -234,8 +181,8 @@ def eval_pose_trt_custom(
     iou_th: float = 0.45,
     kp_th: float = 0.25,
     max_images: Optional[int] = None,
-    # OKS sigmas: dataset-dependent. If you don't have your own, start with 0.05 for all.
-    sigmas: Optional[List[float]] = None
+    sigmas: Optional[List[float]] = None,
+    warmup_skip: int = 50,  # 첫 N장은 워밍업으로 간주하고 latency 평균에서 제외
 ) -> Dict[str, object]:
 
     with open(data_yaml, "r") as f:
@@ -269,8 +216,10 @@ def eval_pose_trt_custom(
     all_preds: List[Tuple[str, float, np.ndarray]] = []
 
     infer_ms_list: List[float] = []
+    post_ms_list: List[float] = []
+    e2e_ms_list: List[float] = []
 
-    for img_path in tqdm(img_paths, desc="TRT Pose Eval", unit="img"):
+    for idx_img, img_path in enumerate(tqdm(img_paths, desc="TRT Pose Eval", unit="img")):
         img = cv2.imread(img_path)
         if img is None:
             continue
@@ -283,37 +232,47 @@ def eval_pose_trt_custom(
         img_key = base
         gt_map[img_key] = gts
 
-        # preprocess (letterbox) -> TRT infer
+        # ---- End-to-end timing: preprocess + infer + decode + unletterbox + pack preds ----
+        t_e2e0 = time.perf_counter()
+
+        # preprocess (letterbox)
         inp, scale, dx, dy = preprocess_bgr_letterbox(img, imgsz)
 
-        t0 = time.perf_counter()
+        # pure TRT infer timing
+        t_inf0 = time.perf_counter()
         out = trt.infer(inp)
-        t1 = time.perf_counter()
-        infer_ms_list.append((t1 - t0) * 1000.0)
+        t_inf1 = time.perf_counter()
 
+        # post timing: decode + unletterbox + collect preds
+        t_post0 = time.perf_counter()
         boxes, scores, kpts_640 = decode_pose(out, conf_th=conf_th, iou_th=iou_th)
 
-        if boxes.shape[0] == 0:
-            continue
+        if boxes.shape[0] > 0:
+            for i in range(boxes.shape[0]):
+                sc = float(scores[i])
+                if sc < conf_th:
+                    continue
 
-        # collect predictions for AP: keep all detections >= conf_th
-        for i in range(boxes.shape[0]):
-            sc = float(scores[i])
-            if sc < conf_th:
-                continue
+                kp = kpts_640[i]  # (K_in_pred,3)일 수 있으니 -1로 받고 앞 k개만 사용
+                kp_xyv_all = unletterbox_points(kp.reshape(-1, 3), scale, dx, dy).reshape(-1, 3)
+                kp_xyv = kp_xyv_all[:k, :].reshape(k, 3)
+                pred_xy = kp_xyv[:, :2].astype(np.float32)
 
-            kp = kpts_640[i]  # (K,3) on 640 letterbox canvas, usually x,y,score
-            # convert to original image pixel coords
-            kp_xyv_all = unletterbox_points(kp.reshape(-1, 3), scale, dx, dy).reshape(-1, 3)
-            kp_xyv = kp_xyv_all[:k, :].reshape(k, 3)
-            pred_xy = kp_xyv[:, :2].astype(np.float32)
+                all_preds.append((img_key, sc, pred_xy))
 
-            all_preds.append((img_key, sc, pred_xy))
+        t_post1 = time.perf_counter()
+        t_e2e1 = t_post1  # post 끝난 시점이 e2e 끝
+
+        # 워밍업 구간 제외하고 latency 집계
+        if idx_img >= warmup_skip:
+            infer_ms_list.append((t_inf1 - t_inf0) * 1000.0)
+            post_ms_list.append((t_post1 - t_post0) * 1000.0)
+            e2e_ms_list.append((t_e2e1 - t_e2e0) * 1000.0)
 
     trt.close()
 
     # AP50 and AP50-95
-    oks_thrs = [0.50 + 0.05 * i for i in range(10)]  # 0.50..0.95
+    oks_thrs = [0.50 + 0.05 * i for i in range(10)]
     ap_list = []
     p50 = 0.0
     r50 = 0.0
@@ -329,11 +288,14 @@ def eval_pose_trt_custom(
         "model": engine_path,
         "pose_mAP50": float(ap_list[0]) if ap_list else 0.0,
         "pose_mAP50_95": float(np.mean(ap_list)) if ap_list else 0.0,
-        # Ultralytics mp/mr과 정의가 1:1 동일하진 않지만,
-        # 일반적으로 “OKS=0.50 기준 최종 precision/recall”로 두면 비교 지표로 유용함.
         "pose_P": float(p50),
         "pose_R": float(r50),
+        # latency
         "inference_ms": float(np.mean(infer_ms_list)) if infer_ms_list else None,
+        "postprocess_ms": float(np.mean(post_ms_list)) if post_ms_list else None,
+        "e2e_ms": float(np.mean(e2e_ms_list)) if e2e_ms_list else None,
+        "warmup_skip": int(warmup_skip),
+        # counts
         "num_images": len(img_paths),
         "num_preds": len(all_preds),
     }
@@ -341,13 +303,14 @@ def eval_pose_trt_custom(
 
 if __name__ == "__main__":
     out = eval_pose_trt_custom(
-        engine_path="/home/a203/workspace/S14P11A203/aiot_rehab_system/models/yolo11m-pose_fp16.engine",
+        engine_path="/home/a203/workspace/S14P11A203/aiot_rehab_system/models/yolo11m-pose21_fp16.engine",
         data_yaml="/home/a203/workspace/S14P11A203/aiot_rehab_system/model_performance_test/yolo_data.yaml",
         imgsz=640,
         conf_th=0.25,
         iou_th=0.45,
         kp_th=0.25,
-        max_images=None,   # 빠르게 확인하려면 50 같은 숫자 추천
-        sigmas=None        # 없으면 0.05로 통일, 필요하면 21개 리스트로 넣기
+        max_images=None,
+        sigmas=None,
+        warmup_skip=50,
     )
     print(out)

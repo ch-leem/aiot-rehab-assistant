@@ -1,10 +1,10 @@
-path: /home/a203/workspace/S14P11A203/aiot_rehab_system/data
+path: /home/a203/workspace/data
 
 train: train/images
 val: valid/images
 
 # Keypoints
-kpt_shape: [21, 3] # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
+kpt_shape: [17, 3] # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
 flip_idx: [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 18, 17, 20, 19]
 
 # Classes
