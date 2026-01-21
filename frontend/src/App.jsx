@@ -34,18 +34,46 @@ const EXERCISES = [
   },
 ];
 
-const ENCOURAGEMENTS = [
+const RESULT_RULES = [
   {
-    title: "오늘도 정말 고생하셨어요.",
-    detail: "지난주보다 움직임이 더 안정적으로 느껴졌어요.",
+    min: 0,
+    max: 2,
+    summary: "오늘은 몸을 풀어보는 연습을 했어요.",
+    change: "오늘은 몸을 푸는 데 집중했어요.",
+    next: "다음에는 천천히 같은 동작을 다시 해볼게요.",
+    tag: "수고",
   },
   {
-    title: "끝까지 해낸 것이 가장 큰 성과입니다.",
-    detail: "오늘은 조금 힘들어 보였지만 잘 버텨주셨어요.",
+    min: 3,
+    max: 5,
+    summary: "오늘은 동작을 익히는 연습을 했어요.",
+    change: "동작 흐름을 천천히 익혀가는 중이에요.",
+    next: "같은 방법으로 조금 더 시도해볼게요.",
+    tag: "꾸준히",
   },
   {
-    title: "꾸준히 잘하고 계십니다.",
-    detail: "작은 변화가 쌓여 더 큰 회복으로 이어질 거예요.",
+    min: 6,
+    max: 7,
+    summary: "오늘은 대부분의 동작을 잘 수행했어요.",
+    change: "움직임이 이전보다 안정적으로 느껴졌어요.",
+    next: "다음에는 같은 동작을 조금 더 안정적으로 해볼게요.",
+    tag: "안정",
+  },
+  {
+    min: 8,
+    max: 9,
+    summary: "오늘은 동작을 안정적으로 잘 수행했어요.",
+    change: "동작이 더 부드럽게 이어졌어요.",
+    next: "다음에는 모든 동작을 완성해볼 수 있어요.",
+    tag: "좋아요",
+  },
+  {
+    min: 10,
+    max: 10,
+    summary: "오늘 목표한 동작을 모두 완료했어요.",
+    change: "흐름이 매끄럽게 이어졌어요.",
+    next: "다음 운동도 같은 방법으로 진행하면 됩니다.",
+    tag: "완료",
   },
 ];
 
@@ -109,7 +137,11 @@ export default function App() {
   };
 
   const currentExercise = EXERCISES[exerciseIndex];
-  const encouragement = ENCOURAGEMENTS[exerciseIndex % ENCOURAGEMENTS.length];
+  const successCount = 8;
+  const resultRule =
+    RESULT_RULES.find(
+      (rule) => successCount >= rule.min && successCount <= rule.max
+    ) ?? RESULT_RULES[0];
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_LIST) {
@@ -161,6 +193,7 @@ export default function App() {
       nurseId={nurseId}
       stageIndex={stageIndex}
       stageTotal={stageTotal}
+      hideCamera={screen === SCREEN.EXERCISE_RESULT}
     >
       {screen === SCREEN.LOGIN && <Login onSubmit={handleLogin} />}
       {screen === SCREEN.PATIENT_CHECK && (
@@ -278,7 +311,7 @@ export default function App() {
         </div>
       )}
       {screen === SCREEN.EXERCISE_SESSION && (
-        <div className="placeholder-screen enter">
+        <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
           <h1>동작 진행 중</h1>
           <p className="lead">
@@ -329,34 +362,95 @@ export default function App() {
         </div>
       )}
       {screen === SCREEN.EXERCISE_RESULT && (
-        <div className="placeholder-screen enter">
-          <div className="screen-label">운동 결과</div>
-          <h1>오늘의 기록</h1>
-          <p className="lead">{encouragement.title}</p>
-          <div className="info-grid single">
-            <div className="info-card accent">
-              <div>
-                <div className="card-title">격려 메시지</div>
-                <div className="card-meta">{encouragement.detail}</div>
+        <div className="placeholder-screen result-screen enter">
+          <div className="result-layout">
+            <section className="result-left">
+              <div className="result-left-inner">
+                <div className="screen-label">운동 결과</div>
+                <h1>오늘의 기록</h1>
+                <p className="lead">{resultRule.summary}</p>
+                <div className="info-grid single result-cards">
+                  <div className="info-card accent">
+                    <div>
+                      <div className="card-title">오늘의 성과</div>
+                      <div className="card-meta">{resultRule.summary}</div>
+                    </div>
+                    <span className="card-badge">{resultRule.tag}</span>
+                  </div>
+                  <div className="info-card">
+                    <div>
+                      <div className="card-title">전과 달라진 점</div>
+                      <div className="card-meta change-split">
+                        <div className="change-item upper">
+                          상체 운동: 안정감이 조금 더 이어졌어요.
+                        </div>
+                        <div className="change-item lower">
+                          하체 운동: 움직임 범위가 일정해졌어요.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="info-card">
+                    <div>
+                      <div className="card-title">앞으로의 목표</div>
+                      <div className="card-meta">{resultRule.next}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="card-badge">수고</span>
-            </div>
-          </div>
-          <div className="cta-row">
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => setScreen(SCREEN.EXERCISE_LIST)}
-            >
-              목록으로
-            </button>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
-            >
-              오늘 마치기
-            </button>
+            </section>
+            <section className="result-right">
+              <div className="result-top-actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+                >
+                  오늘 마치기
+                </button>
+              </div>
+              <div className="chart-card">
+                <div className="card-title">상체 + 하체 성공 횟수</div>
+                <div className="card-meta">오늘 수행한 전체 동작 기준</div>
+                <div className="donut-grid">
+                  <div className="donut-wrap">
+                    <div className="donut upper" style={{ "--fill": "83%" }} />
+                    <div className="donut-center">
+                      <div className="donut-value">10/12</div>
+                      <div className="donut-label">상체 성공</div>
+                    </div>
+                  </div>
+                  <div className="donut-wrap">
+                    <div className="donut lower" style={{ "--fill": "66%" }} />
+                    <div className="donut-center">
+                      <div className="donut-value">8/12</div>
+                      <div className="donut-label">하체 성공</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="donut-legend">
+                  <div className="legend-item">
+                    <span className="legend-dot upper" />
+                    상체 10/12
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot lower" />
+                    하체 8/12
+                  </div>
+                </div>
+              </div>
+              <div className="chart-card">
+                <div className="card-title">최근 5번 정확도 추이</div>
+                <div className="card-meta">조금씩 안정적으로 유지 중</div>
+                <div className="bar-chart">
+                  <div className="bar bar-1" />
+                  <div className="bar bar-2" />
+                  <div className="bar bar-3" />
+                  <div className="bar bar-4" />
+                  <div className="bar bar-5" />
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
