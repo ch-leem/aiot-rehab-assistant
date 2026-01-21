@@ -2,7 +2,7 @@ csv:
   path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose17_imu_20260122_020832.csv"
 
 ndjson:
-  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose21_imu_20260122_015609.ndjson"
+  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose21_imu_20260122_015242.ndjson"
 
 range:
   start_idx: 0
