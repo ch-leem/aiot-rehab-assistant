@@ -61,7 +61,6 @@ def main(cfg: Dict[str, Any]) -> None:
     IMU_MATCH = imu_cfg["match"]
     IMU_MAX_ABS_AGE_MS = float(imu_cfg["max_abs_age_ms"])
 
-
     imu = ImuUdpBuffer(
         listen_ip=imu_cfg["udp_ip"], 
         listen_port=imu_cfg["udp_port"], 
@@ -77,14 +76,17 @@ def main(cfg: Dict[str, Any]) -> None:
     payload = load_data_payload(cfg["logging"]["payload_path"])
     header = build_header_from_payload(payload)
 
+    num_joints = payload["joints"]["num_joints"]
+
     logger.write_header(header)
 
     print(f"[LOG] CSV -> {logger.path}")
     print(f"[IMU] udp :{imu_cfg['udp_port']} match={IMU_MATCH} buffer={imu_cfg['buffer_sec']:.1f}s")
 
     trt_engine = pose.TrtEngine(engine_path)
+
     filters_3d: Dict[int, pose.OneEuroFilter3D] = {
-        i: pose.OneEuroFilter3D(filt_min_cutoff, filt_beta, filt_d_cutoff) for i in range(17)
+        i: pose.OneEuroFilter3D(filt_min_cutoff, filt_beta, filt_d_cutoff) for i in range(num_joints)
     }
     prev_filt: Dict[int, Tuple[np.ndarray, float]] = {}
 
