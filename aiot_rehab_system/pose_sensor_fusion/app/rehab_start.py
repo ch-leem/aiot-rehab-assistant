@@ -4,6 +4,7 @@ import time
 import math
 import threading
 import asyncio
+import signal
 from typing import Dict, Optional, Tuple, List, Any, Mapping
 
 import cv2
@@ -32,11 +33,26 @@ from pose_sensor_fusion.utils.webrtc_streamer import LatestFrameBuffer, WebRTCSt
 
 from pose_sensor_fusion.utils.calculate import fmt_deg, put_lines, _finite_xyz, angle_3pts, slope_xy, slope_yz, center
 
+GLOBAL_STOP_FLAG = None
+GLOBAL_STREAMER = None
+
 def get3(joint_states: Mapping[int, "Joint3DState"], i: int) -> Optional[np.ndarray]:
     js = joint_states.get(i)
     if js and js.valid and js.xyz_filt is not None:
         return js.xyz_filt
     return None
+
+def _handle_exit(sig, frame):
+    if GLOBAL_STOP_FLAG is not None:
+        GLOBAL_STOP_FLAG.set()
+    try:
+        if GLOBAL_STREAMER is not None:
+            GLOBAL_STREAMER.stop()
+    except Exception:
+        pass
+
+signal.signal(signal.SIGTERM, _handle_exit)
+signal.signal(signal.SIGINT, _handle_exit)
 
 def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.Event) -> None:
     
@@ -96,6 +112,9 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     payload_template = load_data_payload(cfg["logging"]["payload_path"])
 
     # Redis 서버 Ingest 통신 시작
+
+    sender = None
+
     if is_ingest:
         ingest_url = cfg["ingest"]["url"]
         sender = IngestSender(
@@ -412,7 +431,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     finally:
         stop_flag.set()
         try:
-            sender.stop()
+            if sender is not None:
+                sender.stop()
         except Exception:
             pass
         try:
@@ -444,6 +464,9 @@ async def main_async():
     buf = LatestFrameBuffer()
     stop_flag = threading.Event()
 
+    global GLOBAL_STOP_FLAG
+    GLOBAL_STOP_FLAG = stop_flag
+
     if not is_webrtc:
         print("[WebRTC] disabled, run main_loop only (no ws connection).")
         main_loop(cfg, buf, stop_flag)  # 여기서 블로킹으로 계속 돈다
@@ -463,6 +486,9 @@ async def main_async():
         telemetry_hz=10.0,
     )
     streamer = WebRTCStreamer(buf, webrtc_cfg)
+
+    global GLOBAL_STREAMER
+    GLOBAL_STREAMER = streamer
 
     try:
         await streamer.run()

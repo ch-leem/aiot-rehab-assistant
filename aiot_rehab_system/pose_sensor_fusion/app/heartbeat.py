@@ -7,17 +7,48 @@ import yaml
 from typing import Optional
 
 import websockets
+import subprocess
+
+rehab_proc: subprocess.Popen | None = None
+rehab_lock = asyncio.Lock()
+
+
+def rehab_start_proc():
+    env = dict(os.environ)
+    env["DISPLAY"] = ":0"
+
+    return subprocess.Popen(
+        ["python3", "-m", "pose_sensor_fusion.app.rehab_start"],
+        env=env,
+    )
+
+async def rehab_restart():
+    global rehab_proc
+    async with rehab_lock:
+        if rehab_proc and rehab_proc.poll() is None:
+            rehab_proc.terminate()
+            try:
+                rehab_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                rehab_proc.kill()
+                rehab_proc.wait(timeout=2)
+
+        rehab_proc = rehab_start_proc()
+
 
 
 async def recv_loop(ws: websockets.WebSocketClientProtocol) -> None:
     while True:
         msg = await ws.recv()
         # 서버 메시지 수신, 필요하면 여기서 분기 처리
-        try:
-            obj = json.loads(msg)
-        except Exception:
-            obj = {"raw": msg}
+        
+        obj = json.loads(msg)
+        cmd = obj.get("type")
+
         print(f"[WS RECV] {obj}")
+
+        if cmd == "run":
+            await rehab_restart()
 
 
 async def send_heartbeat_loop(
@@ -69,7 +100,7 @@ async def main() -> None:
         cfg = yaml.safe_load(f)
 
     ws_url = cfg["ingest"]["url"]
-    heartbeat_interval_sec = float(os.getenv("HEARTBEAT_SEC", "3.0"))  # 2~5 권장
+    heartbeat_interval_sec = float(os.getenv("HEARTBEAT_SEC", "3.0")) 
     retry_min_sec = float(os.getenv("RETRY_MIN_SEC", "0.5"))
     retry_max_sec = float(os.getenv("RETRY_MAX_SEC", "5.0"))
 
