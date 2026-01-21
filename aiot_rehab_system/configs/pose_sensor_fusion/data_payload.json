@@ -42,7 +42,8 @@
           "ankle_plantarflexion": null,
           "knee_flexion": null,
           "ankle_inversion_eversion": null,
-          "hip_flexion": null
+          "hip_flexion": null,
+          "heel_tilt": null
         },
         "right": {
           "shoulder_flexion": null,
@@ -50,7 +51,8 @@
           "ankle_plantarflexion": null,
           "knee_flexion": null,
           "ankle_inversion_eversion": null,
-          "hip_flexion": null
+          "hip_flexion": null,
+          "heel_tilt": null
         },
         "mid": {
           "trunk_forward_tilt": null,
