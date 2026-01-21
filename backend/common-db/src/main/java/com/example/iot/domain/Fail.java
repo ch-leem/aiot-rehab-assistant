@@ -26,4 +26,8 @@ public class Fail {
         this.name = name;
         this.description = description;
     }
+
+    public Fail(String id) {
+        this.id = id;
+    };
 }
