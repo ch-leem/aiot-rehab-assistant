@@ -41,6 +41,7 @@ stream:
 logging:
   enable: true                # 로그 파일 저장 여부
   output_dir: logs            # 로그(csv) 저장 디렉터리 경로
+  payload_path : /home/a203/workspace/S14P11A203/aiot_rehab_system/configs/pose_sensor_fusion/data_payload.json
   
 imu:
   udp_ip: 0.0.0.0        # IMU UDP 수신 IP
