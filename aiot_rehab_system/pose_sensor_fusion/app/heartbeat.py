@@ -35,7 +35,17 @@ async def rehab_restart():
 
         rehab_proc = rehab_start_proc()
 
-
+async def rehab_stop():
+    global rehab_proc
+    async with rehab_lock:
+        if rehab_proc and rehab_proc.poll() is None:
+            rehab_proc.terminate()
+            try:
+                rehab_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                rehab_proc.kill()
+                rehab_proc.wait(timeout=2)
+        rehab_proc = None
 
 async def recv_loop(ws: websockets.WebSocketClientProtocol) -> None:
     while True:
@@ -49,6 +59,8 @@ async def recv_loop(ws: websockets.WebSocketClientProtocol) -> None:
 
         if cmd == "run":
             await rehab_restart()
+        elif cmd == "stop":
+            await rehab_stop()
 
 
 async def send_heartbeat_loop(
