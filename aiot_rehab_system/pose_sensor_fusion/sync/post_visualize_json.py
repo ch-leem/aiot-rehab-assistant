@@ -3,6 +3,7 @@
 import json
 import math
 import time
+import os
 import argparse
 from collections import deque
 from typing import Dict, Any, List, Tuple, Optional
@@ -363,7 +364,8 @@ def main(cfg: Dict[str, Any]) -> None:
     dt_src = [max(1e-6, t_s[i] - t_s[i - 1]) for i in range(1, len(t_s))]
     median_dt = float(np.median(np.array(dt_src, dtype=np.float64))) if dt_src else (1.0 / target_fps)
     dt_tgt = 1.0 / max(1e-6, target_fps)
-    scale = max(1e-6, median_dt / dt_tgt)
+    # scale = max(1e-6, median_dt / dt_tgt)
+    scale = 1.0
 
     strength_t = deque()
     strength_v = deque()
@@ -475,7 +477,8 @@ def main(cfg: Dict[str, Any]) -> None:
                     spent = now_wall - last_wall
                     sleep_s = dt_play - spent
                     if sleep_s > 0:
-                        time.sleep(min(0.2, sleep_s))
+                        # time.sleep(min(0.2, sleep_s))
+                        time.sleep(sleep_s)
                     last_wall = time.time()
 
                 pts21_prev = pts21.copy()
@@ -492,6 +495,8 @@ def main(cfg: Dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
+    os.environ["DISPLAY"] = ":0"
+
     args = parse_args()
     cfg = load_and_merge_config(args.config, args)
     main(cfg)
