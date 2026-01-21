@@ -11,12 +11,12 @@ import numpy as np
 from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
 
 from pose_sensor_fusion.vision_utills.realsense_ai_api import RealSenseAIApi, FrameBundle
-from pose_sensor_fusion.vision_utills.trt_engine import TrtEngine
-from pose_sensor_fusion.vision_utills.pose_filter import OneEuroFilter3D
-from pose_sensor_fusion.vision_utills.img_preprocessing import preprocess_bgr_letterbox, unletterbox_points
-from pose_sensor_fusion.vision_utills.pose_2d_postprocessing import decode_pose, pick_person, TrackState
-from pose_sensor_fusion.vision_utills.depth_lift import robust_depth_at
-from pose_sensor_fusion.vision_utills.visualize_pose import (
+from pose_sensor_fusion.vision_utills.inference.trt_engine import TrtEngine
+from pose_sensor_fusion.vision_utills.pose3d.pose_filter import OneEuroFilter3D
+from pose_sensor_fusion.vision_utills.preprocess.img_preprocessing import preprocess_bgr_letterbox, unletterbox_points
+from pose_sensor_fusion.vision_utills.pose2d.pose_2d_postprocessing import decode_pose, pick_person, TrackState
+from pose_sensor_fusion.vision_utills.pose3d.depth_lift import robust_depth_at
+from pose_sensor_fusion.vision_utills.visualize.visualize_pose import (
     draw_pose_2d,
     angle_3pts,
     COCO,
