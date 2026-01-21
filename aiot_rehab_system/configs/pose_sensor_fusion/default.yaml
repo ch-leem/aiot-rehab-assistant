@@ -1,3 +1,5 @@
+# (run.yaml 파일 생성해서 작성)**********************
+
 # =========================
 # Pose Sensor Fusion Config
 # =========================
@@ -5,7 +7,7 @@
 
 ## YOLO Pose 추론에 사용하는 TensorRT 엔진 파일 경로
 engine:
-  path: /home/a203/workspace/S14P11A203/aiot_rehab_system/models/yolo11m-pose21_fp16.engine  # TensorRT로 변환된 YOLO Pose 엔진 파일 경로
+  path:   # TensorRT로 변환된 YOLO Pose 엔진 파일 경로
 
 ## 포즈 추론 관련 임계값 설정
 inference:
