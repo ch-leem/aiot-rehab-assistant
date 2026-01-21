@@ -32,7 +32,7 @@ let ws = null;
 
 function log(msg) {
   const el = document.getElementById("log");
-  el.textContent += msg + "\\n";
+  el.textContent += msg + "\n";
   el.scrollTop = el.scrollHeight;
 }
 function setStatus(s) {
@@ -51,6 +51,27 @@ async function start() {
     pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });
+
+    // DataChannel (telemetry) 수신, echo 반환
+    pc.ondatachannel = (ev) => {
+      const ch = ev.channel;
+      log("datachannel: " + ch.label);
+
+      ch.onmessage = (e) => {
+        let o = null;
+        try { o = JSON.parse(e.data); } catch {}
+        if (!o) return;
+
+        if (o.type === "frame_meta") {
+          ch.send(JSON.stringify({
+            type: "echo",
+            frame_idx: o.frame_idx,
+            tx_ms: o.tx_ms,
+            rx_ms: performance.now()
+          }));
+        }
+      };
+    };
 
     pc.ontrack = (event) => {
       log("track received");
