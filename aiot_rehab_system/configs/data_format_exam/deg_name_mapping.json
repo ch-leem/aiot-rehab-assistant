@@ -18,7 +18,7 @@
         "side": ["mid"]
       },
       "trunk_rotation_lateral_flexion": {
-        "kr_name": "몸통 회전 및 측방 굴곡",
+        "kr_name": "몸통 회전 및 측방 굴곡", 
         "definition": "Left Shoulder - Right Shoulder - Horizontal Line",
         "side": ["mid"]
       }
@@ -38,23 +38,28 @@
         "side": ["left", "right"]
       },
       "pelvis_level": {
-        "kr_name": "골반 수평도",
+        "kr_name": "골반 수평도", 
         "definition": "Left Hip - Right Hip",
         "side": ["mid"]
       },
       "trunk_lateral_tilt": {
-        "kr_name": "상체 측방 기울기",
+        "kr_name": "상체 측방 기울기", 
         "definition": "Shoulder Center - Hip Center",
         "side": ["mid"]
       },
       "ankle_inversion_eversion": {
-        "kr_name": "발목 외번 및 내번",
+        "kr_name": "발목 외번 및 내번", 
         "definition": "Knee - Ankle - Heel",
         "side": ["left", "right"]
       },
       "hip_flexion": {
-        "kr_name": "고관절 굴곡",
+        "kr_name": "고관절 굴곡", 
         "definition": "Shoulder - Hip - Knee",
+        "side": ["left", "right"]
+      },
+      "heel_tilt": {
+        "kr_name": "발뒤꿈치 기울기", 
+        "definition": "toe - Heel - Vertical Line",
         "side": ["left", "right"]
       }
     }
