@@ -23,7 +23,7 @@ from pose_sensor_fusion.vision_utills.pose2d.pose_2d_postprocessing import (
 from pose_sensor_fusion.vision_utills.visualize.visualize_pose import draw_pose_2d
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 
-from pose_sensor_fusion.app.run import main_async as run_async
+from aiot_rehab_system.pose_sensor_fusion.app.rehab_start import main_async as run_async
 
 def all_joints_visible_2d(kpts_640: Optional[np.ndarray], th: float) -> bool:
     if kpts_640 is None:
