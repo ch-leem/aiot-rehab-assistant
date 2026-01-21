@@ -397,6 +397,7 @@ def main(cfg: Dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
+    os.environ["DISPLAY"] = ":0"
 
     config_path = os.getenv("CONFIG_PATH", "configs/pose_sensor_fusion/default.yaml")
     cfg = load_yaml_config(config_path)
