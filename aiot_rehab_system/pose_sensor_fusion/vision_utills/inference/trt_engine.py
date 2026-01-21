@@ -22,7 +22,7 @@ class TrtIO:
     input_name: str
     output_name: str
     input_shape: Tuple[int, int, int, int]   # NCHW
-    output_shape: Tuple[int, int, int]       # (1,56,8400)
+    output_shape: Tuple[int, int, int]       #
     input_dtype: np.dtype
     output_dtype: np.dtype
 
@@ -37,7 +37,7 @@ class TrtEngine:
         if self.context is None:
             raise RuntimeError("Failed to create execution context")
 
-        # assume fixed: input 1x3x640x640, output 1x56x8400
+        # assume fixed: input 1x3x640x640, output ()
         self.input_name = self.engine.get_tensor_name(0)
         self.output_name = self.engine.get_tensor_name(1)
 

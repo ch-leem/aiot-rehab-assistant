@@ -37,22 +37,57 @@ def nms_xywh(boxes_xywh: np.ndarray, scores: np.ndarray, iou_th: float) -> np.nd
         order = order[inds + 1]
     return np.array(keep, dtype=np.int32)
 
-def decode_pose(output: np.ndarray, conf_th: float = 0.25, iou_th: float = 0.45):
-    pred = output[0].transpose(1, 0)  # (8400,56)
-    boxes = pred[:, 0:4]
-    obj = pred[:, 4]
-    kpts = pred[:, 5:].reshape(-1, 17, 3)
+# def decode_pose(output: np.ndarray, conf_th: float = 0.25, iou_th: float = 0.45):
+#     pred = output[0].transpose(1, 0)  # (8400,56)
+#     boxes = pred[:, 0:4]
+#     obj = pred[:, 4]
+#     kpts = pred[:, 5:].reshape(-1, 17, 3)
 
-    m = obj >= conf_th
+#     m = obj >= conf_th
+#     boxes = boxes[m]
+#     obj = obj[m]
+#     kpts = kpts[m]
+
+#     if boxes.shape[0] == 0:
+#         return np.zeros((0, 4), np.float32), np.zeros((0,), np.float32), np.zeros((0, 17, 3), np.float32)
+
+#     keep = nms_xywh(boxes, obj, iou_th)
+#     return boxes[keep], obj[keep], kpts[keep]
+
+def decode_pose(output: np.ndarray, conf_th: float = 0.25, iou_th: float = 0.45, nc: int = 1):
+    # output0: (1, C, N) where C = 4 + nc + kpt_num*3
+    pred = output[0].transpose(1, 0)  # (N, C)
+
+    C = pred.shape[1]
+    kpt_dim = 3
+    kpt_num = (C - 4 - nc) // kpt_dim
+    if 4 + nc + kpt_num * kpt_dim != C:
+        raise ValueError(f"Unexpected output channels C={C}, expected 4+nc+kpt_num*3. nc={nc}")
+
+    boxes = pred[:, 0:4]
+
+    # class score (nc=1이면 그냥 pred[:,4])
+    cls = pred[:, 4:4 + nc]
+    scores = cls.max(axis=1)
+
+    kpt_start = 4 + nc
+    kpts = pred[:, kpt_start:].reshape(-1, kpt_num, kpt_dim)
+
+    m = scores >= conf_th
     boxes = boxes[m]
-    obj = obj[m]
+    scores = scores[m]
     kpts = kpts[m]
 
     if boxes.shape[0] == 0:
-        return np.zeros((0, 4), np.float32), np.zeros((0,), np.float32), np.zeros((0, 17, 3), np.float32)
+        return (
+            np.zeros((0, 4), np.float32),
+            np.zeros((0,), np.float32),
+            np.zeros((0, kpt_num, kpt_dim), np.float32),
+        )
 
-    keep = nms_xywh(boxes, obj, iou_th)
-    return boxes[keep], obj[keep], kpts[keep]
+    keep = nms_xywh(boxes, scores, iou_th)
+    return boxes[keep], scores[keep], kpts[keep]
+
 
 def iou_xywh(a: np.ndarray, b: np.ndarray) -> float:
     ax1, ay1 = a[0] - a[2] / 2, a[1] - a[3] / 2
