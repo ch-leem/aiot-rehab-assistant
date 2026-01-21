@@ -1,40 +1,48 @@
 package com.example.user.controller;
 
-import com.example.user.dto.PatientResponse;
+import com.example.user.dto.*;
+import com.example.user.service.ExerciseService;
 import com.example.user.service.PatientService;
+import com.example.user.service.SequenceService;
+import com.example.user.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/patients")
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/patients") // API 버전 관리를 위해 v1 경로 포함
 public class PatientController {
 
     private final PatientService patientService;
+    private final SequenceService sequenceService;
+    private final SessionService sessionService;
+    private final ExerciseService exerciseService;
 
-    /**
-     * [GET] /api/v1/patients
-     * 전체 환자 목록 조회
-     */
-    @GetMapping
-    public ResponseEntity<List<PatientResponse>> getAllPatients() {
-        List<PatientResponse> patients = patientService.getAllPatients();
-        return ResponseEntity.ok(patients);
+    @GetMapping("/{patientId}")
+    public ResponseEntity<PatientResponse> getPatient(@PathVariable Long patientId) {
+        return ResponseEntity.ok(patientService.getPatientDetail(patientId));
     }
 
-    /**
-     * [GET] /api/v1/patients/{id}
-     * 특정 환자 상세 조회
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<PatientResponse> getPatientById(@PathVariable Long id) {
-        PatientResponse patient = patientService.getPatientById(id);
-        return ResponseEntity.ok(patient);
+    @GetMapping("/{patientId}/sequences")
+    public ResponseEntity<List<SequenceResponse>> getPatientSequences(@PathVariable Long patientId) {
+        return ResponseEntity.ok(sequenceService.getPatientSequences(patientId));
+    }
+
+    @GetMapping("/sequences/{sequenceId}")
+    public ResponseEntity<SequenceDetailResponse> getSequenceDetail(@PathVariable Long sequenceId) {
+        return ResponseEntity.ok(sequenceService.getSequenceDetail(sequenceId));
+    }
+
+    @GetMapping("/sessions/{sessionId}")
+    public ResponseEntity<SessionDetailResponse> getSessionDetail(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(sessionService.getSessionDetail(sessionId));
+    }
+
+    @GetMapping("/{patientId}/exercises")
+    public ResponseEntity<List<PatientExerciseConfigResponse>> getPatientExercises(@PathVariable Long patientId) {
+        return ResponseEntity.ok(exerciseService.getPatientExerciseConfigs(patientId));
     }
 }
