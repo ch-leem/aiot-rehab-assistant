@@ -9,13 +9,13 @@ import cv2
 import numpy as np
 
 from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
-from pose_sensor_fusion.log.csv_logger import CsvLogger
 
 from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
 import pose_sensor_fusion.vendor.yolo11m_vDepth as pose
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 from pose_sensor_fusion.utils.create_payload import load_data_payload, build_header_from_payload
+from pose_sensor_fusion.utils.csv_logger import CsvLogger
 
 
 def _nan3():
@@ -32,34 +32,6 @@ def _finite_xyz(xyz: Optional[np.ndarray]) -> bool:
     if xyz is None:
         return False
     return bool(np.isfinite(xyz).all())
-
-
-def build_header_full17() -> List[str]:
-    header = [
-        "frame_idx",
-        "video_ts_ms",
-        "host_ts_ms",
-        "fps_ema",
-        "imu_v_cmps",
-        "imu_seq",
-        "imu_ts_ms",
-        "imu_age_ms",
-        "imu_used_interp",
-        "r_elbow_deg",
-        "l_elbow_deg",
-        "r_wrist_speed_mps",
-        "l_wrist_speed_mps",
-    ]
-
-    # 17 joints: 3D position in camera coords (meters), plus 2D conf score
-    # naming: j{idx}_x_m, j{idx}_y_m, j{idx}_z_m, j{idx}_conf
-    for j in range(17):
-        header += [f"j{j}_x_m", f"j{j}_y_m", f"j{j}_z_m", f"j{j}_conf"]
-
-    # optional quick access for wrists conf, handy
-    header += ["rw_conf", "lw_conf"]
-    return header
-
 
 def main(cfg: Dict[str, Any]) -> None:
 
