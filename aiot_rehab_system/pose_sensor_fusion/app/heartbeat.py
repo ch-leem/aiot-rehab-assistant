@@ -3,6 +3,7 @@ import os
 import time
 import json
 import asyncio
+import yaml
 from typing import Optional
 
 import websockets
@@ -63,7 +64,11 @@ async def connect_and_run(
 
 
 async def main() -> None:
-    ws_url = os.getenv("WS_URL", "ws://70.12.246.185:18080/ws")  # TODO 바꿔
+
+    with open("/home/a203/workspace/S14P11A203/aiot_rehab_system/configs/pose_sensor_fusion/run.yaml", "r") as f:
+        cfg = yaml.safe_load(f)
+
+    ws_url = cfg["ingest"]["url"]
     heartbeat_interval_sec = float(os.getenv("HEARTBEAT_SEC", "3.0"))  # 2~5 권장
     retry_min_sec = float(os.getenv("RETRY_MIN_SEC", "0.5"))
     retry_max_sec = float(os.getenv("RETRY_MAX_SEC", "5.0"))
