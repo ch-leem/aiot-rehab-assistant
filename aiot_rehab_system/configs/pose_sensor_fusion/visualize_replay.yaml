@@ -1,6 +1,9 @@
 csv:
   path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose17_imu_20260122_020832.csv"
 
+ndjson:
+  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose21_imu_20260122_015609.ndjson"
+
 range:
   start_idx: 0
   end_idx: -1
@@ -20,16 +23,23 @@ render:
   left_w: 980
 
 plot:
-  imu:
-    title: "IMU value (imu_v_cmps)"
-    y_label: "cm/s"
-    y_min: 0.0
-    y_max: 200.0
-    color_bgr: [80, 210, 255]
+  strength:
+    title: IMU (Strength)
+    y_label: strength
+    y_min: 0
+    y_max: 200
+    color_bgr: [0, 255, 0]
 
-  vision:
-    title: "Vision angular velocity (from elbow angle)"
-    y_label: "deg/s"
-    y_min: 0.0
-    y_max: 200.0
-    color_bgr: [255, 170, 90]
+  power:
+    title: Load cell (Power)
+    y_label: kg
+    y_min: 0
+    y_max: 200
+    color_bgr: [255, 0, 0]
+
+  speed:
+    title: Wrist speed
+    y_label: cm/s
+    y_min: 0
+    y_max: 200
+    color_bgr: [0, 255, 255]

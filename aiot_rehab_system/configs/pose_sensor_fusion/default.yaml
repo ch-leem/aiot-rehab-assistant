@@ -5,13 +5,14 @@
 
 ## YOLO Pose 추론에 사용하는 TensorRT 엔진 파일 경로
 engine:
-  path: /home/a203/yolo11m-pose_fp16.engine   # TensorRT로 변환된 YOLO Pose 엔진 파일 경로
+  path: /home/a203/workspace/S14P11A203/aiot_rehab_system/models/yolo11m-pose_fp16.engine  # TensorRT로 변환된 YOLO Pose 엔진 파일 경로
 
 ## 포즈 추론 관련 임계값 설정
 inference:
   conf_th: 0.25    # 객체(사람) 검출 최소 confidence threshold
   iou_th: 0.45     # NMS 적용 시 IoU 임계값
   kp_th: 0.25      # keypoint 유효성 판단을 위한 confidence threshold
+  num_joints: 17   # 모델에서 예측하는 keypoint 수
 
 ## 프레임 간 객체 유지 및 추적 관련 설정
 tracking:
@@ -49,4 +50,12 @@ imu:
   match: nearest         # imu 매칭 방식, nearest 또는 interp
   buffer_sec: 8.0        # IMU 버퍼 유지 시간
   max_abs_age_ms: 500.0  # 허용 가능한 IMU 타임스탬프 최대 오차
+
+load_cell:
+  enable: true
+  udp_ip: 0.0.0.0
+  udp_port: 9998
+  match: nearest      # nearest 또는 interp
+  buffer_sec: 8.0
+  max_abs_age_ms: 500.0
 
