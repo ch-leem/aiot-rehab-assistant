@@ -61,13 +61,11 @@ static const float sampleHz = 100.0f;
 static const uint32_t Ts_us = (uint32_t)(1000000.0f / sampleHz);
 static const float dt = 1.0f / sampleHz;
 
-// 플로터 출력
+// 전송 출력
 static const uint32_t plotHz = 50;
 static const uint32_t plotPeriodUs = 1000000UL / plotHz;
 
 // ===== 컴플리멘터리 필터 파라미터 =====
-// alpha ↑ : 자이로 비중↑ (빠름, 드리프트↑), alpha ↓ : accel 비중↑ (안정, 둔함↑)
-// 손동작용 추천 0.96~0.99
 static const float alpha = 0.98f;
 
 // ===== 상수 =====
@@ -79,13 +77,10 @@ static const float stillGyroDps   = 6.0f;  // deg/s 기준
 static const uint16_t stillHoldMs = 120;   // 이 시간 이상 정지면 speed=0
 
 // ===== 속력 추정(EMA) =====
-// 노이즈 바닥 제거(선형가속도 크기에서 빼줌)
 static const float accDeadbandMs2 = 0.25f; // 0.15~0.5 튜닝
-
-// tau * linAcc -> 목표 속력(m/s)로 만드는 시간상수(작을수록 민감)
-static const float tau       = 0.20f; // 0.12~0.35
-static const float emaRiseHz = 25.0f; // 올라갈 때 반응(클수록 빠름)
-static const float emaFallHz = 40.0f; // 내려갈 때 반응(클수록 빠름)
+static const float tau       = 0.20f;      // 0.12~0.35
+static const float emaRiseHz = 25.0f;
+static const float emaFallHz = 40.0f;
 
 uint32_t nextSample = 0;
 uint32_t nextPlot   = 0;
@@ -94,8 +89,11 @@ uint32_t stillSinceMs = 0;
 // 상태값(라디안)
 float roll = 0.0f, pitch = 0.0f, yaw = 0.0f;
 
-// 속력(스칼라)
+// 기존 speed는 계산은 유지(원하면 나중에 제거 가능)
 float speed = 0.0f;
+
+// 1단계, 강도값(각속도 크기)
+float strength = 0.0f; // deg/s
 
 // 자이로 오프셋(간단 캘리브) - raw 단위(LSB)
 float bgx = 0, bgy = 0, bgz = 0;
@@ -145,30 +143,27 @@ void setup() {
     Serial.println(UDP_TARGET_PORT);
   }
 
-
-
   Wire.begin(D2, D1);        // NodeMCU: SDA=D2(GPIO4), SCL=D1(GPIO5)
   Wire.setClock(100000);     // 안정적으로 100k부터
 
   mpu.initialize();
   if (!mpu.testConnection()) {
-    // 플로터에서 "0만" 보이게 하지 말고, 실패 시 멈춤
     Serial.println("MPU FAIL");
     while (1) delay(1000);
   }
 
-  // range 고정(스케일 상수 16384, 131이 맞도록)
+  // range 고정
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
 
-  // 자이로 바이어스 캘리브(가만히 둔 상태에서!)
+  // 자이로 바이어스 캘리브(가만히 둔 상태에서)
   calibrateGyroBias(300);
 
   uint32_t now = micros();
   nextSample = now + Ts_us;
   nextPlot   = now + plotPeriodUs;
 
-  // 플로터 채널 초기화(숫자 4개)
+  // 시리얼 플로터 채널 초기화(형식 유지용)
   Serial.println("0\t0\t0\t0");
 }
 
@@ -206,7 +201,6 @@ void loop() {
     pitch = alpha * pitch + (1.0f - alpha) * pitchAcc;
 
     // ===== 중력 제거(roll/pitch로 중력 벡터 계산) =====
-    // g_sensor (g 단위) : yaw는 중력에 영향 없음
     float gx_g = -sinf(pitch);
     float gy_g =  sinf(roll) * cosf(pitch);
     float gz_g =  cosf(roll) * cosf(pitch);
@@ -222,8 +216,11 @@ void loop() {
     // 데드밴드(노이즈 바닥 제거)
     linAcc = f_max(0.0f, linAcc - accDeadbandMs2);
 
-    // 정지 감지(선형가속도 + 자이로)
+    // 각속도 크기(강도값)
     float gyroMagDps = sqrtf(gx_dps * gx_dps + gy_dps * gy_dps + gz_dps * gz_dps);
+    strength = gyroMagDps;
+
+    // 정지 감지(선형가속도 + 자이로)
     bool still = (linAcc < stillLinAccMs2) && (gyroMagDps < stillGyroDps);
 
     uint32_t msNow = millis();
@@ -236,44 +233,29 @@ void loop() {
       stillSinceMs = 0;
     }
 
-    // 목표 속력(가상, m/s)
+    // speed 계산은 유지(현재는 전송하지 않음)
     float target = tau * linAcc;
-
-    // EMA 계수(상승/하강 다르게)
     float kRise = 1.0f - expf(-emaRiseHz * dt);
     float kFall = 1.0f - expf(-emaFallHz * dt);
     float k = (target > speed) ? kRise : kFall;
-
     speed += k * (target - speed);
   }
 
-  // ===== 플로터 출력(50Hz) =====
+  // ===== UDP 전송(50Hz) =====
   now = micros();
   if ((int32_t)(now - nextPlot) >= 0) {
     nextPlot += plotPeriodUs;
 
-    float rollDeg  = roll  * RAD_TO_DEG;
-    float pitchDeg = pitch * RAD_TO_DEG;
-    float yawDeg   = yaw   * RAD_TO_DEG;
-
-    // speed yaw pitch roll
-    // Serial.print("speed (cm/s): ");
-    // Serial.print(speed * 100.0f);   Serial.print('\n');
-
     char line[128];
 
-    // millis()는 부팅 이후 ms라서 Jetson 쪽 ts로 써도 되고,
-    // 원하면 time.time() 느낌의 epoch는 NTP가 필요함.
-    uint32_t ts_ms = millis();
+    // 보드 켜진 이후 경과 시간(초)
+    float ts_sec = millis() * 0.001f;
 
+    // 1단계 전송, strength, seq, ts(초)
     snprintf(line, sizeof(line),
-            "{\"v\":%.3f,\"seq\":%lu,\"ts\":%lu}",
-            speed * 100.0f, (unsigned long)seq++, (unsigned long)ts_ms);
+            "{\"strength\":%.3f,\"seq\":%lu,\"ts\":%.3f}",
+            strength, (unsigned long)seq++, ts_sec);
 
     udpSendLine(line);
-
-    // Serial.print(yawDeg);  Serial.print('\t');
-    // Serial.print(pitchDeg);Serial.print('\t');
-    // Serial.println(rollDeg);
   }
 }
