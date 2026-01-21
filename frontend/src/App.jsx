@@ -193,6 +193,7 @@ export default function App() {
       nurseId={nurseId}
       stageIndex={stageIndex}
       stageTotal={stageTotal}
+      hideCamera={screen === SCREEN.EXERCISE_RESULT}
     >
       {screen === SCREEN.LOGIN && <Login onSubmit={handleLogin} />}
       {screen === SCREEN.PATIENT_CHECK && (
@@ -361,46 +362,95 @@ export default function App() {
         </div>
       )}
       {screen === SCREEN.EXERCISE_RESULT && (
-        <div className="placeholder-screen enter">
-          <div className="screen-label">운동 결과</div>
-          <h1>오늘의 기록</h1>
-          <p className="lead">{resultRule.summary}</p>
-          <div className="info-grid single">
-            <div className="info-card accent">
-              <div>
-                <div className="card-title">오늘의 성과</div>
-                <div className="card-meta">{resultRule.summary}</div>
+        <div className="placeholder-screen result-screen enter">
+          <div className="result-layout">
+            <section className="result-left">
+              <div className="result-left-inner">
+                <div className="screen-label">운동 결과</div>
+                <h1>오늘의 기록</h1>
+                <p className="lead">{resultRule.summary}</p>
+                <div className="info-grid single result-cards">
+                  <div className="info-card accent">
+                    <div>
+                      <div className="card-title">오늘의 성과</div>
+                      <div className="card-meta">{resultRule.summary}</div>
+                    </div>
+                    <span className="card-badge">{resultRule.tag}</span>
+                  </div>
+                  <div className="info-card">
+                    <div>
+                      <div className="card-title">전과 달라진 점</div>
+                      <div className="card-meta change-split">
+                        <div className="change-item upper">
+                          상체 운동: 안정감이 조금 더 이어졌어요.
+                        </div>
+                        <div className="change-item lower">
+                          하체 운동: 움직임 범위가 일정해졌어요.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="info-card">
+                    <div>
+                      <div className="card-title">앞으로의 목표</div>
+                      <div className="card-meta">{resultRule.next}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="card-badge">{resultRule.tag}</span>
-            </div>
-            <div className="info-card">
-              <div>
-                <div className="card-title">전과 달라진 점</div>
-                <div className="card-meta">{resultRule.change}</div>
+            </section>
+            <section className="result-right">
+              <div className="result-top-actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+                >
+                  오늘 마치기
+                </button>
               </div>
-            </div>
-            <div className="info-card">
-              <div>
-                <div className="card-title">앞으로의 목표</div>
-                <div className="card-meta">{resultRule.next}</div>
+              <div className="chart-card">
+                <div className="card-title">상체 + 하체 성공 횟수</div>
+                <div className="card-meta">오늘 수행한 전체 동작 기준</div>
+                <div className="donut-grid">
+                  <div className="donut-wrap">
+                    <div className="donut upper" style={{ "--fill": "83%" }} />
+                    <div className="donut-center">
+                      <div className="donut-value">10/12</div>
+                      <div className="donut-label">상체 성공</div>
+                    </div>
+                  </div>
+                  <div className="donut-wrap">
+                    <div className="donut lower" style={{ "--fill": "66%" }} />
+                    <div className="donut-center">
+                      <div className="donut-value">8/12</div>
+                      <div className="donut-label">하체 성공</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="donut-legend">
+                  <div className="legend-item">
+                    <span className="legend-dot upper" />
+                    상체 10/12
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot lower" />
+                    하체 8/12
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="cta-row">
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => setScreen(SCREEN.EXERCISE_LIST)}
-            >
-              목록으로
-            </button>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
-            >
-              오늘 마치기
-            </button>
+              <div className="chart-card">
+                <div className="card-title">최근 5번 정확도 추이</div>
+                <div className="card-meta">조금씩 안정적으로 유지 중</div>
+                <div className="bar-chart">
+                  <div className="bar bar-1" />
+                  <div className="bar bar-2" />
+                  <div className="bar bar-3" />
+                  <div className="bar bar-4" />
+                  <div className="bar bar-5" />
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
