@@ -64,13 +64,13 @@ class ImuUdpBuffer:
 
                 try:
                     msg = json.loads(data.decode("utf-8"))
-                    v = float(msg.get("v", msg.get("strength", float("nan"))))
+                    strength = float(msg.get("strength", float("nan")))
 
                     # ts or board_ts
-                    ts = int(msg.get("ts", msg.get("board_ts", -1)))
+                    ts = int(msg.get("ts", -1))
 
                     seq = int(msg.get("seq", -1))
-                    s = ImuSample(host_ts_ms=now_ms, imu_ts_ms=ts, strength_cmps=v, seq=seq)
+                    s = ImuSample(host_ts_ms=now_ms, imu_ts_ms=ts, strength_cmps=strength, seq=seq)
                     with self._lock:
                         self.buf.append(s)
                 except Exception:
@@ -84,6 +84,9 @@ class ImuUdpBuffer:
 
     def match_nearest(self, target_host_ts_ms: float) -> Tuple[Optional[ImuSample], float]:
         """Return closest sample and age_ms = target - sample.host_ts_ms."""
+        '''
+        가장 가까운 IMU 샘플을 찾아 반환
+        '''
         with self._lock:
             if not self.buf:
                 return None, float("inf")
@@ -100,7 +103,10 @@ class ImuUdpBuffer:
             return best, target_host_ts_ms - best.host_ts_ms
 
     def match_interp(self, target_host_ts_ms: float) -> Tuple[Optional[ImuSample], float, bool]:
-        """Linear interpolation of v by host_ts_ms. Returns (sample_like, age_ms, used_interp)."""
+        """Linear interpolation of strength by host_ts_ms. Returns (sample_like, age_ms, used_interp)."""
+        '''
+        선형 보간법을 사용하여 주어진 타겟 타임스탬프에 맞는 IMU 샘플을 반환
+        '''
         with self._lock:
             if len(self.buf) < 2:
                 s, age = self.match_nearest(target_host_ts_ms)
@@ -122,12 +128,12 @@ class ImuUdpBuffer:
             t0, t1 = prev.host_ts_ms, nxt.host_ts_ms
             w = (target_host_ts_ms - t0) / (t1 - t0)
 
-            v = (1.0 - w) * prev.strength_cmps + w * nxt.strength_cmps
+            strength = (1.0 - w) * prev.strength_cmps + w * nxt.strength_cmps
             imu_ts = -1
             if prev.imu_ts_ms >= 0 and nxt.imu_ts_ms >= 0:
                 imu_ts = int(round((1.0 - w) * prev.imu_ts_ms + w * nxt.imu_ts_ms))
 
             seq = prev.seq if abs(target_host_ts_ms - t0) <= abs(t1 - target_host_ts_ms) else nxt.seq
 
-            samp = ImuSample(host_ts_ms=target_host_ts_ms, imu_ts_ms=imu_ts, strength_cmps=float(v), seq=int(seq))
+            samp = ImuSample(host_ts_ms=target_host_ts_ms, imu_ts_ms=imu_ts, strength_cmps=float(strength), seq=int(seq))
             return samp, 0.0, True

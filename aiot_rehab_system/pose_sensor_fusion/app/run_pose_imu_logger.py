@@ -160,7 +160,7 @@ def main(cfg: Dict[str, Any]) -> None:
                     imu_ts = -1
                     imu_age_out = float("inf")
                 else:
-                    imu_v = float(imu_s.v_cmps)
+                    imu_v = float(imu_s.strength_cmps)
                     imu_seq = int(imu_s.seq)
                     imu_ts = int(imu_s.imu_ts_ms)
                     imu_age_out = float(imu_age_ms)
