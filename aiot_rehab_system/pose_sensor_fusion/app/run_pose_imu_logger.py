@@ -10,8 +10,8 @@ import numpy as np
 
 from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
 
-from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
-import pose_sensor_fusion.vendor.yolo11m_vDepth as pose
+from pose_sensor_fusion.vision.realsense_ai_api import RealSenseAIApi, FrameBundle
+import pose_sensor_fusion.vision.yolo11m_vDepth as pose
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 from pose_sensor_fusion.utils.create_payload import load_data_payload, build_header_from_payload
