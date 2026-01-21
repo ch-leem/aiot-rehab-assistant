@@ -71,7 +71,8 @@ def main(cfg: Dict[str, Any]) -> None:
     # IMU UDP 통신 시작
     imu.start()
 
-    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose17_IMUstrength")
+    # 데이터 페이로드 작성
+    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose17_imu")
 
     payload = load_data_payload(cfg["logging"]["payload_path"])
     header = build_header_from_payload(payload)
