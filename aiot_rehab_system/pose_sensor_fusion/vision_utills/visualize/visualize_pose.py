@@ -59,8 +59,11 @@ KPT_EDGES = [
     # foot (21)
     (KPT["left_ankle"], KPT["left_heel"]),
     (KPT["left_heel"], KPT["left_toe"]),
+    (KPT["left_ankle"], KPT["left_toe"]),
+
     (KPT["right_ankle"], KPT["right_heel"]),
     (KPT["right_heel"], KPT["right_toe"]),
+    (KPT["right_ankle"], KPT["right_toe"]),
 ]
 
 # def draw_pose_2d(img: np.ndarray, kpts_xy: np.ndarray, kp_th: float = 0.25):
