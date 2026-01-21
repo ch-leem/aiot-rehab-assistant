@@ -1,0 +1,35 @@
+csv:
+  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose17_imu_20260122_020832.csv"
+
+range:
+  start_idx: 0
+  end_idx: -1
+
+replay:
+  conf_th: 0.1
+  history_sec: 6.0
+  target_fps: 25.0
+  use_timestamp: true
+  no_sleep: false
+
+render:
+  o3d_w: 900
+  o3d_h: 800
+  win_w: 1600
+  win_h: 900
+  left_w: 980
+
+plot:
+  imu:
+    title: "IMU value (imu_v_cmps)"
+    y_label: "cm/s"
+    y_min: 0.0
+    y_max: 200.0
+    color_bgr: [80, 210, 255]
+
+  vision:
+    title: "Vision angular velocity (from elbow angle)"
+    y_label: "deg/s"
+    y_min: 0.0
+    y_max: 200.0
+    color_bgr: [255, 170, 90]
