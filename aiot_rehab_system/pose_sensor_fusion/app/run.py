@@ -4,7 +4,7 @@ import time
 import math
 import threading
 import asyncio
-from typing import Dict, Optional, Tuple, List, Any
+from typing import Dict, Optional, Tuple, List, Any, Mapping
 
 import cv2
 import numpy as np
@@ -26,64 +26,21 @@ from pose_sensor_fusion.vision_utills.visualize.visualize_pose import (
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 from pose_sensor_fusion.utils.create_payload import load_data_payload, build_frame_from_pose
-from pose_sensor_fusion.utils.ingest_sender import IngestSender
 
+from pose_sensor_fusion.utils.ingest_sender import IngestSender
 from pose_sensor_fusion.utils.webrtc_streamer import LatestFrameBuffer, WebRTCStreamer, WebRTCConfig
 
+from pose_sensor_fusion.utils.calculate import fmt_deg, put_lines, _finite_xyz, angle_3pts, slope_xy, slope_yz, center
 
-def fmt_deg(v: float) -> str:
-    return "nan" if (v is None or not np.isfinite(v)) else f"{v:6.1f}"
-
-def put_lines(img, x: int, y: int, lines, scale=0.6, thickness=2, line_gap=22):
-    for i, s in enumerate(lines):
-        cv2.putText(img, s, (x, y + i * line_gap),
-                    cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 255, 255), thickness)
-
-def _finite_xyz(xyz: Optional[np.ndarray]) -> bool:
-    if xyz is None:
-        return False
-    return bool(np.isfinite(xyz).all())
-
-def angle_3pts(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
-    if not _finite_xyz(a) or not _finite_xyz(b) or not _finite_xyz(c):
-        return float("nan")
-    ba = a - b
-    bc = c - b
-    nba = float(np.linalg.norm(ba))
-    nbc = float(np.linalg.norm(bc))
-    if nba < 1e-6 or nbc < 1e-6:
-        return float("nan")
-    cosang = float(np.dot(ba, bc) / (nba * nbc))
-    cosang = max(-1.0, min(1.0, cosang))
-    return math.degrees(math.acos(cosang))
-
-def slope_xy(p1: np.ndarray, p2: np.ndarray, eps: float = 1e-6) -> float:
-    if not _finite_xyz(p1) or not _finite_xyz(p2):
-        return float("nan")
-    d = p2 - p1
-    dx = float(d[0])
-    dy = float(d[1])
-    if abs(dx) < eps and abs(dy) < eps:
-        return float("nan")
-    return math.degrees(math.atan2(dy, dx))
-
-def center(p1, p2):
-    if _finite_xyz(p1) and _finite_xyz(p2):
-        return 0.5 * (p1 + p2)
-    return float("nan")
-
-def slope_yz(p1: np.ndarray, p2: np.ndarray, eps: float = 1e-6) -> float:
-    if not _finite_xyz(p1) or not _finite_xyz(p2):
-        return float("nan")
-    d = p2 - p1
-    dy = float(d[1])
-    dz = float(d[2])
-    if abs(dy) < eps and abs(dz) < eps:
-        return float("nan")
-    return math.degrees(math.atan2(dz, dy))
-
+def get3(joint_states: Mapping[int, "Joint3DState"], i: int) -> Optional[np.ndarray]:
+    js = joint_states.get(i)
+    if js and js.valid and js.xyz_filt is not None:
+        return js.xyz_filt
+    return None
 
 def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.Event) -> None:
+    
+    # 설정값 로드
     engine_path = cfg["engine"]["path"]
 
     conf_th = float(cfg["inference"]["conf_th"])
@@ -115,6 +72,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
     num_joints = cfg["inference"]["num_joints"]
 
+    # 센서 모듈 시작
     imu = ImuUdpBuffer(
         listen_ip=imu_cfg["udp_ip"],
         listen_port=imu_cfg["udp_port"],
@@ -129,8 +87,10 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     )
     load_cell.start()
 
+    # 데이터 템플릿 로드
     payload_template = load_data_payload(cfg["logging"]["payload_path"])
 
+    # Redis 서버 Ingest 통신 시작
     ingest_url = cfg["ingest"]["url"]
     sender = IngestSender(
         url=ingest_url,
@@ -140,13 +100,16 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     )
     sender.start()
 
-    print(f"[INGEST] POST {ingest_url} queue={sender.maxsize} timeout={sender.timeout_sec}s policy={sender.drop_policy}")
+    # print(f"[INGEST] POST {ingest_url} queue={sender.maxsize} timeout={sender.timeout_sec}s policy={sender.drop_policy}")
 
+    # TensorRT 엔진 로드
     trt_engine = TrtEngine(engine_path)
 
+    # 3D 관절 필터 초기화
     filters_3d = {i: OneEuroFilter3D(filt_min_cutoff, filt_beta, filt_d_cutoff) for i in range(num_joints)}
     prev_filt: Dict[int, Tuple[np.ndarray, float]] = {}
 
+    # 메인 루프 초기화
     st = TrackState()
     fps_ema = 0.0
     last_frame_t = time.time()
@@ -155,6 +118,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     win_name = "pose21_strength_power"
 
     try:
+        # RealSense 카메라 시작
         with RealSenseAIApi(
             rgb_size=(rgb_w, rgb_h),
             depth_size=(rgb_w, rgb_h),
@@ -167,6 +131,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
             timeout_ms=2000,
         ) as cam:
 
+            # 카메라 내부 파라미터 및 깊이 스케일 가져오기
             intr = cam.rgb_intrinsics()
             depth_scale = cam.depth_scale()
             if depth_scale is None:
@@ -184,6 +149,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
                 video_ts_ms = float(bundle.timestamp_ms)
                 host_ts_ms = time.time() * 1000.0
+
+                # IMU 및 하체 힘 데이터 매칭
 
                 if IMU_MATCH == "interp":
                     imu_s, imu_age_ms, used_interp = imu.match_interp(host_ts_ms)
@@ -209,6 +176,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 else:
                     weight_kg = float(w_s.weight_kg)
 
+                # 포즈 추정
                 inp, scale, dx, dy = preprocess_bgr_letterbox(frame, 640)
                 out_trt = trt_engine.infer(inp)
 
@@ -216,6 +184,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 pick = pick_person(boxes, scores, kpts, st, stick_iou=stick_iou)
 
                 now = time.time()
+
+                # 추적 상태 업데이트
                 if pick is None:
                     if st.kpts_640 is not None and (now - st.last_seen) <= hold_sec:
                         kpts_640 = st.kpts_640.copy()
@@ -228,8 +198,10 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                     st.kpts_640 = k_640.copy()
                     kpts_640 = st.kpts_640.copy()
 
+                # 3D 관절 위치 계산 및 필터링
                 disp = frame.copy()
 
+                # 초기화
                 joint_xyz: List[Optional[np.ndarray]] = [None] * num_joints
                 joint_conf: List[float] = [None] * num_joints
 
@@ -253,11 +225,14 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 r_heel_tilt = float("nan")
 
                 if kpts_640 is not None:
+
+                    # 2D 포즈 그리기
                     kpts_xy = unletterbox_points(kpts_640.reshape(-1, 3), scale, dx, dy)
                     draw_pose_2d(disp, kpts_xy, kp_th=kp_th)
 
                     joint_states: Dict[int, Joint3DState] = {}
 
+                    # 각 관절에 대해 깊이값 추출 및 3D 좌표 계산
                     for i in range(num_joints):
                         x, y, s = kpts_xy[i]
                         joint_conf[i] = float(s)
@@ -289,28 +264,24 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                         prev_filt[i] = (xyz_filt, now)
                         joint_states[i] = Joint3DState(ds.xyz_m, xyz_filt, None, None, True)
 
-                    def get3(i: int) -> Optional[np.ndarray]:
-                        js = joint_states.get(i)
-                        if js and js.valid and js.xyz_filt is not None:
-                            return js.xyz_filt
-                        return None
+                    # 각종 각도 및 기울기 계산
 
-                    Ls = get3(KPT["left_shoulder"])
-                    Le = get3(KPT["left_elbow"])
-                    Lw = get3(KPT["left_wrist"])
-                    Rs = get3(KPT["right_shoulder"])
-                    Re = get3(KPT["right_elbow"])
-                    Rw = get3(KPT["right_wrist"])
+                    Ls = get3(joint_states, KPT["left_shoulder"])
+                    Le = get3(joint_states, KPT["left_elbow"])
+                    Lw = get3(joint_states, KPT["left_wrist"])
+                    Rs = get3(joint_states, KPT["right_shoulder"])
+                    Re = get3(joint_states, KPT["right_elbow"])
+                    Rw = get3(joint_states, KPT["right_wrist"])
 
-                    Lh = get3(KPT["left_hip"])
-                    Rh = get3(KPT["right_hip"])
-                    Lk = get3(KPT["left_knee"])
-                    La = get3(KPT["left_ankle"])
-                    Lt = get3(KPT["left_toe"])
+                    Lh = get3(joint_states, KPT["left_hip"])
+                    Rh = get3(joint_states, KPT["right_hip"])
+                    Lk = get3(joint_states, KPT["left_knee"])
+                    La = get3(joint_states, KPT["left_ankle"])
+                    Lt = get3(joint_states, KPT["left_toe"])
 
-                    Rk = get3(KPT["right_knee"])
-                    Ra = get3(KPT["right_ankle"])
-                    Rt = get3(KPT["right_toe"])
+                    Rk = get3(joint_states, KPT["right_knee"])
+                    Ra = get3(joint_states, KPT["right_ankle"])
+                    Rt = get3(joint_states, KPT["right_toe"])
 
                     shoulder_center = center(Ls, Rs)
                     hip_center = center(Lh, Rh)
@@ -334,12 +305,15 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                     l_ankle_pf = float(angle_3pts(Lk, La, Lt))
                     r_ankle_pf = float(angle_3pts(Rk, Ra, Rt))
 
+                # 프레임당 처리 시간 및 FPS 계산
+
                 cur_t = time.time()
                 dt = max(cur_t - last_frame_t, 1e-6)
                 last_frame_t = cur_t
                 fps_inst = 1.0 / dt
                 fps_ema = 0.9 * fps_ema + 0.1 * fps_inst
 
+                # 데이터 페이로드 작성 및 전송
                 deg_left = {
                     "shoulder_flexion": l_shoulder_flex,
                     "elbow_extension": l_elbow,
