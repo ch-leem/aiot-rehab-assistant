@@ -9,6 +9,8 @@ import cv2
 import numpy as np
 
 from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
+from pose_sensor_fusion.load_cell.load_cell_udp_buffer import WeightUdpBuffer
+
 
 from pose_sensor_fusion.vision_utills.realsense_ai_api import RealSenseAIApi, FrameBundle
 from pose_sensor_fusion.vision_utills.inference.trt_engine import TrtEngine
@@ -19,13 +21,13 @@ from pose_sensor_fusion.vision_utills.pose3d.depth_lift import robust_depth_at
 from pose_sensor_fusion.vision_utills.visualize.visualize_pose import (
     draw_pose_2d,
     angle_3pts,
-    COCO,
+    KPT,
     Joint3DState,
 )
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
-from pose_sensor_fusion.utils.create_payload import load_data_payload, build_header_from_payload
-from pose_sensor_fusion.utils.csv_logger import CsvLogger
+from pose_sensor_fusion.utils.create_payload import load_data_payload, build_frame_from_pose
+from pose_sensor_fusion.utils.json_logger import JsonLogger
 
 
 def _nan3():
@@ -71,27 +73,39 @@ def main(cfg: Dict[str, Any]) -> None:
     IMU_MATCH = imu_cfg["match"]
     IMU_MAX_ABS_AGE_MS = float(imu_cfg["max_abs_age_ms"])
 
+    lc_cfg = cfg.get("load_cell", {})
+    LC_ENABLE = bool(lc_cfg.get("enable", True))
+    LC_MATCH = lc_cfg.get("match", "nearest")
+    LC_MAX_ABS_AGE_MS = float(lc_cfg.get("max_abs_age_ms", 500.0))
+
+    num_joints = cfg["inference"]["num_joints"]
+
     imu = ImuUdpBuffer(
         listen_ip=imu_cfg["udp_ip"], 
         listen_port=imu_cfg["udp_port"], 
         max_age_sec=imu_cfg["buffer_sec"]
     )
 
-    # IMU UDP 통신 시작
     imu.start()
 
+    load_cell = WeightUdpBuffer(
+        listen_ip=lc_cfg.get("udp_ip", "0.0.0.0"),
+        listen_port=int(lc_cfg.get("udp_port", 9998)),
+        max_age_sec=float(lc_cfg.get("buffer_sec", 8.0)),
+    )
+
+    load_cell.start()
+
     # 데이터 페이로드 작성
-    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose17_imu")
+    logger = JsonLogger(cfg["logging"]["output_dir"], prefix="pose21_imu")
+    payload_template = load_data_payload(cfg["logging"]["payload_path"])
 
-    payload = load_data_payload(cfg["logging"]["payload_path"])
-    header = build_header_from_payload(payload)
-
-    num_joints = payload["joints"]["num_joints"]
-
-    logger.write_header(header)
-
-    print(f"[LOG] CSV -> {logger.path}")
+    print(f"[LOG] NDJSON -> {logger.path}")
     print(f"[IMU] udp :{imu_cfg['udp_port']} match={IMU_MATCH} buffer={imu_cfg['buffer_sec']:.1f}s")
+    print(
+        f"[LOADCELL] udp :{lc_cfg.get('udp_port', 9998)} "
+        f"match={LC_MATCH} buffer={float(lc_cfg.get('buffer_sec', 8.0)):.1f}s"
+    )
 
     trt_engine = TrtEngine(engine_path)
 
@@ -105,7 +119,7 @@ def main(cfg: Dict[str, Any]) -> None:
     last_frame_t = time.time()
     frame_idx = 0
 
-    win_name = "Pose+Depth+IMU Logger (full17)"
+    win_name = "pose21_strength_power"
 
     try:
         with RealSenseAIApi(
@@ -138,6 +152,7 @@ def main(cfg: Dict[str, Any]) -> None:
                 video_ts_ms = float(bundle.timestamp_ms)
                 host_ts_ms = time.time() * 1000.0
 
+                # IMU 매칭
                 if IMU_MATCH == "interp":
                     imu_s, imu_age_ms, used_interp = imu.match_interp(host_ts_ms)
                 else:
@@ -154,6 +169,32 @@ def main(cfg: Dict[str, Any]) -> None:
                     imu_seq = int(imu_s.seq)
                     imu_ts = int(imu_s.imu_ts_ms)
                     imu_age_out = float(imu_age_ms)
+
+                # Load Cell 매칭
+                if load_cell is None:
+                    weight_kg = float("nan")
+                    weight_seq = -1
+                    weight_ts = -1
+                    weight_age_out = float("inf")
+                    weight_used_interp = False
+                else:
+                    if LC_MATCH == "interp":
+                        w_s, w_age_ms, weight_used_interp = load_cell.match_interp(host_ts_ms)
+                    else:
+                        w_s, w_age_ms = load_cell.match_nearest(host_ts_ms)
+                        weight_used_interp = False
+
+                    if w_s is None or abs(w_age_ms) > LC_MAX_ABS_AGE_MS:
+                        weight_kg = float("nan")
+                        weight_seq = -1
+                        weight_ts = -1
+                        weight_age_out = float("inf")
+                    else:
+                        weight_kg = float(w_s.weight_kg)
+                        weight_seq = int(w_s.seq)
+                        weight_ts = int(w_s.board_ts_ms)
+                        weight_age_out = float(w_age_ms)
+
 
                 inp, scale, dx, dy = preprocess_bgr_letterbox(frame, 640)
                 out_trt = trt_engine.infer(inp)
@@ -178,8 +219,8 @@ def main(cfg: Dict[str, Any]) -> None:
                 disp = frame.copy()
 
                 # Outputs to store
-                joint_xyz_17: List[Optional[np.ndarray]] = [None] * 17
-                joint_conf_17: List[float] = [float("nan")] * 17
+                joint_xyz: List[Optional[np.ndarray]] = [None] * num_joints
+                joint_conf: List[float] = [None] * num_joints
 
                 r_elbow = float("nan")
                 l_elbow = float("nan")
@@ -194,9 +235,9 @@ def main(cfg: Dict[str, Any]) -> None:
 
                     joint_states: Dict[int, Joint3DState] = {}
 
-                    for i in range(17):
+                    for i in range(num_joints):
                         x, y, s = kpts_xy[i]
-                        joint_conf_17[i] = float(s)
+                        joint_conf[i] = float(s)
 
                         if float(s) < kp_th:
                             joint_states[i] = Joint3DState(None, None, None, None, False)
@@ -221,7 +262,7 @@ def main(cfg: Dict[str, Any]) -> None:
                             continue
 
                         xyz_filt = filters_3d[i](ds.xyz_m, now)
-                        joint_xyz_17[i] = xyz_filt
+                        joint_xyz[i] = xyz_filt
 
                         # per-joint speed (optional, only wrists are used)
                         if i in prev_filt:
@@ -242,28 +283,28 @@ def main(cfg: Dict[str, Any]) -> None:
                             return js.xyz_filt
                         return None
 
-                    Ls = get3(COCO["L_SHOULDER"])
-                    Le = get3(COCO["L_ELBOW"])
-                    Lw = get3(COCO["L_WRIST"])
-                    Rs = get3(COCO["R_SHOULDER"])
-                    Re = get3(COCO["R_ELBOW"])
-                    Rw = get3(COCO["R_WRIST"])
+                    Ls = get3(KPT["left_shoulder"])
+                    Le = get3(KPT["left_elbow"])
+                    Lw = get3(KPT["left_wrist"])
+                    Rs = get3(KPT["right_shoulder"])
+                    Re = get3(KPT["right_elbow"])
+                    Rw = get3(KPT["right_wrist"])
 
                     if _finite_xyz(Ls) and _finite_xyz(Le) and _finite_xyz(Lw):
                         l_elbow = float(angle_3pts(Ls, Le, Lw))
                     if _finite_xyz(Rs) and _finite_xyz(Re) and _finite_xyz(Rw):
                         r_elbow = float(angle_3pts(Rs, Re, Rw))
 
-                    lw_state = joint_states.get(COCO["L_WRIST"])
-                    rw_state = joint_states.get(COCO["R_WRIST"])
+                    lw_state = joint_states.get(KPT["left_wrist"])
+                    rw_state = joint_states.get(KPT["right_wrist"])
                     if lw_state and lw_state.valid and lw_state.speed is not None:
                         l_wspd = float(lw_state.speed)
                     if rw_state and rw_state.valid and rw_state.speed is not None:
                         r_wspd = float(rw_state.speed)
 
                     try:
-                        rw_conf = float(kpts_xy[COCO["R_WRIST"]][2])
-                        lw_conf = float(kpts_xy[COCO["L_WRIST"]][2])
+                        rw_conf = float(kpts_xy[KPT["right_wrist"]][2])
+                        lw_conf = float(kpts_xy[KPT["left_wrist"]][2])
                     except Exception:
                         pass
 
@@ -273,30 +314,45 @@ def main(cfg: Dict[str, Any]) -> None:
                 fps_inst = 1.0 / dt
                 fps_ema = 0.9 * fps_ema + 0.1 * fps_inst
 
-                # write CSV row
-                row = [
-                    frame_idx,
-                    video_ts_ms,
-                    host_ts_ms,
-                    float(fps_ema),
-                    imu_v,
-                    imu_seq,
-                    imu_ts,
-                    float(imu_age_out),
-                    int(bool(used_interp)),
-                    r_elbow,
-                    l_elbow,
-                    r_wspd,
-                    l_wspd,
-                ]
+                # write json
+                deg_left = {
+                    "shoulder_flexion": None,
+                    "elbow_extension": l_elbow,
+                    "ankle_plantarflexion": None,
+                    "knee_flexion": None,
+                    "ankle_inversion_eversion": None,
+                    "hip_flexion": None,
+                }
+                deg_right = {
+                    "shoulder_flexion": None,
+                    "elbow_extension": r_elbow,
+                    "ankle_plantarflexion": None,
+                    "knee_flexion": None,
+                    "ankle_inversion_eversion": None,
+                    "hip_flexion": None,
+                }
+                deg_mid = {
+                    "trunk_forward_tilt": None,
+                    "trunk_rotation_lateral_flexion": None,
+                    "pelvis_level": None,
+                    "trunk_lateral_tilt": None,
+                }
 
-                for j in range(17):
-                    row += _flat3(joint_xyz_17[j])
-                    row += [float(joint_conf_17[j])]
+                frame_obj = build_frame_from_pose(
+                    payload_template=payload_template,
+                    frame_idx=frame_idx,
+                    video_ms=video_ts_ms,
+                    host_ms=host_ts_ms,
+                    joint_xyz=joint_xyz,
+                    joint_conf=joint_conf,
+                    deg_left=deg_left,
+                    deg_right=deg_right,
+                    deg_mid=deg_mid,
+                    strength=imu_v,
+                    power=weight_kg,
+                )
 
-                row += [rw_conf, lw_conf]
-
-                logger.write_row(row)
+                logger.write_frame(frame_obj)
                 frame_idx += 1
 
                 cv2.putText(
@@ -327,6 +383,11 @@ def main(cfg: Dict[str, Any]) -> None:
             pass
         try:
             imu.stop()
+        except Exception:
+            pass
+        try:
+            if load_cell is not None:
+                load_cell.stop()
         except Exception:
             pass
         try:
