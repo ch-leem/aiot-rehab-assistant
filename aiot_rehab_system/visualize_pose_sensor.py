@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# visualize_full17_pretty.py
+# visualize_full17_pretty_v3_2plots.py
 
 import csv
 import math
@@ -9,7 +9,6 @@ from collections import deque
 
 import numpy as np
 import cv2
-
 import open3d as o3d
 
 
@@ -85,7 +84,6 @@ def plot_timeseries(img, ts_s, ys, title, y_label, color_line, y_min=None, y_max
     if y_valid.size == 0:
         y_valid = np.array([0.0], dtype=np.float64)
 
-    # 자동 스케일, 고정 스케일을 전달하면 그대로 사용
     if y_min is None:
         y_min = float(np.percentile(y_valid, 5))
     if y_max is None:
@@ -128,8 +126,6 @@ def plot_timeseries(img, ts_s, ys, title, y_label, color_line, y_min=None, y_max
 
 
 def cam_xyz_to_view(xyz_cam_m):
-    # camera: +x right, +y down, +z forward
-    # view:   +x right, +y up,   +z forward
     x, y, z = float(xyz_cam_m[0]), float(xyz_cam_m[1]), float(xyz_cam_m[2])
     return np.array([x, -y, z], dtype=np.float32)
 
@@ -139,13 +135,22 @@ def parse_joints17(row, conf_th=0.0):
     valid = np.zeros((17,), dtype=bool)
     conf = np.full((17,), np.nan, dtype=np.float32)
 
+    has_kp = (row.get("kp0_x") is not None) or (row.get("kp0_u") is not None)
     for j in range(17):
-        x = _to_float(row.get(f"j{j}_x_m"))
-        y = _to_float(row.get(f"j{j}_y_m"))
-        z = _to_float(row.get(f"j{j}_z_m"))
-        c = _to_float(row.get(f"j{j}_conf"))
-        conf[j] = c
+        if has_kp:
+            x = _to_float(row.get(f"kp{j}_x"))
+            y = _to_float(row.get(f"kp{j}_y"))
+            z = _to_float(row.get(f"kp{j}_z"))
+            c = _to_float(row.get(f"kp{j}_s"))
+            if not math.isfinite(c):
+                c = _to_float(row.get(f"kp{j}_conf"))
+        else:
+            x = _to_float(row.get(f"j{j}_x_m"))
+            y = _to_float(row.get(f"j{j}_y_m"))
+            z = _to_float(row.get(f"j{j}_z_m"))
+            c = _to_float(row.get(f"j{j}_conf"))
 
+        conf[j] = c
         if math.isfinite(x) and math.isfinite(y) and math.isfinite(z) and math.isfinite(c) and c >= conf_th:
             pts[j] = cam_xyz_to_view((x, y, z))
             valid[j] = True
@@ -154,7 +159,6 @@ def parse_joints17(row, conf_th=0.0):
 
 
 def elbow_angvel_degps(row, t_s, last):
-    # last: (last_angle, last_t) or None
     ang = _to_float(row.get("r_elbow_deg"))
     if not math.isfinite(ang):
         ang = _to_float(row.get("l_elbow_deg"))
@@ -171,37 +175,57 @@ def elbow_angvel_degps(row, t_s, last):
     return float(w), (ang, t_s)
 
 
-def build_lineset(points17, valid17):
-    lines = []
+def build_lineset_compact(points17_finite, valid17):
+    raw_lines = []
+    used = set()
     for a, b in COCO_EDGES:
         if valid17[a] and valid17[b]:
-            lines.append((a, b))
+            raw_lines.append((a, b))
+            used.add(a)
+            used.add(b)
+
+    if len(raw_lines) == 0 or len(used) < 2:
+        return None
+
+    used = sorted(list(used))
+    idx_map = {old: new for new, old in enumerate(used)}
+
+    pts_compact = points17_finite[used].astype(np.float64)
+    lines_compact = np.array([(idx_map[a], idx_map[b]) for a, b in raw_lines], dtype=np.int32)
+
+    if pts_compact.shape[0] == 0 or lines_compact.shape[0] == 0:
+        return None
+
     ls = o3d.geometry.LineSet()
-    ls.points = o3d.utility.Vector3dVector(points17.astype(np.float64))
-    if len(lines) > 0:
-        ls.lines = o3d.utility.Vector2iVector(np.array(lines, dtype=np.int32))
-        colors = np.tile(np.array([[0.18, 0.92, 0.28]], dtype=np.float64), (len(lines), 1))
-        ls.colors = o3d.utility.Vector3dVector(colors)
+    ls.points = o3d.utility.Vector3dVector(pts_compact)
+    ls.lines = o3d.utility.Vector2iVector(lines_compact)
+    colors = np.tile(np.array([[0.18, 0.92, 0.28]], dtype=np.float64), (lines_compact.shape[0], 1))
+    ls.colors = o3d.utility.Vector3dVector(colors)
     return ls
 
 
-def auto_camera_params(points17, valid17):
+def robust_camera_from_points(points17, valid17):
     vv = points17[valid17]
-    if vv.shape[0] < 3:
-        return None
+    if vv.shape[0] >= 3:
+        center = vv.mean(axis=0)
+        mn = vv.min(axis=0)
+        mx = vv.max(axis=0)
+        extent = mx - mn
+        diag = float(np.linalg.norm(extent))
+        diag = max(diag, 0.5)
+    elif vv.shape[0] > 0:
+        center = vv.mean(axis=0)
+        diag = 1.2
+    else:
+        center = np.array([0.0, 0.0, 2.0], dtype=np.float32)
+        diag = 1.5
 
-    center = vv.mean(axis=0)
-
-    mn = vv.min(axis=0)
-    mx = vv.max(axis=0)
-    extent = mx - mn
-    diag = float(np.linalg.norm(extent))
-    diag = max(diag, 0.4)
-
-    dist = diag * 2.5
+    dist = float(np.clip(diag * 2.5, 1.5, 8.0))
     eye = center + np.array([0.0, 0.0, -dist], dtype=np.float32)
     up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-    return eye, center, up, diag
+    near = 0.01
+    far = 50.0
+    return eye, center, up, near, far
 
 
 def try_offscreen_renderer(w, h):
@@ -215,18 +239,17 @@ def try_offscreen_renderer(w, h):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default="/home/a203/workspace/S14P11A203/tmp2/logs/old.csv")
-    ap.add_argument("--start_idx", type=int, default=200)
+    ap.add_argument("--csv", default="/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose17_imu_20260122_014409.csv")
+    ap.add_argument("--start_idx", type=int, default=0)
     ap.add_argument("--end_idx", type=int, default=-1)
-    ap.add_argument("--conf_th", type=float, default=0.25)
+    ap.add_argument("--conf_th", type=float, default=0.1)
     ap.add_argument("--history_sec", type=float, default=6.0)
     ap.add_argument("--target_fps", type=float, default=25.0)
-    ap.add_argument("--use_timestamp", action="store_true", help="use host_ts_ms deltas, scaled to target_fps")
-    ap.add_argument("--no_sleep", action="store_true", help="do not sleep, render as fast as possible")
+    ap.add_argument("--use_timestamp", action="store_true")
+    ap.add_argument("--no_sleep", action="store_true")
     ap.add_argument("--o3d_w", type=int, default=900)
     ap.add_argument("--o3d_h", type=int, default=800)
 
-    # 고정 y스케일 디폴트
     ap.add_argument("--imu_ymin", type=float, default=0.0)
     ap.add_argument("--imu_ymax", type=float, default=200.0)
     ap.add_argument("--vis_ymin", type=float, default=0.0)
@@ -244,12 +267,10 @@ def main():
         raise RuntimeError(f"start_idx {start} >= total rows {len(rows)}")
     rows = rows[start:end]
 
-    # time base
     t_ms = [_to_float(r.get("host_ts_ms")) for r in rows]
     t_ms = [x if math.isfinite(x) else _to_float(r.get("video_ts_ms")) for x, r in zip(t_ms, rows)]
     t_s = [float(x) / 1000.0 for x in t_ms]
 
-    # compute scaling for playback to target_fps if using timestamps
     dt_src = []
     for i in range(1, len(t_s)):
         dt_src.append(max(1e-6, t_s[i] - t_s[i - 1]))
@@ -257,10 +278,8 @@ def main():
     dt_tgt = 1.0 / max(1e-6, args.target_fps)
     scale = max(1e-6, median_dt / dt_tgt)
 
-    imu_t = deque()
-    imu_v = deque()
-    vis_t = deque()
-    vis_w = deque()
+    imu_t = deque(); imu_v = deque()
+    vis_t = deque(); vis_w = deque()
 
     last_angle_state = None
 
@@ -274,32 +293,7 @@ def main():
 
     renderer = try_offscreen_renderer(args.o3d_w, args.o3d_h)
 
-    use_live_o3d = False
-    vis_live = None
-    ls_live = None
-    pts_live = None
-
-    if renderer is None:
-        use_live_o3d = True
-        vis_live = o3d.visualization.Visualizer()
-        vis_live.create_window(window_name="3D Skeleton", width=args.o3d_w, height=args.o3d_h)
-        axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2, origin=[0, 0, 0])
-        vis_live.add_geometry(axis)
-        pts_live = o3d.geometry.PointCloud()
-        pts_live.points = o3d.utility.Vector3dVector(np.zeros((17, 3), dtype=np.float64))
-        pts_live.paint_uniform_color([0.95, 0.25, 0.25])
-        vis_live.add_geometry(pts_live)
-        ls_live = o3d.geometry.LineSet()
-        ls_live.points = o3d.utility.Vector3dVector(np.zeros((17, 3), dtype=np.float64))
-        ls_live.lines = o3d.utility.Vector2iVector(np.array(COCO_EDGES, dtype=np.int32))
-        ls_live.colors = o3d.utility.Vector3dVector(np.tile(np.array([[0.18, 0.92, 0.28]]), (len(COCO_EDGES), 1)))
-        vis_live.add_geometry(ls_live)
-        opt = vis_live.get_render_option()
-        opt.point_size = 10.0
-        opt.line_width = 5.0
-        opt.background_color = np.asarray([0.08, 0.08, 0.09])
-
-    win = "3D + Signals (q,esc quit, space pause, a,d step)"
+    win = "3D + 2 Signals (q,esc quit, space pause, a,d step)"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(win, 1600, 900)
 
@@ -324,7 +318,7 @@ def main():
 
             pts17, valid17, conf17 = parse_joints17(r, conf_th=args.conf_th)
 
-            # render 3D skeleton image
+            # --- 3D render (v3 스타일) ---
             if renderer is not None:
                 from open3d.visualization import rendering
 
@@ -332,72 +326,43 @@ def main():
                 scene.clear_geometry()
                 scene.set_background([0.08, 0.08, 0.09, 1.0])
 
+                vv_valid = pts17[valid17]
+                if vv_valid.shape[0] > 0:
+                    pcd = o3d.geometry.PointCloud()
+                    pcd.points = o3d.utility.Vector3dVector(vv_valid.astype(np.float64))
+                    mat_pts = rendering.MaterialRecord()
+                    mat_pts.shader = "defaultUnlit"
+                    mat_pts.point_size = 12.0
+                    mat_pts.base_color = (0.95, 0.25, 0.25, 1.0)
+                    scene.add_geometry("pts", pcd, mat_pts)
+
                 vv = pts17.copy()
                 vv[np.isnan(vv)] = 0.0
+                ls = build_lineset_compact(vv, valid17)
+                if ls is not None:
+                    mat_ls = rendering.MaterialRecord()
+                    mat_ls.shader = "defaultUnlit"
+                    mat_ls.line_width = 5.0
+                    scene.add_geometry("ls", ls, mat_ls)
 
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(vv.astype(np.float64))
-                mat_pts = rendering.MaterialRecord()
-                mat_pts.shader = "defaultUnlit"
-                mat_pts.point_size = 10.0
-                mat_pts.base_color = (0.95, 0.25, 0.25, 1.0)
-                scene.add_geometry("pts", pcd, mat_pts)
-
-                ls = build_lineset(vv, valid17)
-                mat_ls = rendering.MaterialRecord()
-                mat_ls.shader = "defaultUnlit"
-                mat_ls.line_width = 4.0
-                scene.add_geometry("ls", ls, mat_ls)
-
-                cam = auto_camera_params(vv, valid17)
-                if cam is not None:
-                    eye, center, up, diag = cam
-                    renderer.setup_camera(60.0, center.astype(np.float64), eye.astype(np.float64), up.astype(np.float64))
+                eye, center, up, near, far = robust_camera_from_points(pts17, valid17)
+                aspect = float(args.o3d_w) / float(args.o3d_h)
+                scene.camera.set_projection(60.0, aspect, near, far, rendering.Camera.FovType.Vertical)
+                scene.camera.look_at(center.astype(np.float64), eye.astype(np.float64), up.astype(np.float64))
 
                 img_o3d = renderer.render_to_image()
                 img_np = np.asarray(img_o3d)
                 img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
             else:
-                vv = pts17.copy()
-                vv[np.isnan(vv)] = 0.0
-                pts_live.points = o3d.utility.Vector3dVector(vv.astype(np.float64))
-                ls_live.points = o3d.utility.Vector3dVector(vv.astype(np.float64))
-                vis_live.update_geometry(pts_live)
-                vis_live.update_geometry(ls_live)
-
-                cam = auto_camera_params(vv, valid17)
-                if cam is not None:
-                    eye, center, up, diag = cam
-                    ctr = vis_live.get_view_control()
-                    ctr.set_lookat(center.tolist())
-                    ctr.set_up(up.tolist())
-                    front = (center - eye)
-                    nf = float(np.linalg.norm(front)) + 1e-9
-                    ctr.set_front((front / nf).tolist())
-                    ctr.set_zoom(float(max(0.25, min(0.8, 0.6 * (0.8 / (diag + 1e-6))))))
-
-                vis_live.poll_events()
-                vis_live.update_renderer()
-
                 img_np = make_panel(args.o3d_w, args.o3d_h, bg=12)
-                cv2.putText(
-                    img_np,
-                    "Open3D live window is separate (offscreen not available)",
-                    (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (220, 220, 220),
-                    2,
-                    cv2.LINE_AA,
-                )
+                cv2.putText(img_np, "OffscreenRenderer not available",
+                            (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (220, 220, 220), 2, cv2.LINE_AA)
 
-            # compose UI in one OpenCV window
+            # --- UI compose (left:3D, right: 2 plots) ---
             H, W = 900, 1600
             canvas = make_panel(W, H, bg=16)
 
             left_w = 980
-            right_w = W - left_w
-
             left = canvas[:, :left_w]
             right = canvas[:, left_w:]
 
@@ -411,38 +376,27 @@ def main():
             top = right[:H // 2, :]
             bot = right[H // 2:, :]
 
-            plot_timeseries(
-                top,
-                list(imu_t),
-                list(imu_v),
-                title="IMU value (imu_v_cmps)",
-                y_label="cm/s",
-                color_line=(80, 210, 255),
-                y_min=args.imu_ymin,
-                y_max=args.imu_ymax,
-            )
+            plot_timeseries(top, list(imu_t), list(imu_v),
+                            title="IMU value (imu_v_cmps)", y_label="cm/s",
+                            color_line=(80, 210, 255),
+                            y_min=args.imu_ymin, y_max=args.imu_ymax)
 
-            plot_timeseries(
-                bot,
-                list(vis_t),
-                list(vis_w),
-                title="Vision angular velocity (from elbow angle)",
-                y_label="deg/s",
-                color_line=(255, 170, 90),
-                y_min=args.vis_ymin,
-                y_max=args.vis_ymax,
-            )
+            plot_timeseries(bot, list(vis_t), list(vis_w),
+                            title="Vision angular velocity (from elbow angle)", y_label="deg/s",
+                            color_line=(255, 170, 90),
+                            y_min=args.vis_ymin, y_max=args.vis_ymax)
 
             cur_frame = r.get("frame_idx", str(idx))
             cur_imu = imu_v[-1] if len(imu_v) else math.nan
             cur_w = vis_w[-1] if len(vis_w) else math.nan
+            n_valid = int(np.sum(valid17))
+
             cv2.putText(
                 canvas,
-                f"frame {cur_frame}   imu {cur_imu:.3f} cm/s   vision_angvel {cur_w:.3f} deg/s   conf_th {args.conf_th:.2f}   "
-                f"imuY[{args.imu_ymin:.1f},{args.imu_ymax:.1f}] visY[{args.vis_ymin:.1f},{args.vis_ymax:.1f}]",
+                f"frame {cur_frame}  valid_pts {n_valid}/17  imu {cur_imu:.3f} cm/s  vision_angvel {cur_w:.3f} deg/s  conf_th {args.conf_th:.2f}",
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.85,
+                0.75,
                 (235, 235, 235),
                 2,
                 cv2.LINE_AA,
@@ -483,11 +437,6 @@ def main():
     finally:
         try:
             cv2.destroyAllWindows()
-        except Exception:
-            pass
-        try:
-            if vis_live is not None:
-                vis_live.destroy_window()
         except Exception:
             pass
         try:
