@@ -15,6 +15,7 @@ from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBund
 import pose_sensor_fusion.vendor.yolo11m_vDepth as pose
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
+from pose_sensor_fusion.utils.create_payload import load_data_payload, build_header_from_payload
 
 
 def _nan3():
@@ -95,10 +96,14 @@ def main(cfg: Dict[str, Any]) -> None:
         max_age_sec=imu_cfg["buffer_sec"]
     )
 
+    # IMU UDP 통신 시작
     imu.start()
 
-    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose_imu_full17")
-    header = build_header_full17()
+    logger = CsvLogger(cfg["logging"]["output_dir"], prefix="pose17_IMUstrength")
+
+    payload = load_data_payload(cfg["logging"]["payload_path"])
+    header = build_header_from_payload(payload)
+
     logger.write_header(header)
 
     print(f"[LOG] CSV -> {logger.path}")
