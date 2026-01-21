@@ -13,7 +13,7 @@ public class Joint {
     @Column(name = "joint_id", length = 20)
     private String id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "joint_name", nullable = false, length = 50)
     private String name;
 
     protected Joint() {}

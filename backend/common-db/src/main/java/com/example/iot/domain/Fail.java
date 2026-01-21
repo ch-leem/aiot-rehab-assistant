@@ -13,10 +13,10 @@ public class Fail {
     @Column(name = "fail_id", length = 10)
     private String id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "fail_name", nullable = false, length = 50)
     private String name;
 
-    @Column(length = 255)
+    @Column(name = "fail_description", length = 255)
     private String description;
 
     protected Fail() {}
@@ -29,5 +29,5 @@ public class Fail {
 
     public Fail(String id) {
         this.id = id;
-    };
+    }
 }

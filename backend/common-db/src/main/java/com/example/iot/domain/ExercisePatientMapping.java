@@ -1,5 +1,6 @@
 package com.example.iot.domain;
 
+import com.example.iot.domain.constant.Side;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,15 +23,19 @@ public class ExercisePatientMapping {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @Column(length = 10)
-    private String side;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "side", length = 20)
+    private Side side;
 
+    @Column(name = "goal_vision", length = 255)
     private String goalVision;
+
+    @Column(name = "goal_sensor", length = 255)
     private String goalSensor;
 
     protected ExercisePatientMapping() {}
 
-    public ExercisePatientMapping(Exercise exercise, Patient patient, String side) {
+    public ExercisePatientMapping(Exercise exercise, Patient patient, Side side) {
         this.exercise = exercise;
         this.patient = patient;
         this.side = side;
