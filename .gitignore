@@ -15,3 +15,4 @@ secrets.h
 __pycache__/
 venv_*/
 tmp/
+tmp2/
