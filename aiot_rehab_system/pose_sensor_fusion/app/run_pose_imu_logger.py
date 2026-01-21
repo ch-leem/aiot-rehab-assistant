@@ -8,7 +8,7 @@ from typing import Dict, Optional, Tuple, List, Any
 import cv2
 import numpy as np
 
-from pose_sensor_fusion.imu.udp_buffer import ImuUdpBuffer
+from pose_sensor_fusion.imu.imu_udp_buffer import ImuUdpBuffer
 from pose_sensor_fusion.log.csv_logger import CsvLogger
 
 from pose_sensor_fusion.vendor.realsense_ai_api import RealSenseAIApi, FrameBundle
