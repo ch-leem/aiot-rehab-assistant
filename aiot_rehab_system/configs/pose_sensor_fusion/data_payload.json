@@ -1,0 +1,29 @@
+{
+  "name": "pose_imu_payload",
+  "version": "v1",
+  "description": "Pose and IMU sensor fusion data payload sent to server. Field order is significant.",
+  "base_fields": [
+    "frame_idx",
+    "video_ts_ms",
+    "host_ts_ms",
+    "fps_ema",
+    "imu_v_cmps",
+    "imu_seq",
+    "imu_ts_ms",
+    "imu_age_ms",
+    "imu_used_interp",
+    "r_elbow_deg",
+    "l_elbow_deg",
+    "r_wrist_speed_mps",
+    "l_wrist_speed_mps"
+  ],
+  "joints": {
+    "num_joints": 17,
+    "fields_per_joint": ["x_m", "y_m", "z_m", "conf"],
+    "prefix": "j"
+  },
+  "extra_fields": [
+    "rw_conf",
+    "lw_conf"
+  ]
+}
