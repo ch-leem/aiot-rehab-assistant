@@ -1,6 +1,6 @@
 package com.example.iot.domain;
 
-import com.example.iot.constant.TryResult; // constant 패키지 임포트
+import com.example.iot.domain.constant.TryResult; // constant 패키지 임포트
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,7 +22,7 @@ public class Try {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "result", length = 20)
-    private TryResult result; // 추가된 결과 컬럼
+    private TryResult result;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fail_id")
