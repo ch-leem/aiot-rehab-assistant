@@ -27,9 +27,9 @@ public class PatientResponse {
                 .id(patient.getId())
                 .name(patient.getName())
                 .age(calculatedAge)
-                .gender(patient.getGender())
+                .gender(patient.getGender() != null ? patient.getGender().name() : null)
                 .diseaseName(patient.getDiseaseName())
-                .rehabPhase(patient.getRehabPhase())
+                .rehabPhase(patient.getRehabPhase() != null ? patient.getRehabPhase().name() : null)
                 .build();
     }
 }

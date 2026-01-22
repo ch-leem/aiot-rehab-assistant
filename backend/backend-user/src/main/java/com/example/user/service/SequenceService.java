@@ -47,10 +47,8 @@ public class SequenceService {
         SessionSummary summary = summaryRepository.findById(sequenceId).orElse(null);
 
         // 3. 해당 시퀀스에 속한 세션(운동) 리스트 조회
-        // 엔티티에 세션 리스트 역참조가 없으므로 Repository를 통해 sequence_id로 필터링
-        // (실제 서비스에서는 sessionRepository에 findBySequence_Id 커스텀 메서드를 작성하는 것이 성능상 유리합니다)
         List<Session> sessions = sessionRepository.findAll().stream()
-                .filter(s -> s.getSequence().getId().equals(sequenceId))
+                .filter(s -> s.getSequence() != null && s.getSequence().getId().equals(sequenceId))
                 .toList();
 
         return SequenceDetailResponse.builder()

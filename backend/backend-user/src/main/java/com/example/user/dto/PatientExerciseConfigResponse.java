@@ -21,7 +21,7 @@ public class PatientExerciseConfigResponse {
                 .exerciseId(mapping.getExercise().getId())
                 .exerciseName(mapping.getExercise().getName())
                 .exerciseDescription(mapping.getExercise().getDescription())
-                .side(mapping.getSide())
+                .side(mapping.getSide() != null ? mapping.getSide().name() : null)
                 .goalVision(mapping.getGoalVision())
                 .goalSensor(mapping.getGoalSensor())
                 .build();

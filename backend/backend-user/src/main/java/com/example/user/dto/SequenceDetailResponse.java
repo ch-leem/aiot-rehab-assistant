@@ -22,8 +22,8 @@ public class SequenceDetailResponse {
     @Getter
     @Builder
     public static class SummaryInfo {
-        private Integer totalTrials;
-        private Integer successTrials;
+        private Long totalTrials;
+        private Long successTrials;
         private Double avgAngle;
         private Double inTargetRate;
         private String stabilityLevel;

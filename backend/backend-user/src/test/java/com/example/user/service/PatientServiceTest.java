@@ -1,6 +1,8 @@
 package com.example.user.service;
 
 import com.example.iot.domain.Patient;
+import com.example.iot.domain.constant.Gender;
+import com.example.iot.domain.constant.RehabPhase;
 import com.example.iot.repository.PatientRepository;
 import com.example.user.dto.PatientResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -34,15 +36,15 @@ class PatientServiceTest {
         LocalDate birthDate = LocalDate.now().minusYears(30);
 
         // 필드 순서: id, name, birthDate, gender, diseaseName, rehabPhase, createdAt
-        Patient patient = new Patient(
-                patientId,
-                "홍길동",
-                birthDate,
-                "M",
-                "뇌졸중",
-                "회복기",
-                LocalDateTime.now() // createdAt 자리
-        );
+        Patient patient = Patient.builder()
+                .id(patientId)
+                .name("홍길동")
+                .birthDate(birthDate)
+                .gender(Gender.MALE)    // 실제 Enum 상수에 맞게 수정 (M 또는 MALE)
+                .diseaseName("뇌졸중")
+                .rehabPhase(RehabPhase.MIDDLE) // 실제 Enum 상수에 맞게 수정 (MID 또는 MIDDLE)
+                .createdAt(LocalDateTime.now())
+                .build();
 
         given(patientRepository.findById(patientId)).willReturn(Optional.of(patient));
 

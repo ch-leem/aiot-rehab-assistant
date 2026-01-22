@@ -33,7 +33,15 @@ class SequenceServiceTest {
     void getPatientSequencesTest() {
         // given
         Long patientId = 1L;
-        Patient patient = new Patient(patientId, "홍길동", null, null, null, null, null);
+        Patient patient = Patient.builder()
+                .id(patientId)
+                .name("홍길동")
+                .birthDate(null)
+                .gender(null)
+                .diseaseName(null)
+                .rehabPhase(null)
+                .createdAt(null)
+                .build();
 
         // 1. 존재하는 생성자 public Sequence(Patient patient) 사용
         Sequence seq1 = new Sequence(patient);
