@@ -22,27 +22,32 @@ public class PatientController {
     private final ExerciseService exerciseService;
 
     @GetMapping("/{patientId}")
-    public ResponseEntity<PatientResponse> getPatient(@PathVariable Long patientId) {
-        return ResponseEntity.ok(patientService.getPatientDetail(patientId));
+    public ResponseEntity<ApiResponse<PatientResponse>> getPatient(@PathVariable Long patientId) {
+        PatientResponse data = patientService.getPatientDetail(patientId);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/{patientId}/sequences")
-    public ResponseEntity<List<SequenceResponse>> getPatientSequences(@PathVariable Long patientId) {
-        return ResponseEntity.ok(sequenceService.getPatientSequences(patientId));
+    public ResponseEntity<ApiResponse<List<SequenceResponse>>> getPatientSequences(@PathVariable Long patientId) {
+        List<SequenceResponse> data = sequenceService.getPatientSequences(patientId);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/sequences/{sequenceId}")
-    public ResponseEntity<SequenceDetailResponse> getSequenceDetail(@PathVariable Long sequenceId) {
-        return ResponseEntity.ok(sequenceService.getSequenceDetail(sequenceId));
+    public ResponseEntity<ApiResponse<SequenceDetailResponse>> getSequenceDetail(@PathVariable Long sequenceId) {
+        SequenceDetailResponse data = sequenceService.getSequenceDetail(sequenceId);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/sessions/{sessionId}")
-    public ResponseEntity<SessionDetailResponse> getSessionDetail(@PathVariable Long sessionId) {
-        return ResponseEntity.ok(sessionService.getSessionDetail(sessionId));
+    public ResponseEntity<ApiResponse<SessionDetailResponse>> getSessionDetail(@PathVariable Long sessionId) {
+        SessionDetailResponse data = sessionService.getSessionDetail(sessionId);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/{patientId}/exercises")
-    public ResponseEntity<List<PatientExerciseConfigResponse>> getPatientExercises(@PathVariable Long patientId) {
-        return ResponseEntity.ok(exerciseService.getPatientExerciseConfigs(patientId));
+    public ResponseEntity<ApiResponse<List<PatientExerciseConfigResponse>>> getPatientExercises(@PathVariable Long patientId) {
+        List<PatientExerciseConfigResponse> data = exerciseService.getPatientExerciseConfigs(patientId);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 }
