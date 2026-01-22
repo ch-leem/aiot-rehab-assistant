@@ -28,6 +28,21 @@ services:
       - redis-data:/data
     networks: [appnet]
 
+  ingest-api:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile
+    container_name: ingest-api
+    ports:
+      - "${INGEST_PORT}:8000"
+    environment:
+      REDIS_HOST: rehab-redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
   iot-api:
     build:
       context: ./backend
