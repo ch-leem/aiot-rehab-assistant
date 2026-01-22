@@ -7,6 +7,7 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -33,7 +34,9 @@ public class Patient {
     @Column(length = 20)
     private Gender gender;
 
-    // 명세서에는 없지만 코드에 있던 필드 (필요시 명세서 업데이트)
+    @Column(precision = 5, scale = 2)
+    private BigDecimal weight;
+
     private String diseaseName;
 
     @Enumerated(EnumType.STRING)

@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -27,6 +29,7 @@ public class PatientInitializer implements CommandLineRunner {
                 .birthDate(LocalDate.of(1994, 5, 20))
                 .gender(Gender.MALE)
                 .rehabPhase(RehabPhase.MIDDLE)
+                .createdAt(LocalDateTime.now())
                 .build();
         patientRepository.save(p1);
 
@@ -35,6 +38,7 @@ public class PatientInitializer implements CommandLineRunner {
                 .birthDate(LocalDate.of(1999, 2, 10))
                 .gender(Gender.MALE)
                 .rehabPhase(RehabPhase.MIDDLE)
+                .createdAt(LocalDateTime.now())
                 .build();
         patientRepository.save(p2);
 
