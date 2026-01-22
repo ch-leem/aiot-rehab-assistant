@@ -47,7 +47,7 @@ public class PatientExerciseService {
         Exercise exercise = exerciseRepository.findById(exerciseId)
                 .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다."));
 
-        Side side = Side.valueOf(request.getSide().toUpperCase());
+        Side side = request.getSide();
 
         ExercisePatientMapping mapping = new ExercisePatientMapping(exercise, patient, side);
 

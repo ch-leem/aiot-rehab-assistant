@@ -1,5 +1,7 @@
 package com.example.iot.dto.response;
 
+import com.example.iot.domain.constant.RehabPhase;
+
 import java.util.List;
 
 public record PatientSummaryResponse (
@@ -7,7 +9,7 @@ public record PatientSummaryResponse (
     Long therapistId,
     String name,
     String disease_name,
-    String rehab_phase,
+    RehabPhase rehab_phase,
     String therapistName,
     List<Long> exerciseIds
 ){}

@@ -1,12 +1,14 @@
 package com.example.iot.dto.request;
 
+import com.example.iot.domain.constant.Side;
+
 public class PatientExerciseAssignRequest {
 
-    private String side;              // LEFT / RIGHT
+    private Side side;              // LEFT / RIGHT
     private String goalSensor;     // nullable
     private String goalVision;     // nullable
 
-    public String getSide() {
+    public Side getSide() {
         return side;
     }
 
