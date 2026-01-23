@@ -59,7 +59,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     expose:
-    - "8080"
+      - "8080"
     networks: [appnet]
 
   user-api:
@@ -80,7 +80,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     expose:
-      - "80"
+      - "8080"
     networks: [appnet]
 
   frontend:
@@ -88,8 +88,8 @@ services:
     container_name: rehab-frontend-ui
     restart: unless-stopped
     depends_on: [iot-api, user-api]
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     networks: [appnet]
 
   nginx:
@@ -104,6 +104,8 @@ services:
       - ./nginx/certs:/etc/letsencrypt:ro
     depends_on:
       - user-api
+      - iot-api
+      - frontend
     networks:
       - appnet
     restart: always
