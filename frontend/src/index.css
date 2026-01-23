@@ -1,11 +1,11 @@
 :root {
-  --ink: #2b2a26;
-  --muted: #5f5a52;
+  --ink: #2a2723;
+  --muted: #5a564f;
   --antique-ink: #3a3631;
   --shadow: 0 20px 48px rgba(36, 32, 26, 0.12);
-  --warm-sand: #f7efe4;
-  --warm-cream: #fff7ed;
-  --warm-accent: #f4b14f;
+  --warm-sand: #f7e8c8;
+  --warm-cream: #fffdf8;
+  --warm-accent: #e7b75a;
   --warm-accent-ink: #4a2f12;
   --font-display: "Gmarket Sans", "Pretendard", "Noto Sans KR",
     "Apple SD Gothic Neo", sans-serif;
@@ -21,7 +21,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--font-display);
-  background: #f7f2e9;
+  background: #f7e8c8;
   color: var(--ink);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
