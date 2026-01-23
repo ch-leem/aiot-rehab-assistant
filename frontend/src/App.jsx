@@ -313,52 +313,29 @@ export default function App() {
       {screen === SCREEN.EXERCISE_SESSION && (
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
-          <h1>동작 진행 중</h1>
-          <p className="lead">
-            {currentExercise.title}을(를) 천천히 진행해주세요.
-          </p>
-          <div className="auto-hint">동작 인식 중입니다.</div>
           <div className="session-visual">
             3D 반응형 화면 자리
           </div>
-          <div className="session-panel">
+          <div className="session-panel session-panel-next">
             <div className="session-bar">
               <span />
             </div>
             <div className="card-meta">현재 {setIndex}/3 세트</div>
           </div>
-          <div className="cta-row">
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => setScreen(SCREEN.EXERCISE_INTRO)}
-            >
-              설명으로
-            </button>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() =>
-                setSetIndex((prev) => (prev < 3 ? prev + 1 : prev))
+          <button
+            className="ghost-button session-next"
+            type="button"
+            onClick={() => {
+              if (exerciseIndex < EXERCISES.length - 1) {
+                setExerciseIndex((prev) => prev + 1);
+                setScreen(SCREEN.EXERCISE_INTRO);
+              } else {
+                setScreen(SCREEN.EXERCISE_RESULT);
               }
-            >
-              동작 1회 완료
-            </button>
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => {
-                if (exerciseIndex < EXERCISES.length - 1) {
-                  setExerciseIndex((prev) => prev + 1);
-                  setScreen(SCREEN.EXERCISE_INTRO);
-                } else {
-                  setScreen(SCREEN.EXERCISE_RESULT);
-                }
-              }}
-            >
-              다음 단계
-            </button>
-          </div>
+            }}
+          >
+            다음 단계
+          </button>
         </div>
       )}
       {screen === SCREEN.EXERCISE_RESULT && (
@@ -413,35 +390,34 @@ export default function App() {
                 <div className="card-title">상체 + 하체 성공 횟수</div>
                 <div className="card-meta">오늘 수행한 전체 동작 기준</div>
                 <div className="donut-grid">
-                  <div className="donut-wrap">
-                    <div className="donut upper" style={{ "--fill": "83%" }} />
-                    <div className="donut-center">
+                  <div className="donut-item">
+                    <div className="donut-wrap">
+                      <div className="donut upper" style={{ "--fill": "83%" }} />
+                    </div>
+                    <div className="donut-text">
                       <div className="donut-value">10/12</div>
-                      <div className="donut-label">상체 성공</div>
+                      <div className="donut-label">
+                        <span className="legend-dot upper" />
+                        상체 성공
+                      </div>
                     </div>
                   </div>
-                  <div className="donut-wrap">
-                    <div className="donut lower" style={{ "--fill": "66%" }} />
-                    <div className="donut-center">
+                  <div className="donut-item">
+                    <div className="donut-wrap">
+                      <div className="donut lower" style={{ "--fill": "66%" }} />
+                    </div>
+                    <div className="donut-text">
                       <div className="donut-value">8/12</div>
-                      <div className="donut-label">하체 성공</div>
+                      <div className="donut-label">
+                        <span className="legend-dot lower" />
+                        하체 성공
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="donut-legend">
-                  <div className="legend-item">
-                    <span className="legend-dot upper" />
-                    상체 10/12
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-dot lower" />
-                    하체 8/12
                   </div>
                 </div>
               </div>
               <div className="chart-card">
                 <div className="card-title">최근 5번 정확도 추이</div>
-                <div className="card-meta">조금씩 안정적으로 유지 중</div>
                 <div className="bar-chart">
                   <div className="bar bar-1" />
                   <div className="bar bar-2" />
