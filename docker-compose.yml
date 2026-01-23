@@ -36,7 +36,7 @@ services:
     ports:
       - "${INGEST_PORT}:8000"
     environment:
-      REDIS_HOST: rehab-redis
+      REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
       - redis
