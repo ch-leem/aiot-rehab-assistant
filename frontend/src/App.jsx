@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import MainLayout from "./components/MainLayout";
 import PatientCheck from "./components/PatientCheck";
@@ -14,26 +14,21 @@ const SCREEN = {
   EXERCISE_RESULT: "exercise-result",
 };
 
-const EXERCISES = [
-  {
-    title: "팔 들어 올리기",
-    duration: "약 3분",
+const EXERCISE_CATALOG = {
+  1: {
+    title: "팔 들어올리기 운동",
+    duration: "예상 3분",
     caution: "어깨가 올라가지 않도록 자연스럽게 움직여주세요.",
     instruction: "팔을 천천히 들어 올리고 2초 유지한 뒤 내려주세요.",
   },
-  {
-    title: "팔 내리기",
-    duration: "약 2분",
-    caution: "호흡을 유지하면서 천천히 내려주세요.",
-    instruction: "팔을 천천히 내려 바닥을 향해 편안하게 움직여주세요.",
+  2: {
+    title: "하체 힘 회복 운동",
+    duration: "예상 3분",
+    caution: "무릎이 과하게 앞으로 나가지 않도록 천천히 진행해주세요.",
+    instruction: "하체에 힘을 주며 천천히 움직이고 균형을 유지해주세요.",
   },
-  {
-    title: "팔 좌우 이동",
-    duration: "약 2분",
-    caution: "몸통은 고정한 채 팔만 움직여주세요.",
-    instruction: "팔을 좌우로 천천히 이동하며 범위를 유지해주세요.",
-  },
-];
+};
+const API_BASE_URL = "http://70.12.246.185:8083";
 
 const RESULT_RULES = [
   {
@@ -42,15 +37,15 @@ const RESULT_RULES = [
     summary: "오늘은 몸을 풀어보는 연습을 했어요.",
     change: "오늘은 몸을 푸는 데 집중했어요.",
     next: "다음에는 천천히 같은 동작을 다시 해볼게요.",
-    tag: "수고",
+    tag: "준비",
   },
   {
     min: 3,
     max: 5,
     summary: "오늘은 동작을 익히는 연습을 했어요.",
-    change: "동작 흐름을 천천히 익혀가는 중이에요.",
+    change: "동작 흐름을 천천히 이어가는 중이에요.",
     next: "같은 방법으로 조금 더 시도해볼게요.",
-    tag: "꾸준히",
+    tag: "적응",
   },
   {
     min: 6,
@@ -64,7 +59,7 @@ const RESULT_RULES = [
     min: 8,
     max: 9,
     summary: "오늘은 동작을 안정적으로 잘 수행했어요.",
-    change: "동작이 더 부드럽게 이어졌어요.",
+    change: "동작 흐름이 부드럽게 이어졌어요.",
     next: "다음에는 모든 동작을 완성해볼 수 있어요.",
     tag: "좋아요",
   },
@@ -72,7 +67,7 @@ const RESULT_RULES = [
     min: 10,
     max: 10,
     summary: "오늘 목표한 동작을 모두 완료했어요.",
-    change: "흐름이 매끄럽게 이어졌어요.",
+    change: "이전보다 자신 있게 움직였어요.",
     next: "다음 운동도 같은 방법으로 진행하면 됩니다.",
     tag: "완료",
   },
@@ -85,12 +80,18 @@ export default function App() {
   const [screen, setScreen] = useState(SCREEN.LOGIN);
   const [patientId, setPatientId] = useState("");
   const [nurseId, setNurseId] = useState("");
+  const [therapistName, setTherapistName] = useState("");
+  const [patientName, setPatientName] = useState("");
+  const [diseaseName, setDiseaseName] = useState("");
+  const [rehabPhase, setRehabPhase] = useState("");
+  const [exerciseIds, setExerciseIds] = useState([]);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState("");
   const stageTotal = 5;
   const [postureChecked, setPostureChecked] = useState(false);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [setIndex, setSetIndex] = useState(1);
-  const [countdown, setCountdown] = useState(0);
-  const autoSeconds = 5;
+  const [exerciseDetails, setExerciseDetails] = useState({});
 
   const stageLabel = useMemo(() => {
     switch (screen) {
@@ -128,11 +129,42 @@ export default function App() {
     }
   }, [screen]);
 
-  const handleLogin = ({ nextPatientId, nextNurseId }) => {
-    setPatientId(nextPatientId);
-    setNurseId(nextNurseId);
-    setExerciseIndex(0);
-    setScreen(SCREEN.PATIENT_CHECK);
+  const cameraNotice = useMemo(() => {
+    if (screen === SCREEN.PATIENT_CHECK) {
+      return "카메라 화면에 팔과 어깨가 모두 보이도록 앉아주세요.";
+    }
+    if (screen === SCREEN.EXERCISE_INTRO && !postureChecked) {
+      return "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.";
+    }
+    return "";
+  }, [screen, postureChecked]);
+
+  const handleLogin = async ({ nextPatientId, nextNurseId }) => {
+    setIsLoggingIn(true);
+    setLoginError("");
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        throw new Error("로그인 정보를 확인해주세요.");
+      }
+      const data = await res.json();
+      setPatientId(String(data.patientId ?? nextPatientId));
+      setNurseId(String(data.therapistId ?? nextNurseId));
+      setTherapistName(data.therapistName ?? "");
+      setPatientName(data.name ?? "");
+      setDiseaseName(data.disease_name ?? "");
+      setRehabPhase(data.rehab_phase ?? "");
+      setExerciseIds(Array.isArray(data.exerciseIds) ? data.exerciseIds : []);
+      setExerciseIndex(0);
+      setScreen(SCREEN.PATIENT_CHECK);
+    } catch (err) {
+      setLoginError("로그인에 실패했습니다. 입력값을 확인해주세요.");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const moveToExerciseIntro = () => {
@@ -140,33 +172,36 @@ export default function App() {
     setScreen(SCREEN.EXERCISE_INTRO);
   };
 
-  const currentExercise = EXERCISES[exerciseIndex];
+  const todayExerciseIds = exerciseIds
+    .map((id) => Number(id))
+    .filter((id) => id in EXERCISE_CATALOG);
+  const todayExercises = todayExerciseIds.map((id) => EXERCISE_CATALOG[id]);
+  const currentExerciseId = todayExerciseIds[exerciseIndex];
+  const currentExerciseDetail = currentExerciseId
+    ? exerciseDetails[currentExerciseId]
+    : null;
+  const currentExercise = {
+    title:
+      currentExerciseDetail?.name ??
+      todayExercises[exerciseIndex]?.title ??
+      EXERCISE_CATALOG[1].title,
+    instruction:
+      currentExerciseDetail?.description ??
+      todayExercises[exerciseIndex]?.instruction ??
+      EXERCISE_CATALOG[1].instruction,
+    caution:
+      currentExerciseDetail?.precautions ??
+      todayExercises[exerciseIndex]?.caution ??
+      EXERCISE_CATALOG[1].caution,
+    postureGuide:
+      currentExerciseDetail?.postureGuide ??
+      "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
+  };
   const successCount = 8;
   const resultRule =
     RESULT_RULES.find(
       (rule) => successCount >= rule.min && successCount <= rule.max
     ) ?? RESULT_RULES[0];
-
-  useEffect(() => {
-    if (screen !== SCREEN.EXERCISE_LIST) {
-      setCountdown(0);
-      return;
-    }
-    const endTime = Date.now() + autoSeconds * 1000;
-    const tick = () => {
-      const next = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
-      setCountdown(next);
-    };
-    tick();
-    const interval = setInterval(tick, 250);
-    const timeout = setTimeout(() => {
-      moveToExerciseIntro();
-    }, autoSeconds * 1000);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, [screen, autoSeconds]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO) return;
@@ -176,6 +211,27 @@ export default function App() {
     }, 6000);
     return () => clearTimeout(timeout);
   }, [screen, exerciseIndex]);
+
+  useEffect(() => {
+    if (!currentExerciseId) return;
+    if (exerciseDetails[currentExerciseId]) return;
+    const fetchDetail = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/exercises/${currentExerciseId}`, {
+          method: "GET",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setExerciseDetails((prev) => ({
+          ...prev,
+          [currentExerciseId]: data,
+        }));
+      } catch {
+        // ignore fetch errors for now
+      }
+    };
+    fetchDetail();
+  }, [currentExerciseId]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
@@ -202,8 +258,15 @@ export default function App() {
       stageIndex={stageIndex}
       stageTotal={stageTotal}
       hideCamera={screen === SCREEN.EXERCISE_RESULT}
+      cameraNotice={cameraNotice || undefined}
     >
-      {screen === SCREEN.LOGIN && <Login onSubmit={handleLogin} />}
+      {screen === SCREEN.LOGIN && (
+        <Login
+          onSubmit={handleLogin}
+          isLoading={isLoggingIn}
+          errorMessage={loginError}
+        />
+      )}
       {screen === SCREEN.PATIENT_CHECK && (
         <PatientCheck
           onStart={() => {
@@ -211,6 +274,11 @@ export default function App() {
             setScreen(SCREEN.EXERCISE_LIST);
           }}
           onBack={() => setScreen(SCREEN.LOGIN)}
+          patientId={patientId}
+          patientName={patientName}
+          diseaseName={diseaseName}
+          rehabPhase={rehabPhase}
+          exerciseIds={exerciseIds}
         />
       )}
       {screen === SCREEN.EXERCISE_LIST && (
@@ -218,33 +286,24 @@ export default function App() {
           <div className="screen-label">오늘의 운동</div>
           <h1>오늘의 재활 운동</h1>
           <p className="lead">
-            오늘 해야 할 3가지 동작이 준비되어 있습니다.
+            오늘 해야 할 {todayExercises.length}가지 동작이 준비되어 있습니다.
           </p>
-          <div className="auto-hint">
-            5초 뒤에 운동 설명으로 넘어갑니다{" "}
-            <strong className="countdown-chip">{countdown}초</strong>
-          </div>
-          <div className="placeholder-card">
-            <div>
-              <div className="card-title">1. 팔 들어 올리기</div>
-              <div className="card-meta">예상 3분</div>
+          {todayExercises.map((exercise, index) => (
+            <div
+              key={`${exercise.title}-${index}`}
+              className={`placeholder-card${index === 0 ? "" : " muted"}`}
+            >
+              <div>
+                <div className="card-title">
+                  {index + 1}. {exercise.title}
+                </div>
+                <div className="card-meta">{exercise.duration}</div>
+              </div>
+              <span className={`card-badge${index === 0 ? "" : " subtle"}`}>
+                {index === 0 ? "대표 동작" : "대기"}
+              </span>
             </div>
-            <span className="card-badge">대표 동작</span>
-          </div>
-          <div className="placeholder-card muted">
-            <div>
-              <div className="card-title">2. 팔 내리기</div>
-              <div className="card-meta">예상 2분</div>
-            </div>
-            <span className="card-badge subtle">대기</span>
-          </div>
-          <div className="placeholder-card muted">
-            <div>
-              <div className="card-title">3. 팔 좌우 이동</div>
-              <div className="card-meta">예상 2분</div>
-            </div>
-            <span className="card-badge subtle">대기</span>
-          </div>
+          ))}
           <div className="cta-row">
             <button
               className="ghost-button"
@@ -272,9 +331,7 @@ export default function App() {
             <div className="info-card">
               <div>
                 <div className="card-title">주의사항</div>
-                <div className="card-meta">
-                  {currentExercise.caution}
-                </div>
+                <div className="card-meta">{currentExercise.caution}</div>
               </div>
             </div>
           </div>
@@ -282,7 +339,7 @@ export default function App() {
             <div>
               <div className="card-title">자세 확인</div>
               <div className="card-meta">
-                카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.
+                {currentExercise.postureGuide}
               </div>
             </div>
             <button
@@ -296,7 +353,7 @@ export default function App() {
           </div>
           <div className="auto-hint">
             {postureChecked
-              ? "인식 완료. 곧 운동을 시작합니다."
+              ? "인식 완료. 곧 운동이 시작됩니다."
               : "인식 대기 중입니다."}
           </div>
           <div className="cta-row">
@@ -321,9 +378,7 @@ export default function App() {
       {screen === SCREEN.EXERCISE_SESSION && (
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
-          <div className="session-visual">
-            3D 반응형 화면 자리
-          </div>
+          <div className="session-visual">3D 반응형 화면 자리</div>
           <div className="session-panel session-panel-next">
             <div className="session-bar">
               <span />
@@ -334,7 +389,7 @@ export default function App() {
             className="ghost-button session-next"
             type="button"
             onClick={() => {
-              if (exerciseIndex < EXERCISES.length - 1) {
+              if (exerciseIndex < todayExercises.length - 1) {
                 setExerciseIndex((prev) => prev + 1);
                 setScreen(SCREEN.EXERCISE_INTRO);
               } else {
@@ -441,3 +496,6 @@ export default function App() {
     </MainLayout>
   );
 }
+
+
+

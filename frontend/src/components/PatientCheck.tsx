@@ -1,9 +1,37 @@
-type PatientCheckProps = {
+﻿type PatientCheckProps = {
   onStart: () => void;
   onBack: () => void;
+  patientId?: string;
+  patientName?: string;
+  diseaseName?: string;
+  rehabPhase?: string;
+  exerciseIds?: number[];
 };
 
-export default function PatientCheck({ onStart, onBack }: PatientCheckProps) {
+export default function PatientCheck({
+  onStart,
+  onBack,
+  patientId,
+  patientName,
+  diseaseName,
+  rehabPhase,
+  exerciseIds = [],
+}: PatientCheckProps) {
+  const nameLabel = patientName ? `${patientName} 님` : "환자 님";
+  const diseaseLabel = diseaseName || "-";
+  const phaseLabel = rehabPhase || "-";
+  const goalLabel = (() => {
+    const hasUpper = exerciseIds.includes(1);
+    const hasLower = exerciseIds.includes(2);
+    const total = (hasUpper ? 1 : 0) + (hasLower ? 1 : 0);
+    if (total === 0) return "오늘 운동 없음";
+    const lines: string[] = [];
+    if (hasLower) lines.push("하체 1단계");
+    if (hasUpper) lines.push("상체 1단계");
+    lines.push(`총 ${total}단계`);
+    return lines.join(" · ");
+  })();
+
   return (
     <div className="patient-check enter">
       <div className="screen-label">환자 확인</div>
@@ -14,20 +42,20 @@ export default function PatientCheck({ onStart, onBack }: PatientCheckProps) {
       <div className="info-grid">
         <div className="info-card highlight">
           <div>
-            <div className="card-title">환자 번호 1203</div>
+            <div className="card-title">환자 정보</div>
             <div className="card-meta">
-              <span className="name-text">김민수 님</span> · 좌측 편마비 · 4주차
+              <div>환자 번호 {patientId || "-"}</div>
+              <div>이름 {nameLabel}</div>
+              <div>질환 정보 {diseaseLabel}</div>
+              <div>중증 단계 {phaseLabel}</div>
             </div>
           </div>
           <span className="id-badge">확인 필요</span>
         </div>
         <div className="info-card accent">
           <div className="card-title">오늘 목표</div>
-          <div className="card-meta">상체 동작 3세트 완료</div>
+          <div className="card-meta">{goalLabel}</div>
         </div>
-      </div>
-      <div className="notice">
-        카메라 화면에 팔과 어깨가 모두 보이도록 앉아주세요.
       </div>
       <div className="cta-row">
         <button className="primary-button" type="button" onClick={onStart}>

@@ -145,6 +145,16 @@
   color: var(--muted);
 }
 
+.camera-notice {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff4de;
+  border: 1px solid rgba(120, 96, 62, 0.25);
+  color: #4a2f12;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
 .camera-feed {
   position: relative;
   flex: 1;
@@ -714,6 +724,16 @@
   gap: 18px;
   width: 100%;
   padding: 0 32px 200px;
+}
+
+.login-error {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff4de;
+  border: 1px solid rgba(120, 96, 62, 0.25);
+  color: #4a2f12;
+  font-size: 1.05rem;
 }
 
 .login-box {
