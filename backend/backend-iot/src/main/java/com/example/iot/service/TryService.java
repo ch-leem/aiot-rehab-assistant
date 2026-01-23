@@ -3,6 +3,7 @@ package com.example.iot.service;
 import com.example.iot.domain.Fail;
 import com.example.iot.domain.Session;
 import com.example.iot.domain.Try;
+import com.example.iot.domain.constant.TryResult;
 import com.example.iot.dto.response.TryFinishResponse;
 import com.example.iot.repository.FailRepository;
 import com.example.iot.repository.SessionRepository;
@@ -56,33 +57,33 @@ public class TryService {
         double goalVision = round1(ThreadLocalRandom.current().nextDouble(0, 100)); // 예시
         // ===============================================
 
+        // goal 값 기록(필드가 String이면 String으로, Double이면 Double로 맞춰)
+        t.setGoalSensor(String.valueOf(goalSensor));
+        t.setGoalVision(String.valueOf(goalVision));
+        t.setEndedAt(LocalDateTime.now());
+
         Instant endedAt = Instant.now();
         //t.setEndedAt(endedAt);
 
         if (success) {
             // Try 성공 처리
-
+            t.setResult(TryResult.SUCCESS);
             t.setFail(null);
 
-            // session 성공 카운트 +1
-            //Session s = t.getSession(); // Try -> Session 연관관계 필요
-            //s.setSuccessCount(s.getSuccessCount()+1)  // 메서드 없으면 s.setSuccessCount(s.getSuccessCount()+1)
-           //sessionRepository.save(s);
+            Session s = t.getSession();
+            if (s != null) {
+                s.setSuccessTries(s.getSuccessTries() + 1);
+                sessionRepository.save(s);
+            }
 
         } else {
             // Try 실패 처리
-           // t.setResult(TryResult.FAIL);
-
-            // fail_id = 1 고정(임시)
-//            Fail fail = failRepository.findById(1L)
-//                    .orElseThrow(() -> new IllegalStateException("Fail id=1 not found"));
-//            t.setFail(fail);
+            t.setResult(TryResult.FAIL);
+            Fail fail = failRepository.findById("1").orElse(null);
+            t.setFail(fail);
         }
 
-        // goal 값 기록(필드가 String이면 String으로, Double이면 Double로 맞춰)
-        t.setGoalSensor(String.valueOf(goalSensor));
-        t.setGoalVision(String.valueOf(goalVision));
-        t.setEndedAt(LocalDateTime.now());
+
 
         String str = "";
 

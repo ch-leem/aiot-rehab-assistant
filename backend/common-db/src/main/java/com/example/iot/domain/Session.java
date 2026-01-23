@@ -49,4 +49,7 @@ public class Session {
     public void prePersist() {
         if (startedAt == null) startedAt = LocalDateTime.now();
     }
+    public void addSuccessTries() {
+        this.successTries++;
+    }
 }

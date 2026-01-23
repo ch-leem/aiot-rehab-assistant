@@ -39,7 +39,7 @@ public class SequenceService {
     @Transactional
     public SequenceStartResponse startSequence(Long patientId, SequenceStartRequest request) {
 
-        int tryCount = (request != null && request.tryCount() != null)
+        int finalTryCount = (request != null && request.tryCount() != null)
                 ? request.tryCount()
                 : DEFAULT_TRY_COUNT;
 
@@ -66,7 +66,7 @@ public class SequenceService {
             );
 
             List<Try> tries = new ArrayList<>();
-            for (int i = 1; i <= tryCount; i++) {
+            for (int i = 1; i <= finalTryCount; i++) {
                 tries.add(new Try(session));
             }
 
