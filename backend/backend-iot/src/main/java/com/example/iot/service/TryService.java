@@ -39,7 +39,7 @@ public class TryService {
         // 이미 끝난 try면 중복 처리 방지(선택)
         if (t.getEndedAt() != null) {
             // 이미 종료된 값 그대로 반환해도 되고, 에러로 막아도 됨
-            return toResponse(t);
+            return toResponse(t, "이미 종료되었습니다.");
         }
 
         // ======= (나중에 Redis 연동 들어갈 자리) =======
@@ -84,24 +84,36 @@ public class TryService {
         t.setGoalVision(String.valueOf(goalVision));
         t.setEndedAt(LocalDateTime.now());
 
+        String str = "";
+
+        if(goalSensor >= 80 && goalVision >= 70) {
+            str = "잘하고 계십니다!";
+        } else if( goalSensor < 80) {
+            str = "좀 더 힘을 눌러보세요.";
+        } else {
+            str = "움직임을 더 정확하게 해보세요.";
+        }
+
         tryRepository.save(t);
 
         return new TryFinishResponse(
                 t.getId(),
-                (t.getFail() == null ? "" : t.getFail().getName()), // failType
-                t.getGoalSensor(),
-                t.getGoalVision()
-                //t.getEndedAt()
+                str
+//                (t.getFail() == null ? "" : t.getFail().getName()), // failType
+//                t.getGoalSensor(),
+//                t.getGoalVision()
+//                t.getEndedAt()
         );
     }
 
-    private TryFinishResponse toResponse(Try t) {
+    private TryFinishResponse toResponse(Try t, String str) {
         return new TryFinishResponse(
                 t.getId(),
-                (t.getFail() == null ? "" : t.getFail().getName()),
-                t.getGoalSensor(),
-                t.getGoalVision()
-                //t.getEndedAt()
+                str
+//                (t.getFail() == null ? "" : t.getFail().getName()),
+//                t.getGoalSensor(),
+//                t.getGoalVision()
+//                t.getEndedAt()
         );
     }
 

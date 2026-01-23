@@ -1,8 +1,9 @@
 package com.example.iot.dto.response;
 
-public record TryFinishResponse(
+public record TryFinishResponse (
         Long tryId,
-        String failType,
-        String goalSensor,
-        String goalVision
+        String text
+//        String failType,
+//        String goalSensor,
+//        String goalVision
 ) {}
