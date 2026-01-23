@@ -8,6 +8,7 @@ type MainLayoutProps = {
   stageIndex?: number | null;
   stageTotal?: number;
   hideCamera?: boolean;
+  variant?: "patient" | "therapist";
 };
 
 export default function MainLayout({
@@ -18,6 +19,7 @@ export default function MainLayout({
   stageIndex,
   stageTotal = 5,
   hideCamera = false,
+  variant = "patient",
 }: MainLayoutProps) {
   const patientLabel = patientId ? `환자 번호: ${patientId}` : "환자 번호: 미확인";
   const nurseLabel = nurseId ? `의료인 번호: ${nurseId}` : "의료인 번호: 미확인";
@@ -25,7 +27,7 @@ export default function MainLayout({
     stageIndex && stageTotal ? `${stageIndex}/${stageTotal} 단계` : null;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${variant === "therapist" ? " therapist-shell" : ""}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark" />

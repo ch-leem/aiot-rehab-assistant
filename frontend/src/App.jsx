@@ -3,6 +3,7 @@ import "./App.css";
 import MainLayout from "./components/MainLayout";
 import PatientCheck from "./components/PatientCheck";
 import Login from "./components/Login";
+import TherapistUI from "./components/TherapistUI";
 
 const SCREEN = {
   LOGIN: "login",
@@ -78,6 +79,9 @@ const RESULT_RULES = [
 ];
 
 export default function App() {
+  const isTherapistRoute =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/therapist");
   const [screen, setScreen] = useState(SCREEN.LOGIN);
   const [patientId, setPatientId] = useState("");
   const [nurseId, setNurseId] = useState("");
@@ -185,6 +189,10 @@ export default function App() {
     if (screen !== SCREEN.EXERCISE_SESSION) return;
     setSetIndex(1);
   }, [screen, exerciseIndex]);
+
+  if (isTherapistRoute) {
+    return <TherapistUI />;
+  }
 
   return (
     <MainLayout
