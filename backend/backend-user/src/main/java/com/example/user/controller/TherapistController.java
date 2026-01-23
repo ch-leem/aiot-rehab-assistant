@@ -5,9 +5,11 @@ import com.example.user.dto.PatientReportResponse;
 import com.example.user.dto.TherapistDashboardResponse;
 import com.example.user.service.TherapistService;
 import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Therapist API", description = "치료사 및 환자 리포트 관련 API")
 @RestController
 @RequestMapping("/api/therapist")
 @RequiredArgsConstructor

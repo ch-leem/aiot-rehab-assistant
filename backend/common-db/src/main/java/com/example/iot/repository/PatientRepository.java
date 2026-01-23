@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface PatientRepository extends JpaRepository<Patient, Long> {
-    // 치료사 ID로 담당 환자 목록 조회
-    List<Patient> findByTherapist_Id(Long therapistId);
-
-    // 이름 검색 기능 추가
-    List<Patient> findByTherapist_IdAndNameContaining(Long therapistId, String name);
+    // 치료사 관련 메서드는 삭제하거나 주석 처리하고, 환자 고유 기능만 남깁니다.
+    // 예: 이름으로만 검색 (전체 환자 대상)
+    List<Patient> findByNameContaining(String name);
 }

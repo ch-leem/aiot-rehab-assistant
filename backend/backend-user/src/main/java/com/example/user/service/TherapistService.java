@@ -1,9 +1,12 @@
 package com.example.user.service;
 
 import com.example.iot.domain.Patient;
+import com.example.iot.domain.PatientTherapistMapping;
 import com.example.iot.domain.SessionSummary;
 import com.example.iot.domain.Therapist;
+import com.example.iot.domain.constant.PatientTherapistMappingStatus;
 import com.example.iot.repository.PatientRepository;
+import com.example.iot.repository.PatientTherapistMappingRepository; // 추가
 import com.example.iot.repository.SessionSummaryRepository;
 import com.example.iot.repository.TherapistRepository;
 import com.example.user.dto.PatientReportResponse;
@@ -23,27 +26,37 @@ import java.util.stream.Collectors;
 public class TherapistService {
 
     private final TherapistRepository therapistRepository;
-    private final PatientRepository patientRepository;
+    private final PatientRepository patientRepository; // 환자 상세 조회용으로 유지
     private final SessionSummaryRepository summaryRepository;
+    private final PatientTherapistMappingRepository mappingRepository; // 매핑 조회용 추가
 
     /**
-     * 치료사 대시보드 - 담당 환자 목록 조회 (검색어 포함 가능)
+     * 치료사 대시보드 - 담당 환자 목록 조회 (매핑 테이블 기반)
      */
     public TherapistDashboardResponse getDashboard(Long therapistId, String searchName) {
+        // 1. 치료사 정보 조회
         Therapist therapist = therapistRepository.findById(therapistId)
                 .orElseThrow(() -> new IllegalArgumentException("치료사를 찾을 수 없습니다."));
 
-        List<Patient> patients;
-        if (searchName != null && !searchName.isEmpty()) {
-            patients = patientRepository.findByTherapist_IdAndNameContaining(therapistId, searchName);
+        // 2. 매핑 테이블을 통해 환자 목록 조회 (문제가 되었던 부분 수정)
+        List<PatientTherapistMapping> mappings;
+        if (searchName != null && !searchName.trim().isEmpty()) {
+            mappings = mappingRepository.findAllByTherapistIdAndPatientName(
+                    therapistId, searchName, PatientTherapistMappingStatus.ACTIVE);
         } else {
-            patients = patientRepository.findByTherapist_Id(therapistId);
+            mappings = mappingRepository.findAllByTherapistIdAndStatus(
+                    therapistId, PatientTherapistMappingStatus.ACTIVE);
         }
+
+        // 3. 매핑 정보에서 환자 객체를 꺼내 DTO로 변환
+        List<TherapistDashboardResponse.PatientListItem> patientList = mappings.stream()
+                .map(mapping -> mapToListItem(mapping.getPatient()))
+                .collect(Collectors.toList());
 
         return TherapistDashboardResponse.builder()
                 .therapistId(therapist.getId())
                 .therapistName(therapist.getName())
-                .patients(patients.stream().map(this::mapToListItem).collect(Collectors.toList()))
+                .patients(patientList)
                 .build();
     }
 
@@ -51,10 +64,10 @@ public class TherapistService {
      * 특정 환자의 리포트 상세 데이터 조회
      */
     public PatientReportResponse getPatientReport(Long patientId) {
+        // 특정 환자 1명을 찾을 때는 기존 patientRepository를 써도 무방합니다.
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new IllegalArgumentException("환자를 찾을 수 없습니다."));
 
-        // 가장 최근의 요약 정보를 가져온다고 가정 (ID 기준 최신순)
         SessionSummary summary = summaryRepository.findFirstBySequence_Patient_IdOrderByIdDesc(patientId)
                 .orElse(null);
 
@@ -69,6 +82,9 @@ public class TherapistService {
                 .build();
     }
 
+    /**
+     * 기존의 나이 계산 로직 및 성별 포함
+     */
     private TherapistDashboardResponse.PatientListItem mapToListItem(Patient patient) {
         int age = 0;
         if (patient.getBirthDate() != null) {
