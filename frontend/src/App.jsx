@@ -143,6 +143,28 @@ export default function App() {
     setIsLoggingIn(true);
     setLoginError("");
     try {
+      const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+      if (useMock) {
+        const mockData = {
+          patientId: Number(nextPatientId) || 1203,
+          therapistId: Number(nextNurseId) || 8451,
+          name: "홍길동",
+          disease_name: "좌측 편마비",
+          rehab_phase: "MIDDLE",
+          therapistName: "담당 치료사",
+          exerciseIds: [1, 2],
+        };
+        setPatientId(String(mockData.patientId));
+        setNurseId(String(mockData.therapistId));
+        setTherapistName(mockData.therapistName);
+        setPatientName(mockData.name);
+        setDiseaseName(mockData.disease_name);
+        setRehabPhase(mockData.rehab_phase);
+        setExerciseIds(mockData.exerciseIds);
+        setExerciseIndex(0);
+        setScreen(SCREEN.PATIENT_CHECK);
+        return;
+      }
       const res = await fetch(
         `${API_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
         { method: "GET" }
