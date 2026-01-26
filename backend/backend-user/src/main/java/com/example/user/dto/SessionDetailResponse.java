@@ -19,10 +19,21 @@ public class SessionDetailResponse {
         private Long tryId;
         private LocalDateTime startedAt;
         private LocalDateTime endedAt;
-        private String goalSensor;
-        private String goalVision;
+        private Double totalScore;
         private boolean isSuccess;
-        private String failName; // Fail 엔티티에서 가져옴
+        private String failName;
         private String failDescription;
+
+        // 상세 목표 결과 리스트 추가
+        private List<GoalDetailDto> goalDetails;
+    }
+
+    @Getter
+    @Builder
+    public static class GoalDetailDto {
+        private String name;
+        private Double measured;
+        private Double target;
+        private String unit;
     }
 }

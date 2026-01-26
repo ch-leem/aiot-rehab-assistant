@@ -2,6 +2,7 @@ package com.example.user.service;
 
 import com.example.iot.domain.Session;
 import com.example.iot.domain.Try;
+import com.example.iot.domain.TryGoalResult; // 추가
 import com.example.iot.repository.SessionRepository;
 import com.example.iot.repository.TryRepository;
 import com.example.user.dto.SessionDetailResponse;
@@ -21,15 +22,11 @@ public class SessionService {
     private final TryRepository tryRepository;
 
     public SessionDetailResponse getSessionDetail(Long sessionId) {
-        // 1. 세션 기본 정보 및 운동 정보 조회
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다. ID: " + sessionId));
 
-        // 2. 해당 세션에 속한 모든 시도(Try) 조회
-        // 현재는 전체 조회 후 필터링하지만, 나중에 TryRepository에 findBySession_Id를 추가하는 것이 좋습니다.
-        List<Try> tries = tryRepository.findAll().stream()
-                .filter(t -> t.getSession().getId().equals(sessionId))
-                .toList();
+        // 최적화: tryRepository에 findBySessionId 메서드를 추가해서 사용하는 것을 권장합니다.
+        List<Try> tries = tryRepository.findBySessionId(sessionId);
 
         return SessionDetailResponse.builder()
                 .sessionId(session.getId())
@@ -40,18 +37,28 @@ public class SessionService {
     }
 
     private SessionDetailResponse.TryItem mapToTryItem(Try tryEntity) {
-        // fail이 null이면 성공, 아니면 실패로 판단
-        boolean isSuccess = (tryEntity.getFail() == null);
+        // 1. 성공 여부 판단 (Result Enum 기준)
+        boolean isSuccess = (tryEntity.getResult() == com.example.iot.domain.constant.TryResult.SUCCESS);
+
+        // 2. TryGoalResult 엔티티 리스트 -> GoalDetailDto 리스트 변환
+        List<SessionDetailResponse.GoalDetailDto> goalDetails = tryEntity.getGoalResults().stream()
+                .map(gr -> SessionDetailResponse.GoalDetailDto.builder()
+                        .name(gr.getExerciseGoal().getName())
+                        .measured(gr.getMeasuredValue())
+                        .target(gr.getExerciseGoal().getTargetValue())
+                        .unit(gr.getExerciseGoal().getUnit())
+                        .build())
+                .collect(Collectors.toList());
 
         return SessionDetailResponse.TryItem.builder()
                 .tryId(tryEntity.getId())
                 .startedAt(tryEntity.getStartedAt())
                 .endedAt(tryEntity.getEndedAt())
-                .goalSensor(tryEntity.getGoalSensor())
-                .goalVision(tryEntity.getGoalVision())
+                .totalScore(tryEntity.getTotalScore())
                 .isSuccess(isSuccess)
-                .failName(!isSuccess ? tryEntity.getFail().getName() : null)
-                .failDescription(!isSuccess ? tryEntity.getFail().getDescription() : null)
+                .goalDetails(goalDetails) // 변환한 리스트 주입
+                .failName(!isSuccess && tryEntity.getFail() != null ? tryEntity.getFail().getName() : null)
+                .failDescription(!isSuccess && tryEntity.getFail() != null ? tryEntity.getFail().getFailDescription() : null)
                 .build();
     }
 }
