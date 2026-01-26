@@ -37,7 +37,7 @@ public class Try {
     @JoinColumn(name = "fail_id")
     private Fail fail;
 
-    @OneToMany(mappedBy = "try", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "exerciseTry", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TryGoalResult> goalResults = new ArrayList<>();
 
     @Column(name = "started_at", nullable = false)
