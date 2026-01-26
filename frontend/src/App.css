@@ -257,8 +257,6 @@
   letter-spacing: 0.18em;
   text-transform: none;
   color: var(--muted);
-  margin-bottom: 10px;
-  padding-bottom: 6px;
   border-bottom: 1px solid rgba(120, 110, 98, 0.2);
 }
 
@@ -351,6 +349,12 @@
   gap: 16px;
 }
 
+.therapist-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .therapist-ghost {
   padding: 10px 16px;
   border-radius: 10px;
@@ -359,6 +363,7 @@
   color: #2f3b50;
   font-size: 1rem;
   cursor: pointer;
+  margin-left: 30px;
 }
 
 .therapist-ghost:hover {
@@ -438,8 +443,9 @@
 
 .therapist-card-note {
   color: #5b667a;
-  padding-left: 200px;
+  padding-left: 24px;
   font-size: 1.3rem;
+  line-height: 1.5;
 }
 
 .therapist-card.selected {
@@ -457,24 +463,35 @@
 
 .therapist-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
   align-items: start;
+  min-width: 0;
 }
 
 .therapist-right {
-  padding-top: 8px;
+  padding-top: 0;
+  min-width: 0;
+  height: calc(100vh - 220px);
+  overflow: visible;
 }
 
 .therapist-report {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
+  padding: 14px;
   border-radius: 14px;
   border: 1px solid rgba(140, 150, 165, 0.25);
   background: #ffffff;
   box-shadow: 0 12px 28px rgba(18, 23, 30, 0.08);
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 30px;
+  margin-top: -40px;
 }
 
 .report-header {
@@ -521,7 +538,11 @@
 
 .report-card-body {
   color: #4b5568;
-  line-height: 1.5;
+  line-height: 1.7;
+  padding-top: 4px;
+  padding-bottom: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .report-list {
@@ -531,12 +552,27 @@
 
 .report-list-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 2fr);
+  gap: 16px;
   font-size: 1rem;
   color: #4b5568;
   border-top: 1px solid rgba(140, 150, 165, 0.2);
   padding-top: 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.report-date {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.report-feedback {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  margin-left: 100px;
 }
 
 .result-layout {
