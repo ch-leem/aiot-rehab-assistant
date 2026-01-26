@@ -10,5 +10,4 @@ dependencies {
 
     // JUnit 실행 환경을 위한 설정만 추가
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    runtimeOnly 'com.h2database:h2'
 }
