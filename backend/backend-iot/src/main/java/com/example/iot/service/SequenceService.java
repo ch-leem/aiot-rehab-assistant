@@ -61,9 +61,9 @@ public class SequenceService {
         // 2) Session + Try 생성
         for (ExercisePatientMapping m : mappings) {
 
-            Session session = sessionRepo.save(
-                    new Session(sequence, m.getExercise())
-            );
+            Session session = new Session(sequence, m.getExercise());
+            session.setTotalTries(finalTryCount);
+            session = sessionRepo.save(session);
 
             List<Try> tries = new ArrayList<>();
             for (int i = 1; i <= finalTryCount; i++) {
