@@ -67,6 +67,7 @@ public class SequenceAverageService {
 
             // 실패 횟수는 total - success 로 계산 (음수 방지)
             int fail = Math.max(0, total - success);
+            Long exerciseId = s.getExercise().getId();
 
             // (선택) 세션별 성공률 %
             BigDecimal percent = BigDecimal.ZERO;
@@ -78,7 +79,7 @@ public class SequenceAverageService {
             }
 
             result.add(new SessionTryCountResponse(
-                    s.getId(),   // Session 엔티티의 PK getter 이름이 getId()가 맞는지 확인 필요
+                    exerciseId,   // Session 엔티티의 PK getter 이름이 getId()가 맞는지 확인 필요
                     total,
                     success
             ));
