@@ -3,10 +3,7 @@ package com.example.iot.controller;
 import com.example.iot.dto.response.SequenceCompareResponse;
 import com.example.iot.service.SequenceCompareService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/sequences")
@@ -23,7 +20,7 @@ public class SequenceCompareController {
      *
      * POST /api/sequences/{patientId}/{currentSequenceId}/compare-previous
      */
-    @PostMapping("/{patientId}/{currentSequenceId}/compare-previous")
+    @GetMapping("/{patientId}/{currentSequenceId}/compare-previous")
     public ResponseEntity<SequenceCompareResponse> compareWithPrevious(
             @PathVariable Long patientId,
             @PathVariable Long currentSequenceId
