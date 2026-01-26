@@ -5,6 +5,7 @@ import com.example.iot.domain.Session;
 import com.example.iot.domain.Try;
 import com.example.iot.domain.constant.TryResult;
 import com.example.iot.dto.response.TryFinishResponse;
+import com.example.iot.dto.response.TryStartResponse;
 import com.example.iot.repository.FailRepository;
 import com.example.iot.repository.SessionRepository;
 import com.example.iot.repository.TryRepository;
@@ -30,6 +31,15 @@ public class TryService {
         this.tryRepository = tryRepository;
         this.sessionRepository = sessionRepository;
         this.failRepository = failRepository;
+    }
+
+    public TryStartResponse startTry(Long tryId) {
+        Try t = tryRepository.findById(tryId)
+                .orElseThrow(() -> new IllegalArgumentException("Try가 존재하지 않습니다. id=" + tryId));
+
+        t.setStartedAt(LocalDateTime.now()); // started_at 업데이트 (dirty checking)
+
+        return new TryStartResponse(t.getId(), t.getStartedAt());
     }
 
     @Transactional

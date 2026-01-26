@@ -23,4 +23,10 @@ public class TryController {
         return ResponseEntity.ok(tryService.finishTry(tryId));
     }
 
+    @PostMapping("/{tryId}/start")
+    public ResponseEntity<Void> start(@PathVariable Long tryId) {
+        tryService.startTry(tryId);
+        return ResponseEntity.noContent().build(); // 204
+    }
+
 }
