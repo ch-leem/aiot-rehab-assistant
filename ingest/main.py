@@ -1,110 +1,80 @@
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timezone
+import time
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 import redis
 
+# ----------------------------
+# Config
+# ----------------------------
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")  # optional
 
-def env_str(name: str, default: str) -> str:
-    return os.getenv(name, default)
+STREAM_KEY = os.getenv("REDIS_STREAM_KEY", "ingest:stream")   # 단일 스트림
+LATEST_KEY = os.getenv("REDIS_LATEST_KEY", "ingest:latest")   # 최신 1개
 
+MAXLEN = int(os.getenv("REDIS_STREAM_MAXLEN", "5000"))        # 최근 N개만 유지(원하면 늘리기)
 
-def env_int(name: str, default: int) -> int:
-    v = os.getenv(name)
-    return int(v) if v is not None and v != "" else default
+r = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
+    password=REDIS_PASSWORD,
+    decode_responses=True,  # 문자열로 저장/조회
+)
 
-
-REDIS_HOST = env_str("REDIS_HOST", "redis")
-REDIS_PORT = env_int("REDIS_PORT", 6379)
-REDIS_DB = env_int("REDIS_DB", 0)
-LATEST_TTL_SECONDS = env_int("LATEST_TTL_SECONDS", 0)  # 0이면 TTL 미사용
-
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
-
-app = FastAPI(title="Rehab IoT Ingest API", version="0.1.0")
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def latest_key(device_id: str, joint: str) -> str:
-    # 키 규칙: latest:device:{deviceId}:joint:{joint}
-    return f"latest:device:{device_id}:joint:{joint}"
+app = FastAPI(title="Ingest API", version="1.0")
 
 
-class JointVector(BaseModel):
-    x: float
-    y: float
-    z: float
-
-
-class IngestLatestRequest(BaseModel):
-    device_id: str = Field(..., min_length=1)
-    joint: str = Field(..., min_length=1)  # e.g., "elbow", "knee"
-    vec: JointVector
-    ts: Optional[str] = None  # optional ISO timestamp from device
+# ----------------------------
+# Payload (유연하게 받기)
+# ----------------------------
+class IngestPayload(BaseModel):
+    frames: list[Dict[str, Any]] = Field(default_factory=list)
 
 
 @app.get("/health")
-def health() -> Dict[str, Any]:
+def health():
     try:
-        pong = r.ping()
+        r.ping()
+        return {"ok": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Redis ping failed: {e}")
-    return {
-        "ok": True,
-        "redis": pong,
-        "redis_host": REDIS_HOST,
-        "redis_port": REDIS_PORT,
-        "redis_db": REDIS_DB,
-        "ttl_seconds": LATEST_TTL_SECONDS,
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ingest/stream")
+async def ingest_stream(payload: IngestPayload, request: Request):
+    """
+    patient_id 없이 단일 Stream에 계속 적재
+    - Stream: XADD ingest:stream
+    - Latest: SET ingest:latest (최신 payload)
+    """
+    if not payload.frames:
+        raise HTTPException(status_code=400, detail="frames is empty")
+
+    now_ms = int(time.time() * 1000)
+
+    # 원본 JSON 그대로 저장(가장 편함)
+    payload_json = payload.model_dump_json()
+
+    # (선택) 누가 보냈는지 정도만 메타로 남김
+    client_ip = request.client.host if request.client else ""
+
+    event = {
+        "ts_ms": str(now_ms),
+        "client_ip": client_ip,
+        "payload": payload_json,
     }
 
-
-@app.post("/ingest/latest")
-def ingest_latest(req: IngestLatestRequest) -> Dict[str, Any]:
-    ts = req.ts or now_iso()
-    key = latest_key(req.device_id, req.joint)
-
-    value = {
-        "x": req.vec.x,
-        "y": req.vec.y,
-        "z": req.vec.z,
-        "ts": ts,
-    }
-    payload = json.dumps(value, ensure_ascii=False)
-
     try:
-        if LATEST_TTL_SECONDS > 0:
-            r.set(key, payload, ex=LATEST_TTL_SECONDS)
-        else:
-            r.set(key, payload)
+        msg_id = r.xadd(STREAM_KEY, event, maxlen=MAXLEN, approximate=True)
+        r.set(LATEST_KEY, payload_json)
+        return {"ok": True, "stream": STREAM_KEY, "id": msg_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Redis set failed: {e}")
-
-    return {"ok": True, "key": key, "stored": value}
-
-
-@app.get("/latest")
-def get_latest(device_id: str, joint: str) -> Dict[str, Any]:
-    key = latest_key(device_id, joint)
-    try:
-        raw = r.get(key)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Redis get failed: {e}")
-
-    if raw is None:
-        raise HTTPException(status_code=404, detail=f"Not found: {key}")
-
-    try:
-        data = json.loads(raw)
-    except Exception:
-        data = raw
-
-    return {"ok": True, "key": key, "data": data}
+        raise HTTPException(status_code=500, detail=f"redis error: {e}")
