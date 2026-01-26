@@ -433,10 +433,13 @@
 
 .therapist-card-name {
   color: #2f3b50;
+  font-size: 1.7rem;
 }
 
 .therapist-card-note {
   color: #5b667a;
+  padding-left: 200px;
+  font-size: 1.3rem;
 }
 
 .therapist-card.selected {
