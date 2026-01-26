@@ -27,7 +27,8 @@ from pose_sensor_fusion.vision_utills.visualize.visualize_pose import (
 
 from pose_sensor_fusion.utils.config_loader import load_yaml_config
 from pose_sensor_fusion.utils.create_payload import load_data_payload, build_frame_from_pose
-from pose_sensor_fusion.utils.json_logger import JsonLogger
+from pose_sensor_fusion.utils.ingest_sender import IngestSender
+
 
 
 def fmt_deg(v: float) -> str:
@@ -162,10 +163,20 @@ def main(cfg: Dict[str, Any]) -> None:
     load_cell.start()
 
     # 데이터 페이로드 작성
-    logger = JsonLogger(cfg["logging"]["output_dir"], prefix="pose21_imu")
     payload_template = load_data_payload(cfg["logging"]["payload_path"])
 
-    print(f"[LOG] NDJSON -> {logger.path}")
+    ingest_url = cfg["ingest"]["url"]   
+    sender = IngestSender(
+        url=ingest_url,
+        max_queue=int(cfg["ingest"]["max_queue"]),
+        timeout_sec=float(cfg["ingest"]["timeout_sec"]),
+        drop_policy=cfg["ingest"]["drop_policy"],
+    )
+    sender.start()
+
+    print(f"[INGEST] POST {ingest_url} queue={sender.maxsize} timeout={sender.timeout_sec}s policy={sender.drop_policy}")
+
+
     print(f"[IMU] udp :{imu_cfg['udp_port']} match={IMU_MATCH} buffer={imu_cfg['buffer_sec']:.1f}s")
     print(
         f"[LOADCELL] udp :{lc_cfg.get('udp_port', 9998)} "
@@ -507,7 +518,9 @@ def main(cfg: Dict[str, Any]) -> None:
                     power=weight_kg,
                 )
 
-                logger.write_frame(frame_obj)
+                payload = {"frames": [frame_obj]}
+                sender.push(payload)
+
                 frame_idx += 1
 
                 cv2.putText(
@@ -551,6 +564,10 @@ def main(cfg: Dict[str, Any]) -> None:
         pass
     finally:
         try:
+            sender.stop()
+        except Exception:
+            pass
+        try:
             cv2.destroyAllWindows()
         except Exception:
             pass
@@ -565,10 +582,6 @@ def main(cfg: Dict[str, Any]) -> None:
         try:
             if load_cell is not None:
                 load_cell.stop()
-        except Exception:
-            pass
-        try:
-            logger.close()
         except Exception:
             pass
 
