@@ -1,14 +1,15 @@
 package com.example.iot.service;
 
 import com.example.iot.domain.Session;
+import com.example.iot.dto.response.SessionTryCountResponse;
 import com.example.iot.repository.SessionRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
-
 @Service
 public class SequenceAverageService {
 
@@ -18,16 +19,8 @@ public class SequenceAverageService {
         this.sessionRepo = sessionRepo;
     }
 
-    /**
-     * sequenceId에 속한 모든 Session의
-     * (successTries / totalTries) 평균을 퍼센트(BigDecimal)로 계산
-     *
-     * 반환 예:
-     *  - 0.00 ~ 100.00
-     */
     @Transactional
     public BigDecimal calculateAverageSuccessPercent(Long sequenceId) {
-
         List<Session> sessions = sessionRepo.findBySequence_IdOrderByStartedAtAsc(sequenceId);
 
         if (sessions.isEmpty()) {
@@ -38,24 +31,13 @@ public class SequenceAverageService {
         int validSessionCount = 0;
 
         for (Session session : sessions) {
-
             int total = session.getTotalTries();
             int success = session.getSuccessTries();
 
-            // total이 0이면 계산 불가 → 제외
-            if (total <= 0) {
-                continue;
-            }
+            if (total <= 0) continue;
 
-            BigDecimal successBd = BigDecimal.valueOf(success);
-            BigDecimal totalBd = BigDecimal.valueOf(total);
-
-            // 성공률 (0.0000 ~ 1.0000)
-            BigDecimal rate = successBd.divide(
-                    totalBd,
-                    4,                  // 소수 4자리
-                    RoundingMode.HALF_UP
-            );
+            BigDecimal rate = BigDecimal.valueOf(success)
+                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
 
             sumRate = sumRate.add(rate);
             validSessionCount++;
@@ -65,14 +47,44 @@ public class SequenceAverageService {
             return BigDecimal.ZERO;
         }
 
-        // 평균 성공률 → 퍼센트 변환
         return sumRate
-                .divide(
-                        BigDecimal.valueOf(validSessionCount),
-                        4,
-                        RoundingMode.HALF_UP
-                )
-                .multiply(BigDecimal.valueOf(100))   // %
-                .setScale(2, RoundingMode.HALF_UP);  // 소수 2자리 퍼센트
+                .divide(BigDecimal.valueOf(validSessionCount), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     */
+    @Transactional
+    public List<SessionTryCountResponse> getSessionTryCounts(Long sequenceId) {
+        List<Session> sessions = sessionRepo.findBySequence_IdOrderByStartedAtAsc(sequenceId);
+
+        List<SessionTryCountResponse> result = new ArrayList<>();
+
+        for (Session s : sessions) {
+            int total = Math.max(0, s.getTotalTries());
+            int success = Math.max(0, s.getSuccessTries());
+
+            // 실패 횟수는 total - success 로 계산 (음수 방지)
+            int fail = Math.max(0, total - success);
+            Long exerciseId = s.getExercise().getId();
+
+            // (선택) 세션별 성공률 %
+            BigDecimal percent = BigDecimal.ZERO;
+            if (total > 0) {
+                percent = BigDecimal.valueOf(success)
+                        .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .setScale(2, RoundingMode.HALF_UP);
+            }
+
+            result.add(new SessionTryCountResponse(
+                    exerciseId,   // Session 엔티티의 PK getter 이름이 getId()가 맞는지 확인 필요
+                    total,
+                    success
+            ));
+        }
+
+        return result;
     }
 }
