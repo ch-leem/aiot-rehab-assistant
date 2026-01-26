@@ -52,14 +52,30 @@ public class Try {
         this.startedAt = LocalDateTime.now();
     }
 
-    /**
-     * 편의 메서드: 상세 결과를 추가할 때 양방향 관계를 설정합니다.
-     */
-    // Try.java 파일 내부
 
+    /**
+     * 편의 메서드: 상세 결과를 추가하고 종합 점수를 갱신합니다.
+     */
     public void addGoalResult(TryGoalResult goalResult) {
         this.goalResults.add(goalResult);
         goalResult.setExerciseTry(this);
+
+        // 새로운 결과가 추가될 때마다 평균 점수를 다시 계산합니다.
+        this.totalScore = calculateAverageScore();
+    }
+
+    /**
+     * 모든 목표 달성률의 단순 산술 평균 계산
+     */
+    private Double calculateAverageScore() {
+        if (this.goalResults == null || this.goalResults.isEmpty()) {
+            return 0.0;
+        }
+
+        return this.goalResults.stream()
+                .mapToDouble(TryGoalResult::getAchievementRate)
+                .average()
+                .orElse(0.0);
     }
 
     @PrePersist
