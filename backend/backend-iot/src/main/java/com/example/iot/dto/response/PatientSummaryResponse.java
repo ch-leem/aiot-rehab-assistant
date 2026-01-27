@@ -4,6 +4,7 @@ import com.example.iot.domain.constant.RehabPhase;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Set;
 
 public record PatientSummaryResponse (
     Long patientId,
@@ -17,5 +18,5 @@ public record PatientSummaryResponse (
     RehabPhase rehabPhase,
 
     String therapistName,
-    List<Long> exerciseIds
+    Set<Long> exerciseIds
 ){}
