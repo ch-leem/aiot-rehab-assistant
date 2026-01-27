@@ -20,42 +20,52 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
 
     @Override
     @Transactional
+    // 각 운동의 목표 계산을 위한 측정값의 수치와 단위는 임의로 설정되었습니다
     public void run(String... args) {
-
         if (exerciseRepository.count() > 0) return;
 
-        // 1. 상체: 양팔 들어올리기
-        Exercise armRaise = new Exercise(
-                "양팔 들어올리기",
-                "어깨만을 사용하여 팔을 쭉 편 채 위로 들어올리는 재활 운동입니다.",
-                "어깨 관절 가동 범위 확보",
-                "몸을 기울이거나 반동을 주지 마세요"
+        // 1. 어깨 굴곡 운동 (Shoulder Flexion)
+        Exercise shoulderFlexion = new Exercise(
+                "어깨 굴곡 운동",
+                "팔을 편 상태로 전방을 향해 들어올리는 운동입니다.",
+                "어깨 가동 범위 확보 및 상지 근지구력 강화",
+                "팔꿈치가 굽혀지거나 허리가 뒤로 젖혀지지 않게 주의하세요."
         );
-        exerciseRepository.save(armRaise);
-
-        // 생성자 순서: exercise, goalType, name, targetType, targetValue, unit
-        // 현재 초기값에 배정된 값들은 아무거나 작성한 값입니다.(추후 수정 필요)
-        exerciseGoalRepository.saveAll(List.of(
-                new ExerciseGoal(armRaise, "MAIN", "어깨 외전 각도", "ANGLE", 160.0, "deg"),
-                new ExerciseGoal(armRaise, "SUB", "팔꿈치 굴곡 방지", "ANGLE", 180.0, "deg"),
-                new ExerciseGoal(armRaise, "SUB", "상체 기울기", "ANGLE", 0.0, "deg")
-        ));
-
-        // 2. 하체: 발판 밟기
-        Exercise stepPress = new Exercise(
-                "발판 밟기",
-                "환측 발을 발판 위에 올리고 힘을 주어 누르는 운동입니다.",
-                "하체 근력 및 체중 지지 능력 강화",
-                "디딤발에 힘을 주지 말고 환측 발의 힘으로만 누르세요"
-        );
-        exerciseRepository.save(stepPress);
+        exerciseRepository.save(shoulderFlexion);
 
         exerciseGoalRepository.saveAll(List.of(
-                new ExerciseGoal(stepPress, "MAIN", "발판 압력", "PRESSURE", 50.0, "kg"),
-                new ExerciseGoal(stepPress, "SUB", "디딤발 하중 비율", "RATIO", 20.0, "%"),
-                new ExerciseGoal(stepPress, "SUB", "유지 시간", "TIME", 5.0, "sec")
+                // MAIN: 성취도 및 유지 능력
+                new ExerciseGoal(shoulderFlexion, "MAIN", "어깨 외전 각도", "ANGLE", 160.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "MAIN", "팔꿈치 신전 상태", "ANGLE", 180.0, "deg"),
+                // new ExerciseGoal(shoulderFlexion, "MAIN", "목표 각도 유지 시간", "TIME", 5.0, "sec"),
+
+                // SUB: 보상 동작 억제 (0에 가까울수록 고득점인 감점형 지표들)
+                // 가속도 값은 추후 조정 필요
+                new ExerciseGoal(shoulderFlexion, "SUB", "상체 앞뒤 기울기", "ANGLE", 0.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "SUB", "어깨 수평 불균형", "ANGLE", 0.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "SUB", "수행 가속도", "ACCEL", 0.0, "m/s²")
         ));
 
-        System.out.println("데모용 상/하체 운동 마스터 데이터 설정 완료");
+        // 2. 비대칭 체중 부하 운동 (Asymmetrical Weight Bearing)
+        Exercise weightBearing = new Exercise(
+                "비대칭 체중 부하 운동",
+                "마비측 다리에 체중을 싣고 균형을 유지하는 운동입니다.",
+                "하지 근력 강화 및 심부 안정성 개선",
+                "골반이 옆으로 빠지지 않게 유지하며 마비측 발바닥 전체로 지면을 누르세요."
+        );
+        exerciseRepository.save(weightBearing);
+
+        exerciseGoalRepository.saveAll(List.of(
+                // MAIN: 하중 지지 및 유지 능력
+                new ExerciseGoal(weightBearing, "MAIN", "마비측 발판 압력", "PRESSURE", 50.0, "kg"),
+
+                // SUB: 자세 안정성 (0에 가까울수록 고득점인 감점형 지표들)
+                new ExerciseGoal(weightBearing, "SUB", "골반 수평 편차", "ANGLE", 0.0, "deg"),
+                new ExerciseGoal(weightBearing, "SUB", "비마비측 발목 흔들림", "STABILITY", 0.0, "score"),
+                new ExerciseGoal(weightBearing, "SUB", "상체 앞뒤 기울임", "ANGLE", 0.0, "deg")
+
+        ));
+
+        System.out.println("재활 운동 마스터 데이터(어깨 굴곡/체중 부하) 설정 완료");
     }
 }
