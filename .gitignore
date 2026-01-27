@@ -1,0 +1,19 @@
+# training outputs
+runs/
+weights/**/**/*.pt
+weights/**/**/*.onnx
+
+# env
+.conda/
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# jupyter
+.ipynb_checkpoints/
+
+# system
+.DS_Store
+
