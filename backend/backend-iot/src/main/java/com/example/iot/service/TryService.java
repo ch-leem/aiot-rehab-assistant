@@ -34,10 +34,10 @@ public class TryService {
     }
 
     /**
-     * @param rawFrames Redis 등 외부에서 조회해온 JSON 문자열 리스트
+     * @param rawFrame Redis에서 미리 계산된 통계 요약 JSON 문자열
      */
     @Transactional
-    public TryFinishResponse finishTry(Long tryId, List<String> rawFrames) {
+    public TryFinishResponse finishTry(Long tryId, String rawFrame) {
         Try t = tryRepository.findById(tryId)
                 .orElseThrow(() -> new IllegalArgumentException("Try not found: " + tryId));
 
@@ -46,8 +46,10 @@ public class TryService {
         }
 
         // 1. 매핑 정보를 통한 환측(Side) 파악
-        Exercise exercise = t.getSession().getExercise();
-        Patient patient = t.getSession().getSequence().getPatient();
+        Session session = t.getSession();
+        Exercise exercise = session.getExercise();
+        Patient patient = session.getSequence().getPatient();
+
         ExercisePatientMapping mapping = mappingRepository.findByPatient_Id(patient.getId()).stream()
                 .filter(m -> m.getExercise().getId().equals(exercise.getId()))
                 .findFirst()
@@ -55,8 +57,9 @@ public class TryService {
 
         String side = mapping.getSide().name();
 
-        // 2. 외부 분석기를 통한 데이터 통계화 (Redis 경로 의존성 없음)
-        TryEvaluationRequest evalRequest = frameAnalyzer.analyze(rawFrames, side);
+        // 2. 외부 분석기를 통해 계산된 JSON을 DTO로 변환
+        // (Redis가 이미 Max, Avg를 계산했으므로 리스트가 아닌 단일 프레임/요약본 처리)
+        TryEvaluationRequest evalRequest = frameAnalyzer.analyzeSummary(rawFrame, side);
 
         // 3. 목표별 점수 산출 및 저장
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
@@ -70,34 +73,44 @@ public class TryService {
 
         // 4. 최종 결과 확정
         t.setEndedAt(LocalDateTime.now());
+
+        // Try 엔티티 내부에 totalScore 계산 로직이 있다고 가정
         if (t.getTotalScore() >= SUCCESS_THRESHOLD_PERCENT) {
             t.setResult(TryResult.SUCCESS);
-            if (t.getSession() != null) {
-                t.getSession().setSuccessTries(t.getSession().getSuccessTries() + 1);
+            if (session != null) {
+                session.setSuccessTries(session.getSuccessTries() + 1);
             }
         } else {
             t.setResult(TryResult.FAIL);
+            // 실패 사유 기본값 설정 (F1)
             t.setFail(failRepository.findById("F1").orElse(null));
         }
 
         return toResponse(t);
     }
 
+    /**
+     * 개별 목표 달성률 계산
+     */
     private double calculateAchievement(ExerciseGoal goal, double measured, String side) {
         double target = goal.getTargetValue();
         String name = goal.getName();
 
+        // 수렴형 (특정 수치에 도달해야 함)
         if (name.contains("신전") || name.contains("수평") || name.contains("편차")) {
             double error = Math.abs(target - measured);
             return Math.max(0, 100.0 - (error * (name.contains("신전") ? 2.0 : 5.0)));
         }
 
+        // 안정형 (0에 가까울수록 좋음)
         if (target == 0.0) {
             return Math.max(0, 100.0 - (measured * getPenaltyWeight(name)));
         }
 
+        // 달성형 (타겟 수치 이상이어야 함)
         if (target > 0) {
-            return Math.min(100.0, (measured / target) * 100);
+            double rate = (measured / target) * 100;
+            return Math.min(100.0, round1(rate));
         }
         return 0.0;
     }
@@ -112,8 +125,15 @@ public class TryService {
     }
 
     private TryFinishResponse toResponse(Try t) {
-        return new TryFinishResponse(t.getId(), t.getTotalScore(),
+        return new TryFinishResponse(
+                t.getId(),
+                t.getTotalScore(),
                 t.getResult() != null ? t.getResult().name() : "NONE",
-                t.getFail() != null ? t.getFail().getName() : null);
+                t.getFail() != null ? t.getFail().getName() : null
+        );
+    }
+
+    private static double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
     }
 }

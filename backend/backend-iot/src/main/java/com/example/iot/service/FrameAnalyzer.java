@@ -7,10 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -19,52 +15,38 @@ public class FrameAnalyzer {
     private final ObjectMapper objectMapper;
 
     /**
-     * raw JSON 리스트를 분석하여 통계 수치(DTO)를 반환합니다.
-     * redis에서 받아온 string 데이터를 json으로 파싱했다고 가정
+     * Redis에서 이미 집계(Max, Avg 등)된 단일 JSON 문자열을 파싱하여 DTO로 반환합니다.
      */
-    public TryEvaluationRequest analyze(List<String> rawFrames, String side) {
-        if (rawFrames == null || rawFrames.isEmpty()) {
-            return new TryEvaluationRequest();
-        }
+    public TryEvaluationRequest analyzeSummary(String rawFrame, String side) {
+        TryEvaluationRequest req = new TryEvaluationRequest();
 
-        List<Double> shoulderAngles = new ArrayList<>();
-        List<Double> elbowAngles = new ArrayList<>();
-        List<Double> trunkTilts = new ArrayList<>();
-        List<Double> ankleX = new ArrayList<>(), ankleY = new ArrayList<>(), ankleZ = new ArrayList<>();
+        if (rawFrame == null || rawFrame.isEmpty()) {
+            log.warn("분석할 Redis 데이터가 비어있습니다.");
+            return req;
+        }
 
         String sideKey = side.toLowerCase(); // "left" or "right"
 
         try {
-            for (String json : rawFrames) {
-                JsonNode root = objectMapper.readTree(json);
-                JsonNode deg = root.path("deg");
-                JsonNode pos = root.path("position");
+            // Redis가 준 요약본 JSON을 트리 구조로 읽음
+            JsonNode root = objectMapper.readTree(rawFrame);
 
-                // 각도 추출
-                shoulderAngles.add(deg.path(sideKey).path("shoulder_flexion").asDouble());
-                elbowAngles.add(deg.path(sideKey).path("elbow_extension").asDouble());
-                trunkTilts.add(deg.path("mid").path("trunk_forward_tilt").asDouble());
+            // 1. 각도 관련 통계 (Redis가 이미 max, avg를 계산해서 넣었다고 가정)
+            // JSON 구조가 기존 프레임과 동일하다면 아래와 같이 접근하고,
+            // 만약 평평한 구조(Flat JSON)라면 root.path("max_shoulder").asDouble() 식으로 수정 필요
+            JsonNode deg = root.path("deg");
 
-                // 발목 흔들림 좌표 추출
-                JsonNode ankle = pos.path(sideKey).path(sideKey + "_ankle");
-                ankleX.add(ankle.path("x").asDouble());
-                ankleY.add(ankle.path("y").asDouble());
-                ankleZ.add(ankle.path("z").asDouble());
-            }
+            req.setMaxShoulderFlexionAngle(deg.path(sideKey).path("shoulder_flexion").asDouble());
+            req.setAvgElbowExtensionAngle(deg.path(sideKey).path("elbow_extension").asDouble());
+            req.setMaxTrunkForwardTilt(deg.path("mid").path("trunk_forward_tilt").asDouble());
+
+            // 2. 기타 통계 (가속도, 발목 흔들림 등 Redis 계산값)
+            // Redis 집계 로직에 따라 경로를 유연하게 설정하세요.
+            req.setAnkleSwayDistance(root.path("ankle_sway").asDouble(0.0));
+            req.setMaxMovementAcceleration(root.path("max_accel").asDouble(0.0));
+
         } catch (Exception e) {
-            log.error("JSON 파싱 중 오류 발생: ", e);
-        }
-
-        TryEvaluationRequest req = new TryEvaluationRequest();
-        if (!shoulderAngles.isEmpty()) {
-            req.setMaxShoulderFlexionAngle(Collections.max(shoulderAngles));
-            req.setAvgElbowExtensionAngle(elbowAngles.stream().mapToDouble(d -> d).average().orElse(0.0));
-            req.setMaxTrunkForwardTilt(Collections.max(trunkTilts));
-
-            double sway = (Collections.max(ankleX) - Collections.min(ankleX)) +
-                    (Collections.max(ankleY) - Collections.min(ankleY)) +
-                    (Collections.max(ankleZ) - Collections.min(ankleZ));
-            req.setAnkleSwayDistance(sway);
+            log.error("JSON 요약 데이터 파싱 중 오류 발생: ", e);
         }
 
         return req;
