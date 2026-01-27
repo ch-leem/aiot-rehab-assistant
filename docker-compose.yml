@@ -99,6 +99,8 @@ services:
     expose:
       - "8080"
     restart: unless-stopped
+    networks:
+      - appnet
   
   nginx:
     image: nginx:alpine
