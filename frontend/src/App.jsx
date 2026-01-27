@@ -197,7 +197,41 @@ export default function App() {
     setScreen(SCREEN.EXERCISE_INTRO);
   };
 
+  const todayExerciseIds = exerciseIds
+    .map((id) => Number(id))
+    .filter((id) => id in EXERCISE_CATALOG);
+  const hasExercises = todayExerciseIds.length > 0;
+  const todayExercises = todayExerciseIds.map((id) => EXERCISE_CATALOG[id]);
+  const currentSession = sequenceSessions[exerciseIndex] ?? null;
+  const currentTryIds = Array.isArray(currentSession?.tryIds) ? currentSession.tryIds : [];
+  const totalTries = currentTryIds.length || 10;
+  const currentExerciseId = todayExerciseIds[exerciseIndex];
+  const currentExerciseDetail = currentExerciseId
+    ? exerciseDetails[currentExerciseId]
+    : null;
+  const currentExercise = {
+    title:
+      currentExerciseDetail?.name ??
+      todayExercises[exerciseIndex]?.title ??
+      EXERCISE_CATALOG[1].title,
+    instruction:
+      currentExerciseDetail?.description ??
+      todayExercises[exerciseIndex]?.instruction ??
+      EXERCISE_CATALOG[1].instruction,
+    caution:
+      currentExerciseDetail?.precautions ??
+      todayExercises[exerciseIndex]?.caution ??
+      EXERCISE_CATALOG[1].caution,
+    postureGuide:
+      currentExerciseDetail?.postureGuide ??
+      "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
+  };
+
   const startSequence = async () => {
+    if (!hasExercises) {
+      setScreen(SCREEN.EXERCISE_RESULT);
+      return;
+    }
     const trimmedPatientId = String(patientId || "").trim();
     if (!trimmedPatientId) {
       moveToExerciseIntro();
@@ -232,34 +266,6 @@ export default function App() {
     }
   };
 
-  const todayExerciseIds = exerciseIds
-    .map((id) => Number(id))
-    .filter((id) => id in EXERCISE_CATALOG);
-  const todayExercises = todayExerciseIds.map((id) => EXERCISE_CATALOG[id]);
-  const currentSession = sequenceSessions[exerciseIndex] ?? null;
-  const currentTryIds = Array.isArray(currentSession?.tryIds) ? currentSession.tryIds : [];
-  const totalTries = currentTryIds.length || 10;
-  const currentExerciseId = todayExerciseIds[exerciseIndex];
-  const currentExerciseDetail = currentExerciseId
-    ? exerciseDetails[currentExerciseId]
-    : null;
-  const currentExercise = {
-    title:
-      currentExerciseDetail?.name ??
-      todayExercises[exerciseIndex]?.title ??
-      EXERCISE_CATALOG[1].title,
-    instruction:
-      currentExerciseDetail?.description ??
-      todayExercises[exerciseIndex]?.instruction ??
-      EXERCISE_CATALOG[1].instruction,
-    caution:
-      currentExerciseDetail?.precautions ??
-      todayExercises[exerciseIndex]?.caution ??
-      EXERCISE_CATALOG[1].caution,
-    postureGuide:
-      currentExerciseDetail?.postureGuide ??
-      "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
-  };
   const successCount = 8;
   const resultRule =
     RESULT_RULES.find(
@@ -294,6 +300,12 @@ export default function App() {
     }
     return `${item.exerciseName}: ${message}`;
   });
+
+  useEffect(() => {
+    if (!hasExercises && (screen === SCREEN.EXERCISE_LIST || screen === SCREEN.EXERCISE_INTRO)) {
+      setScreen(SCREEN.EXERCISE_RESULT);
+    }
+  }, [hasExercises, screen]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO) return;
@@ -543,7 +555,7 @@ export default function App() {
         <PatientCheck
           onStart={() => {
             setExerciseIndex(0);
-            setScreen(SCREEN.EXERCISE_LIST);
+            setScreen(hasExercises ? SCREEN.EXERCISE_LIST : SCREEN.EXERCISE_RESULT);
           }}
           onBack={() => setScreen(SCREEN.LOGIN)}
           patientId={patientId}
@@ -588,6 +600,7 @@ export default function App() {
               className="primary-button"
               type="button"
               onClick={startSequence}
+              disabled={!hasExercises}
             >
               지금 시작
             </button>
@@ -653,7 +666,13 @@ export default function App() {
           <div className="session-visual">3D 반응형 화면 자리</div>
           <div className="session-panel session-panel-next">
             <div className="session-bar">
-              <span />
+              <span
+                style={{
+                  width: `${
+                    totalTries ? (Math.min(tryIndex + 1, totalTries) / totalTries) * 100 : 0
+                  }%`,
+                }}
+              />
             </div>
             <div className="card-meta">현재 {Math.min(tryIndex + 1, totalTries)}/{totalTries} 회</div>
           </div>
@@ -718,198 +737,216 @@ export default function App() {
                 <div className="screen-label">운동 결과</div>
                 <div className="result-title-row">
                   <h1>오늘의 기록</h1>
-                  <div className="result-toggles">
-                    <span className="result-toggle upper">상체</span>
-                    <span className="result-toggle lower">하체</span>
-                  </div>
-                </div>
-                <div className="info-grid single result-cards">
-                  <div className="info-card accent">
-                    <div>
-                      <div className="card-title">오늘의 성과</div>
-                      <div className="card-meta">{resultRule.summary}</div>
+                  {hasExercises && (
+                    <div className="result-toggles">
+                      <span className="result-toggle upper">상체</span>
+                      <span className="result-toggle lower">하체</span>
                     </div>
-                    <span className="card-badge">{resultRule.tag}</span>
+                  )}
+                </div>
+                {!hasExercises && (
+                  <div className="info-grid single result-cards">
+                    <div className="info-card accent">
+                      <div>
+                        <div className="card-title">금일 운동이 없습니다</div>
+                        <div className="card-meta">
+                          오늘은 휴식이 필요한 날이에요. 다음 일정에 맞춰 다시 시작해요.
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="info-card">
-                    <div>
-                      <div className="card-title">전과 달라진 점</div>
-                      <div className="card-meta change-split">
-                        {(compareItems.length ? compareItems.slice(0, 2) : [
-                          { exerciseId: "upper", exerciseName: "상체 운동", diff: "" },
-                          { exerciseId: "lower", exerciseName: "하체 운동", diff: "" },
-                        ]).map((item, index) => {
-                          const parsedDiff = Number(item.diff);
-                          const isValid = Number.isFinite(parsedDiff);
-                          const absDiff = Math.abs(parsedDiff);
-                          const isUp = parsedDiff > 0;
-                          const isDown = parsedDiff < 0;
-                          let level = "";
-                          if (!isValid || absDiff === 0) {
-                            level = "오늘도 안정적으로 이어가고 있어요";
-                          } else if (absDiff <= 5) {
-                            level = isUp
-                              ? "조금 더 편안하게 움직일 수 있었어요"
-                              : "천천히 조절해도 괜찮아요";
-                          } else if (absDiff <= 10) {
-                            level = isUp
-                              ? "움직임이 전보다 자연스러워졌어요"
-                              : "리듬을 천천히 맞춰가고 있어요";
-                          } else if (absDiff <= 15) {
-                            level = isUp
-                              ? "움직임이 안정적으로 이어졌어요"
-                              : "무리하지 않고 진행해도 충분해요";
-                          } else if (absDiff <= 20) {
-                            level = isUp
-                              ? "오늘은 움직임이 꽤 부드러웠어요"
-                              : "오늘은 몸을 풀어주는 데 집중했어요";
-                          } else if (absDiff <= 25) {
-                            level = isUp
-                              ? "오늘은 동작을 편안하게 잘 이어갔어요"
-                              : "컨디션에 맞춰 천천히 진행했어요";
-                          } else if (absDiff <= 30) {
-                            level = isUp
-                              ? "움직임 흐름이 한층 더 자연스러워졌어요"
-                              : "오늘은 몸을 쉬어가며 진행했어요";
-                          } else {
-                            level = isUp
-                              ? "오늘은 움직임이 아주 편안했어요"
-                              : "오늘은 몸 상태를 살피며 진행했어요";
-                          }
-                          const detail = "";
-                          return (
+                )}
+                {hasExercises && (
+                  <div className="info-grid single result-cards">
+                    <div className="info-card accent">
+                      <div>
+                        <div className="card-title">오늘의 성과</div>
+                        <div className="card-meta">{resultRule.summary}</div>
+                      </div>
+                      <span className="card-badge">{resultRule.tag}</span>
+                    </div>
+                    <div className="info-card">
+                      <div>
+                        <div className="card-title">전과 달라진 점</div>
+                        <div className="card-meta change-split">
+                          {(compareItems.length ? compareItems.slice(0, 2) : [
+                            { exerciseId: "upper", exerciseName: "상체 운동", diff: "" },
+                            { exerciseId: "lower", exerciseName: "하체 운동", diff: "" },
+                          ]).map((item, index) => {
+                            const parsedDiff = Number(item.diff);
+                            const isValid = Number.isFinite(parsedDiff);
+                            const absDiff = Math.abs(parsedDiff);
+                            const isUp = parsedDiff > 0;
+                            const isDown = parsedDiff < 0;
+                            let level = "";
+                            if (!isValid || absDiff === 0) {
+                              level = "오늘도 안정적으로 이어가고 있어요";
+                            } else if (absDiff <= 5) {
+                              level = isUp
+                                ? "조금 더 편안하게 움직일 수 있었어요"
+                                : "천천히 조절해도 괜찮아요";
+                            } else if (absDiff <= 10) {
+                              level = isUp
+                                ? "움직임이 전보다 자연스러워졌어요"
+                                : "리듬을 천천히 맞춰가고 있어요";
+                            } else if (absDiff <= 15) {
+                              level = isUp
+                                ? "움직임이 안정적으로 이어졌어요"
+                                : "무리하지 않고 진행해도 충분해요";
+                            } else if (absDiff <= 20) {
+                              level = isUp
+                                ? "오늘은 움직임이 꽤 부드러웠어요"
+                                : "오늘은 몸을 풀어주는 데 집중했어요";
+                            } else if (absDiff <= 25) {
+                              level = isUp
+                                ? "오늘은 동작을 편안하게 잘 이어갔어요"
+                                : "컨디션에 맞춰 천천히 진행했어요";
+                            } else if (absDiff <= 30) {
+                              level = isUp
+                                ? "움직임 흐름이 한층 더 자연스러워졌어요"
+                                : "오늘은 몸을 쉬어가며 진행했어요";
+                            } else {
+                              level = isUp
+                                ? "오늘은 움직임이 아주 편안했어요"
+                                : "오늘은 몸 상태를 살피며 진행했어요";
+                            }
+                            const detail = "";
+                            return (
+                              <div
+                                key={item.exerciseId ?? index}
+                                className={`change-item ${index === 0 ? "upper" : "lower"}`}
+                              >
+                                {item.exerciseName}: {level}{detail}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="info-card">
+                      <div>
+                        <div className="card-title">앞으로의 목표</div>
+                        <div className="card-meta">
+                          {goalLines.map((line, index) => (
                             <div
-                              key={item.exerciseId ?? index}
+                              key={line}
                               className={`change-item ${index === 0 ? "upper" : "lower"}`}
                             >
-                              {item.exerciseName}: {level}{detail}
+                              {line}
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="info-card">
-                    <div>
-                      <div className="card-title">앞으로의 목표</div>
-                      <div className="card-meta">
-                        {goalLines.map((line, index) => (
-                          <div
-                            key={line}
-                            className={`change-item ${index === 0 ? "upper" : "lower"}`}
-                          >
-                            {line}
+                )}
+              </div>
+            </section>
+            {hasExercises && (
+              <section className="result-right">
+                <div className="result-top-actions">
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+                  >
+                    오늘 마치기
+                  </button>
+                </div>
+                <div className="chart-card">
+                  <div className="card-title">상체 + 하체 성공 횟수</div>
+                  <div className="card-meta">오늘 수행한 전체 동작 기준</div>
+                  <div className="donut-grid">
+                    <div className="donut-item">
+                      <div className="donut-chart">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "성공", value: upper.successTries },
+                                { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
+                              ]}
+                              dataKey="value"
+                              innerRadius={58}
+                              outerRadius={90}
+                              paddingAngle={2}
+                            >
+                              <Cell fill="#b56a6a" />
+                              <Cell fill="#e6dfd6" />
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="donut-center">
+                          <div className="donut-value">
+                            {upper.successTries}/{upper.totalTries}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-            <section className="result-right">
-              <div className="result-top-actions">
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
-                >
-                  오늘 마치기
-                </button>
-              </div>
-              <div className="chart-card">
-                <div className="card-title">상체 + 하체 성공 횟수</div>
-                <div className="card-meta">오늘 수행한 전체 동작 기준</div>
-                <div className="donut-grid">
-                  <div className="donut-item">
-                    <div className="donut-chart">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: "성공", value: upper.successTries },
-                              { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
-                            ]}
-                            dataKey="value"
-                            innerRadius={58}
-                            outerRadius={90}
-                            paddingAngle={2}
-                          >
-                            <Cell fill="#b56a6a" />
-                            <Cell fill="#e6dfd6" />
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="donut-center">
-                        <div className="donut-value">
-                          {upper.successTries}/{upper.totalTries}
+                        </div>
+                        <div className="donut-label donut-label-float">
+                          <span className="legend-dot upper" />
+                          상체 성공
                         </div>
                       </div>
-                      <div className="donut-label donut-label-float">
-                        <span className="legend-dot upper" />
-                        상체 성공
-                      </div>
                     </div>
-                  </div>
-                  <div className="donut-item">
-                    <div className="donut-chart">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: "성공", value: lower.successTries },
-                              { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
-                            ]}
-                            dataKey="value"
-                            innerRadius={58}
-                            outerRadius={90}
-                            paddingAngle={2}
-                          >
-                            <Cell fill="#6f8fb8" />
-                            <Cell fill="#e6dfd6" />
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="donut-center">
-                        <div className="donut-value">
-                          {lower.successTries}/{lower.totalTries}
+                    <div className="donut-item">
+                      <div className="donut-chart">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "성공", value: lower.successTries },
+                                { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
+                              ]}
+                              dataKey="value"
+                              innerRadius={58}
+                              outerRadius={90}
+                              paddingAngle={2}
+                            >
+                              <Cell fill="#6f8fb8" />
+                              <Cell fill="#e6dfd6" />
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="donut-center">
+                          <div className="donut-value">
+                            {lower.successTries}/{lower.totalTries}
+                          </div>
+                        </div>
+                        <div className="donut-label donut-label-float">
+                          <span className="legend-dot lower" />
+                          하체 성공
                         </div>
                       </div>
-                      <div className="donut-label donut-label-float">
-                        <span className="legend-dot lower" />
-                        하체 성공
-                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="chart-card">
-                <div className="card-title">최근 5번 정확도 추이</div>
-                <div className="chart-area">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={chartData}>
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="upper"
-                        stroke="#b56a6a"
-                        strokeWidth={3}
-                        dot={{ r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="lower"
-                        stroke="#6f8fb8"
-                        strokeWidth={3}
-                        dot={{ r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="chart-card">
+                  <div className="card-title">최근 5번 정확도 추이</div>
+                  <div className="chart-area">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="upper"
+                          stroke="#b56a6a"
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="lower"
+                          stroke="#6f8fb8"
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
           </div>
             );
           })()}
