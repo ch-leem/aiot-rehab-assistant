@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import StreamingViewer from "./StreamingViewer";
 
 type MainLayoutProps = {
   children: ReactNode;
@@ -46,6 +47,7 @@ export default function MainLayout({
           <section className="camera-panel">
             <div className="panel-header">실시간 카메라</div>
             <div className="camera-feed">
+              <StreamingViewer />
               <div className="camera-overlay">
                 <span className="overlay-dot" />
                 <span className="overlay-ring" />
