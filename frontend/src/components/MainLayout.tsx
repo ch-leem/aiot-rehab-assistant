@@ -9,6 +9,7 @@ type MainLayoutProps = {
   stageTotal?: number;
   hideCamera?: boolean;
   variant?: "patient" | "therapist";
+  cameraNotice?: string;
 };
 
 export default function MainLayout({
@@ -20,6 +21,7 @@ export default function MainLayout({
   stageTotal = 5,
   hideCamera = false,
   variant = "patient",
+  cameraNotice,
 }: MainLayoutProps) {
   const patientLabel = patientId ? `환자 번호: ${patientId}` : "환자 번호: 미확인";
   const nurseLabel = nurseId ? `의료인 번호: ${nurseId}` : "의료인 번호: 미확인";
@@ -56,9 +58,8 @@ export default function MainLayout({
                 <span />
               </div>
             </div>
-            <div className="panel-footer">
-              자세 인식 영역 · 목표 위치 표시
-            </div>
+            {cameraNotice && <div className="camera-notice">{cameraNotice}</div>}
+            <div className="panel-footer">자세 인식 영역 · 목표 위치 표시</div>
           </section>
         )}
         <section className="right-panel">{children}</section>

@@ -2,104 +2,260 @@ import { useMemo, useState } from "react";
 import MainLayout from "./MainLayout";
 import GooeyText from "./GooeyText";
 
-const PATIENTS = [
-  { id: "1203", name: "김민수", note: "좌측 편마비" },
-  { id: "2201", name: "박지은", note: "어깨 가동 범위 감소" },
-  { id: "1734", name: "최영수", note: "상지 근력 저하" },
-  { id: "3012", name: "이수정", note: "균형 감각 저하" },
-  { id: "1456", name: "정하늘", note: "견관절 통증" },
-];
-
-const REPORTS = {
-  1203: {
-    title: "최근 4회 경과 요약",
-    summary:
-      "상체 동작의 안정성이 좋아졌고, 일상 동작 속도가 균일해졌습니다.",
-    highlight: "팔 내리기 동작에서 어깨 떨림이 감소했습니다.",
-    next: "다음 회차는 호흡 유지와 팔 고정에 집중해주세요.",
-    sessions: [
-      { date: "2024.03.18", note: "호흡 안정, 자세 유지 양호" },
-      { date: "2024.03.20", note: "팔 들기 범위 개선" },
-      { date: "2024.03.22", note: "피로도 증가, 속도 유지 어려움" },
-      { date: "2024.03.25", note: "동작 안정, 반복 정확도 상승" },
-    ],
-  },
-  2201: {
-    title: "최근 4회 경과 요약",
-    summary: "어깨 가동 범위가 일정해졌고 좌우 이동이 부드러워졌습니다.",
-    highlight: "좌측 어깨의 긴장이 줄어들었습니다.",
-    next: "다음 회차는 통증 체크 후 강도를 조절해주세요.",
-    sessions: [
-      { date: "2024.03.17", note: "통증 호소, 속도 완화 필요" },
-      { date: "2024.03.19", note: "범위 유지 안정" },
-      { date: "2024.03.21", note: "좌우 이동 리듬 안정" },
-      { date: "2024.03.24", note: "자세 이탈 감소" },
-    ],
-  },
-  1734: {
-    title: "최근 4회 경과 요약",
-    summary: "상지 근력 유지가 꾸준하며 반복 동작 속도가 일정합니다.",
-    highlight: "팔 들어 올리기 동작의 지연이 줄었습니다.",
-    next: "다음 회차는 동작 시작 타이밍을 맞춰주세요.",
-    sessions: [
-      { date: "2024.03.16", note: "근력 유지, 피로도 낮음" },
-      { date: "2024.03.19", note: "동작 시작 지연" },
-      { date: "2024.03.22", note: "속도 개선" },
-      { date: "2024.03.25", note: "안정적 유지" },
-    ],
-  },
-  3012: {
-    title: "최근 4회 경과 요약",
-    summary: "균형 유지 시간이 길어지고 동작 종료 후 안정이 좋아졌습니다.",
-    highlight: "체중 중심 이동이 부드럽게 연결됩니다.",
-    next: "다음 회차는 균형 유지 시간을 2초 더 늘려주세요.",
-    sessions: [
-      { date: "2024.03.15", note: "균형 흔들림 있음" },
-      { date: "2024.03.18", note: "중심 이동 개선" },
-      { date: "2024.03.21", note: "균형 유지 시간 증가" },
-      { date: "2024.03.24", note: "안정적 마무리" },
-    ],
-  },
-  1456: {
-    title: "최근 4회 경과 요약",
-    summary: "견관절 통증이 줄어들고 동작 중 긴장이 완화되었습니다.",
-    highlight: "팔 내리기에서 통증 표시가 감소했습니다.",
-    next: "다음 회차는 스트레칭 시간을 조금 늘려주세요.",
-    sessions: [
-      { date: "2024.03.16", note: "통증 호소 있음" },
-      { date: "2024.03.19", note: "통증 감소" },
-      { date: "2024.03.22", note: "긴장 완화" },
-      { date: "2024.03.25", note: "안정적 진행" },
-    ],
-  },
-};
-
 const VIEW = {
   LOGIN: "login",
   LOOKUP: "lookup",
 };
 
+const API_BASE_URL = "http://70.12.246.185:8083";
+
+const formatDateTime = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const calcAge = (birthDate) => {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
 export default function TherapistUI() {
   const [view, setView] = useState(VIEW.LOGIN);
   const [therapistId, setTherapistId] = useState("");
+  const [therapistName, setTherapistName] = useState("");
+  const [patients, setPatients] = useState([]);
   const [searchValue, setSearchValue] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportData, setReportData] = useState({
+    profile: null,
+    sequences: [],
+    sequenceSummary: null,
+    reportSummary: null,
+    exercises: [],
+  });
 
   const visiblePatients = useMemo(() => {
     const trimmed = searchValue.trim();
     if (!trimmed) return [];
-    return PATIENTS.filter((patient) => patient.id.includes(trimmed));
-  }, [searchValue]);
+    return patients.filter((patient) => {
+      const idMatch = String(patient.patientId).includes(trimmed);
+      const nameMatch = patient.name?.includes(trimmed);
+      return idMatch || nameMatch;
+    });
+  }, [searchValue, patients]);
+
+  const handleTherapistLogin = async () => {
+    const trimmedId = therapistId.trim();
+    if (!trimmedId) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+      if (useMock) {
+        const data = {
+          therapistId: Number(trimmedId) || 1,
+          therapistName: "김닥터",
+          patients: [
+            {
+              patientId: 101,
+              name: "홍길동",
+              gender: "MALE",
+              age: 30,
+              diseaseName: "뇌졸중",
+            },
+            {
+              patientId: 105,
+              name: "홍길순",
+              gender: "FEMALE",
+              age: 45,
+              diseaseName: "파킨슨",
+            },
+            {
+              patientId: 120,
+              name: "김민수",
+              gender: "MALE",
+              age: 62,
+              diseaseName: "퇴행성 관절염",
+            },
+          ],
+        };
+        setTherapistName(data.therapistName ?? "");
+        setPatients(Array.isArray(data.patients) ? data.patients : []);
+        setSelectedPatient(null);
+        setSearchValue("");
+        setView(VIEW.LOOKUP);
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/therapist/${trimmedId}/dashboard`, {
+        method: "GET",
+      });
+      if (!res.ok) {
+        throw new Error("조회에 실패했습니다.");
+      }
+      const payload = await res.json();
+      const data = payload?.data;
+      setTherapistName(data?.therapistName ?? "");
+      setPatients(Array.isArray(data?.patients) ? data.patients : []);
+      setSelectedPatient(null);
+      setSearchValue("");
+      setView(VIEW.LOOKUP);
+    } catch (err) {
+      setErrorMessage("의료인 번호를 확인해주세요.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadReport = async (patient) => {
+    if (!patient) return;
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+      if (useMock) {
+        setReportData({
+          profile: {
+            patient_id: patient.patientId,
+            name: patient.name,
+            birth_date: "1988-05-20",
+            gender: patient.gender,
+            disease_name: patient.diseaseName,
+            rehab_phase: "MIDDLE",
+            created_at: "2026-01-15T10:00:00",
+          },
+          sequences: [
+            {
+              sequence_id: 101,
+              started_at: "2026-01-20T14:30:00",
+              ended_at: "2026-01-20T15:10:00",
+              feedback: "전반적으로 가동 범위가 향상됨",
+            },
+            {
+              sequence_id: 105,
+              started_at: "2026-01-22T09:00:00",
+              ended_at: "2026-01-22T09:45:00",
+              feedback: "통증 완화 확인",
+            },
+          ],
+          sequenceSummary: {
+            sequence_id: 101,
+            started_at: "2026-01-20T14:30:00",
+            ended_at: "2026-01-20T15:10:00",
+            feedback: "가동 범위 향상. 보상 동작이 줄고 안정성이 높아졌습니다.",
+            summary: {
+              total_trials: 50,
+              success_trials: 42,
+              avg_angle: 115.5,
+              in_target_rate: 84.0,
+              compensation_total: 5,
+              stability_level: "STABLE",
+            },
+          },
+          reportSummary: {
+            totalTrials: 50,
+            successTrials: 42,
+            avgAngle: 115.5,
+            inTargetRate: 84.0,
+            stabilityLevel: "STABLE",
+          },
+          exercises: [
+            {
+              exercise_id: 5,
+              exercise_name: "팔꿈치 굴곡 운동",
+              description: "앉은 자세에서 팔꿈치를 천천히 굽히는 운동입니다.",
+              precautions: "어깨가 위로 들리지 않도록 주의하세요.",
+              side: "RIGHT",
+              goal_vision: "140",
+              goal_sensor: "135",
+            },
+          ],
+        });
+        return;
+      }
+
+      const [profileRes, sequencesRes, reportRes, exercisesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
+        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
+        fetch(`${API_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
+          method: "GET",
+        }),
+        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}/exercises`, {
+          method: "GET",
+        }),
+      ]);
+
+      if (!profileRes.ok) throw new Error("환자 정보를 불러오지 못했습니다.");
+
+      const profilePayload = await profileRes.json();
+      const sequencesPayload = sequencesRes.ok ? await sequencesRes.json() : { data: [] };
+      const reportPayload = reportRes.ok ? await reportRes.json() : { data: null };
+      const exercisesPayload = exercisesRes.ok ? await exercisesRes.json() : { data: [] };
+
+      const sequences = Array.isArray(sequencesPayload?.data) ? sequencesPayload.data : [];
+      const latestSequence = sequences
+        .slice()
+        .sort(
+          (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+        )[0];
+
+      let sequenceSummary = null;
+      if (latestSequence?.sequence_id) {
+        const summaryRes = await fetch(
+          `${API_BASE_URL}/api/patients/sequences/${latestSequence.sequence_id}`,
+          { method: "GET" }
+        );
+        if (summaryRes.ok) {
+          const summaryPayload = await summaryRes.json();
+          sequenceSummary = summaryPayload?.data ?? null;
+        }
+      }
+
+      setReportData({
+        profile: profilePayload?.data ?? null,
+        sequences,
+        sequenceSummary,
+        reportSummary: reportPayload?.data ?? null,
+        exercises: Array.isArray(exercisesPayload?.data) ? exercisesPayload.data : [],
+      });
+    } catch (err) {
+      setReportError("리포트를 불러오는 데 실패했습니다.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   return (
-    <MainLayout stageLabel="의료진 화면" nurseId={therapistId} hideCamera variant="therapist">
+    <MainLayout
+      stageLabel="의료진 조회"
+      nurseId={therapistId}
+      hideCamera
+      variant="therapist"
+    >
       {view === VIEW.LOGIN && (
         <div className="placeholder-screen therapist-screen enter">
           <div className="screen-label">의료진 로그인</div>
           <h1>담당 확인</h1>
-          <p className="lead">
-            의료인 번호를 입력하면 환자 조회 화면으로 이동합니다.
-          </p>
+          <p className="lead">담당 의료인 번호를 입력해주세요.</p>
           <div className="therapist-login-layout">
             <div className="therapist-login">
               <label className="therapist-label" htmlFor="therapistId">
@@ -109,29 +265,23 @@ export default function TherapistUI() {
                 id="therapistId"
                 className="therapist-input"
                 type="text"
-                placeholder="예시"
+                placeholder="예시: 8451"
                 value={therapistId}
                 onChange={(event) => setTherapistId(event.target.value)}
               />
               <button
                 className="therapist-primary"
                 type="button"
-                onClick={() => setView(VIEW.LOOKUP)}
-                disabled={!therapistId.trim()}
+                onClick={handleTherapistLogin}
+                disabled={!therapistId.trim() || isLoading}
               >
-                로그인
+                {isLoading ? "불러오는 중" : "로그인"}
               </button>
+              {errorMessage && <div className="login-error">{errorMessage}</div>}
             </div>
             <div className="therapist-gooey">
               <GooeyText
-                texts={[
-                  "정예진",
-                  "신원호",
-                  "김범석",
-                  "한의표",
-                  "이혜연",
-                  "임찬혁",
-                ]}
+                texts={["Rehab", "Insight", "Care", "Support", "Progress", "Empathy"]}
                 morphTime={1.6}
                 cooldownTime={0.55}
               />
@@ -142,18 +292,32 @@ export default function TherapistUI() {
       {view === VIEW.LOOKUP && (
         <div className="placeholder-screen therapist-screen enter">
           <div className="therapist-header">
-            <button
-              className="therapist-ghost"
-              type="button"
-              onClick={() => {
-                setView(VIEW.LOGIN);
-                setSearchValue("");
-                setSelectedPatient(null);
-              }}
-            >
-              로그아웃
-            </button>
-            <div className="screen-label">환자 조회</div>
+            <div className="therapist-header-left">
+              <span className="screen-label">
+                {therapistName ? `${therapistName} 담당 환자 조회` : "담당 환자 조회"}
+              </span>
+              <button
+                className="therapist-ghost"
+                type="button"
+                onClick={() => {
+                  setView(VIEW.LOGIN);
+                  setSearchValue("");
+                  setSelectedPatient(null);
+                  setPatients([]);
+                  setTherapistName("");
+                  setReportData({
+                    profile: null,
+                    sequences: [],
+                    sequenceSummary: null,
+                    reportSummary: null,
+                    exercises: [],
+                  });
+                  setReportError("");
+                }}
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
           <div className="therapist-layout">
             <section className="therapist-left">
@@ -162,7 +326,7 @@ export default function TherapistUI() {
                 <input
                   className="therapist-search-input"
                   type="text"
-                  placeholder="환자 번호를 입력하세요"
+                  placeholder="환자 번호 또는 이름을 입력하세요"
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                 />
@@ -170,82 +334,144 @@ export default function TherapistUI() {
               <div className="therapist-results">
                 {!searchValue.trim() && (
                   <div className="therapist-empty">
-                    입력하면 아래에 환자 목록이 표시됩니다.
+                    환자 번호를 입력하면 목록이 표시됩니다.
                   </div>
                 )}
                 {searchValue.trim() &&
                   (visiblePatients.length > 0 ? (
                     visiblePatients.map((patient) => (
                       <button
-                        key={patient.id}
+                        key={patient.patientId}
                         type="button"
                         className={`therapist-card${
-                          selectedPatient?.id === patient.id ? " selected" : ""
+                          selectedPatient?.patientId === patient.patientId ? " selected" : ""
                         }`}
-                        onClick={() => setSelectedPatient(patient)}
+                        onClick={() => {
+                          setSelectedPatient(patient);
+                          loadReport(patient);
+                        }}
                       >
-                        <div className="therapist-card-id">{patient.id}</div>
+                        <div className="therapist-card-id">{patient.patientId}</div>
                         <div className="therapist-card-name">{patient.name}</div>
-                        <div className="therapist-card-note">{patient.note}</div>
+                        <div className="therapist-card-note">
+                          병명: {patient.diseaseName}
+                          <br />
+                          성별: {patient.gender === "MALE" ? "남" : "여"}
+                          <br />
+                          나이: {patient.age}세
+                        </div>
                       </button>
                     ))
                   ) : (
-                    <div className="therapist-empty">
-                      일치하는 환자가 없습니다.
-                    </div>
+                    <div className="therapist-empty">일치하는 환자가 없습니다.</div>
                   ))}
               </div>
             </section>
             <section className="therapist-right">
               <div className="therapist-report">
-                {selectedPatient ? (
+                {reportLoading && (
+                  <div className="therapist-empty">리포트를 불러오는 중입니다.</div>
+                )}
+                {!reportLoading && reportError && (
+                  <div className="therapist-empty">{reportError}</div>
+                )}
+                {!reportLoading && !reportError && selectedPatient && (
                   <>
-                    <div className="report-header">
-                      <div>
-                        <div className="report-title">
-                          {selectedPatient.name} 환자 리포트
-                        </div>
-                        <div className="report-sub">
-                          환자 번호 {selectedPatient.id}
-                        </div>
-                      </div>
-                      <span className="report-pill">임시 리포트</span>
-                    </div>
                     <div className="report-card">
-                      <div className="report-card-title">
-                        {REPORTS[selectedPatient.id]?.title}
-                      </div>
+                      <div className="report-card-title">환자 요약</div>
                       <div className="report-card-body">
-                        {REPORTS[selectedPatient.id]?.summary}
+                        {reportData.profile ? (
+                          <>
+                            환자 번호 {reportData.profile.patient_id} /{" "}
+                            {reportData.profile.gender === "MALE" ? "남" : "여"} /{" "}
+                            {calcAge(reportData.profile.birth_date) ?? "-"}세
+                            <br />
+                            병명: {reportData.profile.disease_name} / 단계:{" "}
+                            {reportData.profile.rehab_phase}
+                          </>
+                        ) : (
+                          "환자 정보를 불러오지 못했습니다."
+                        )}
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">주요 관찰</div>
+                      <div className="report-card-title">종합 리포트</div>
                       <div className="report-card-body">
-                        {REPORTS[selectedPatient.id]?.highlight}
+                        {reportData.reportSummary ? (
+                          <>
+                            총 시도 {reportData.reportSummary.totalTrials}회 · 성공{" "}
+                            {reportData.reportSummary.successTrials}회
+                            <br />
+                            평균 각도 {reportData.reportSummary.avgAngle}° · 목표 진입률{" "}
+                            {reportData.reportSummary.inTargetRate}% · 안정성{" "}
+                            {reportData.reportSummary.stabilityLevel}
+                          </>
+                        ) : (
+                          "종합 리포트를 불러오지 못했습니다."
+                        )}
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">다음 회차 제안</div>
+                      <div className="report-card-title">오늘 시퀀스 요약</div>
                       <div className="report-card-body">
-                        {REPORTS[selectedPatient.id]?.next}
+                        {reportData.sequenceSummary ? (
+                          <>
+                            총 시도 {reportData.sequenceSummary.summary?.total_trials ?? "-"}회 · 성공{" "}
+                            {reportData.sequenceSummary.summary?.success_trials ?? "-"}회
+                            <br />
+                            평균 각도 {reportData.sequenceSummary.summary?.avg_angle ?? "-"}° · 목표 진입률{" "}
+                            {reportData.sequenceSummary.summary?.in_target_rate ?? "-"}%
+                            <br />
+                            보상 동작 {reportData.sequenceSummary.summary?.compensation_total ?? "-"}회 · 안정성{" "}
+                            {reportData.sequenceSummary.summary?.stability_level ?? "-"}
+                            <div className="report-note">
+                              {reportData.sequenceSummary.feedback}
+                            </div>
+                          </>
+                        ) : (
+                          "시퀀스 요약을 불러오지 못했습니다."
+                        )}
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">최근 세션 기록</div>
+                      <div className="report-card-title">최근 시퀀스 기록</div>
                       <div className="report-list">
-                        {REPORTS[selectedPatient.id]?.sessions.map((item) => (
-                          <div key={item.date} className="report-list-row">
-                            <span>{item.date}</span>
-                            <span>{item.note}</span>
-                          </div>
-                        ))}
+                        {reportData.sequences.length > 0 ? (
+                          reportData.sequences.slice(0, 5).map((item) => (
+                            <div key={item.sequence_id} className="report-list-row">
+                              <span className="report-date">
+                                {formatDateTime(item.started_at)} ~ {formatDateTime(item.ended_at)}
+                              </span>
+                              <span className="report-feedback">{item.feedback || "-"}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="therapist-empty">최근 기록이 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">처방 운동</div>
+                      <div className="report-list">
+                        {reportData.exercises.length > 0 ? (
+                          reportData.exercises.map((exercise) => (
+                            <div key={exercise.mapping_id ?? exercise.exercise_id} className="report-list-row">
+                              <span>{exercise.exercise_name}</span>
+                              <span>
+                                {exercise.side} · 목표 {exercise.goal_vision}/{exercise.goal_sensor}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="therapist-empty">처방 운동이 없습니다.</div>
+                        )}
                       </div>
                     </div>
                   </>
-                ) : (
+                )}
+                {!reportLoading && !reportError && !selectedPatient && (
                   <div className="therapist-empty">
-                    환자 목록에서 선택하면 리포트가 표시됩니다.
+                    환자를 선택하면 리포트가 표시됩니다.
                   </div>
                 )}
               </div>
