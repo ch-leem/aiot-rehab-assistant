@@ -153,3 +153,7 @@ nginx/certbot/
 
 # logs
 *.log
+
+# temp files
+.vscode/
+esp8266_mpu6050/
