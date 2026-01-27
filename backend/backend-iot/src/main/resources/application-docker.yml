@@ -1,6 +1,9 @@
 server:
   port: 8080
 
+ingest:
+  base-url: http://ingest-api:8000
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/rehab}
