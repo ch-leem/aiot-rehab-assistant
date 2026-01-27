@@ -11,7 +11,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class PatientService {
@@ -50,6 +52,12 @@ public class PatientService {
         // 3) 환자 운동 ID 리스트 조회
         List<Long> exerciseIds = exercisePatientMappingRepository.findExerciseIdsByPatientId(patientId);
 
+        Set<Long> exerciseIdsSet = new LinkedHashSet<>();
+
+        for(long id : exerciseIds) {
+            exerciseIdsSet.add(id);
+        }
+
         // 4) DTO로 반환
         return new PatientSummaryResponse(
                 patient.getId(),
@@ -58,7 +66,7 @@ public class PatientService {
                 patient.getDiseaseName(),
                 patient.getRehabPhase(),
                 therapist.getName(),
-                exerciseIds
+                exerciseIdsSet
         );
     }
 }
