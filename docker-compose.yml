@@ -93,6 +93,13 @@ services:
       - "80"
     networks: [appnet]
 
+  frontend-test:
+    build: ./frontendTest
+    container_name: frontend-test
+    expose:
+      - "8080"
+    restart: unless-stopped
+  
   nginx:
     image: nginx:alpine
     container_name: rehab-nginx
