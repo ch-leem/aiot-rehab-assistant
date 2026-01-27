@@ -38,7 +38,7 @@ public class TryService {
                 .orElseThrow(() -> new IllegalArgumentException("Try not found: " + tryId));
 
         if (t.getEndedAt() != null) {
-            return toResponse(t, "이미 종료되었습니다.");
+            throw new IllegalStateException("이미 종료된 운동 시도입니다.");
         }
 
         // 1. 해당 운동(Exercise)에 설정된 목표(Goal) 리스트 가져오기
@@ -83,12 +83,12 @@ public class TryService {
             t.setFail(fail);
         }
 
-        // 5. 피드백 메시지 생성
-        String feedbackMsg = generateFeedback(totalScore);
+        // 5. 피드백 메시지 생성(db 구조 변경)
+        // String feedbackMsg = generateFeedback(totalScore);
 
         tryRepository.save(t); // CascadeType.ALL에 의해 TryGoalResult도 함께 저장됨
 
-        return new TryFinishResponse(t.getId(), feedbackMsg);
+        return toResponse(t);
     }
 
     // 간단한 달성률 계산 로직 (예: 목표값 대비 비율)
@@ -98,15 +98,20 @@ public class TryService {
         return Math.min(100.0, round1(rate));
     }
 
-    private String generateFeedback(double score) {
-        if (score >= 90) return "완벽한 자세입니다!";
-        if (score >= 80) return "잘하고 계십니다!";
-        if (score >= 60) return "조금 더 정확하게 움직여볼까요?";
-        return "치료사님의 가이드에 따라 천천히 다시 해보세요.";
-    }
+//    private String generateFeedback(double score) {
+//        if (score >= 90) return "완벽한 자세입니다!";
+//        if (score >= 80) return "잘하고 계십니다!";
+//        if (score >= 60) return "조금 더 정확하게 움직여볼까요?";
+//        return "치료사님의 가이드에 따라 천천히 다시 해보세요.";
+//    }
 
-    private TryFinishResponse toResponse(Try t, String str) {
-        return new TryFinishResponse(t.getId(), str);
+    private TryFinishResponse toResponse(Try t) {
+        return new TryFinishResponse(
+                t.getId(),
+                t.getTotalScore(),
+                t.getResult() != null ? t.getResult().name() : "NONE",
+                t.getFail() != null ? t.getFail().getName() : null
+        );
     }
 
     private static double round1(double v) {
