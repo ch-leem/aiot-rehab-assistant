@@ -157,4 +157,4 @@ nginx/certbot/
 .vscode/
 esp8266_mpu6050/
 
-docker-compose-local.yml
+docker-compose.local.yml
