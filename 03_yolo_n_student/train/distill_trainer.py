@@ -77,7 +77,8 @@ from ultralytics.models.yolo.pose.train import PoseTrainer
 
 from utils.config import load_yaml
 from distill.teacher import load_teacher
-from distill.hooks import AttentionHook
+from distill.hooks import MultiScaleFeatureHook, NamedFeatureHook
+from distill.losses import feature_distill_loss, kpt_distill_loss
 
 
 class DistillPoseTrainer(PoseTrainer):
@@ -87,9 +88,9 @@ class DistillPoseTrainer(PoseTrainer):
         # distill config
         self.distill_cfg = load_yaml("configs/distill_kpt.yaml")
 
-        # hooks (아직 model 없음 → 여기선 생성만)
-        self.t_hook = AttentionHook()
-        self.s_hook = AttentionHook()
+        # # hooks (아직 model 없음 → 여기선 생성만)
+        # self.t_hook = AttentionHook()
+        # self.s_hook = AttentionHook()
 
         # teacher는 미리 로드 가능
         teacher_weight = self.distill_cfg["teacher"]["weight"]
@@ -97,48 +98,65 @@ class DistillPoseTrainer(PoseTrainer):
         self.teacher.eval()
 
     def setup_model(self):
-        # 🔥 여기서 student model이 실제로 생성됨
         super().setup_model()
+    
+        self.t_feat_hook = MultiScaleFeatureHook()
+        self.s_feat_hook = MultiScaleFeatureHook()
+    
+        feat_layers = self.distill_cfg["hook"]["features"]  # {"p3":16,"p4":19,"p5":22}
+    
+        self._hook_handles = []
+        for name, idx in feat_layers.items():
+            h1 = self.model.model[idx].register_forward_hook(
+                NamedFeatureHook(self.s_feat_hook, name)
+            )
+            h2 = self.teacher.model[idx].register_forward_hook(
+                NamedFeatureHook(self.t_feat_hook, name)
+            )
+            self._hook_handles.extend([h1, h2])
+    
+        print(f"[Distill] Feature hooks registered: {feat_layers}")
 
-        hook_idx = self.distill_cfg["hook"]["index"]
-
-        # 이제는 self.model이 nn.Module임
-        self.model.model[hook_idx].register_forward_hook(self.s_hook)
-        self.teacher.model[hook_idx].register_forward_hook(self.t_hook)
-
-        print(f"[Distill] Hooks registered at layer {hook_idx}")
 
     def loss(self, batch, preds=None):
-        # 기본 YOLO loss
-        loss, loss_items = super().loss(batch, preds)
-
+        base_loss, loss_items = super().loss(batch, preds)
+    
         imgs = batch["img"]
-
-        # teacher forward
+        gt_kpt = batch["keypoints"][..., :2]  # (x,y)
+    
         with torch.no_grad():
             t_preds = self.teacher(imgs)
-
+    
+        loss = base_loss
+    
+        # feature distill
+        if self.distill_cfg["distill"]["use_feat"]:
+            loss_feat = feature_distill_loss(
+                self.s_feat_hook.features,
+                self.t_feat_hook.features,
+                self.distill_cfg["loss_weight"]["feat"]
+            )
+            loss = loss + loss_feat
+    
         # keypoint distill
-        loss_kpt = F.mse_loss(
-            preds[0].keypoints.xy,
-            t_preds[0].keypoints.xy
-        )
-
-        # attention distill
-        loss_att = F.mse_loss(
-            self.s_hook.att,
-            self.t_hook.att
-        )
-
-        loss = (
-            loss
-            + self.distill_cfg["loss_weight"]["kpt"] * loss_kpt
-            + self.distill_cfg["loss_weight"]["attention"] * loss_att
-        )
-
+        if self.distill_cfg["distill"]["use_kpt"]:
+            loss_kpt = kpt_distill_loss(
+                preds[0].keypoints.xy,
+                t_preds[0].keypoints.xy,
+                gt_kpt,
+                alpha=0.6
+            )
+            loss = loss + self.distill_cfg["loss_weight"]["kpt"] * loss_kpt
+    
         return loss, loss_items
 
+
     def on_train_end(self):
+        # 🔥 hook 제거 (pickle 에러 방지)
+        if hasattr(self, "_hook_handles"):
+            for h in self._hook_handles:
+                h.remove()
+                
         super().on_train_end()
     
         best_ckpt = self.best
