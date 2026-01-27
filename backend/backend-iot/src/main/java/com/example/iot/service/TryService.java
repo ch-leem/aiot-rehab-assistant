@@ -2,38 +2,42 @@ package com.example.iot.service;
 
 import com.example.iot.domain.*;
 import com.example.iot.domain.constant.TryResult;
+import com.example.iot.dto.request.TryEvaluationRequest;
 import com.example.iot.dto.response.TryFinishResponse;
 import com.example.iot.dto.response.TryStartResponse;
 import com.example.iot.repository.*;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
-@RequiredArgsConstructor // 생성자 주입 생략 가능
+@RequiredArgsConstructor
 public class TryService {
 
     private static final double SUCCESS_THRESHOLD_PERCENT = 80.0;
 
     private final TryRepository tryRepository;
-    private final SessionRepository sessionRepository;
     private final FailRepository failRepository;
-    private final ExerciseGoalRepository exerciseGoalRepository; // 새롭게 추가 필요
+    private final ExerciseGoalRepository exerciseGoalRepository;
+    private final ExercisePatientMappingRepository mappingRepository;
+    private final FrameAnalyzer frameAnalyzer; // 분석기 주입
 
+    @Transactional
     public TryStartResponse startTry(Long tryId) {
         Try t = tryRepository.findById(tryId)
                 .orElseThrow(() -> new IllegalArgumentException("Try가 존재하지 않습니다. id=" + tryId));
-
         t.setStartedAt(LocalDateTime.now());
         return new TryStartResponse(t.getId(), t.getStartedAt());
     }
 
+    /**
+     * @param rawFrames Redis 등 외부에서 조회해온 JSON 문자열 리스트
+     */
     @Transactional
-    public TryFinishResponse finishTry(Long tryId) {
+    public TryFinishResponse finishTry(Long tryId, List<String> rawFrames) {
         Try t = tryRepository.findById(tryId)
                 .orElseThrow(() -> new IllegalArgumentException("Try not found: " + tryId));
 
@@ -41,80 +45,75 @@ public class TryService {
             throw new IllegalStateException("이미 종료된 운동 시도입니다.");
         }
 
-        // 1. 해당 운동(Exercise)에 설정된 목표(Goal) 리스트 가져오기
+        // 1. 매핑 정보를 통한 환측(Side) 파악
         Exercise exercise = t.getSession().getExercise();
+        Patient patient = t.getSession().getSequence().getPatient();
+        ExercisePatientMapping mapping = mappingRepository.findByPatient_Id(patient.getId()).stream()
+                .filter(m -> m.getExercise().getId().equals(exercise.getId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Mapping 정보가 없습니다."));
+
+        String side = mapping.getSide().name();
+
+        // 2. 외부 분석기를 통한 데이터 통계화 (Redis 경로 의존성 없음)
+        TryEvaluationRequest evalRequest = frameAnalyzer.analyze(rawFrames, side);
+
+        // 3. 목표별 점수 산출 및 저장
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
-
-        double aggregateScore = 0;
-
-        // 2. 각 목표별 결과 계산 및 저장
         for (ExerciseGoal goal : goals) {
-            // (나중에 실제 PoseMath/Redis 값으로 대체될 부분)
-            double measuredValue = round1(ThreadLocalRandom.current().nextDouble(0, 100));
-            double achievementRate = calculateAchievement(goal, measuredValue); // 달성률 계산 로직
+            double measuredValue = evalRequest.getValueByGoalName(goal.getName());
+            double achievementRate = calculateAchievement(goal, measuredValue, side);
 
-            // 상세 결과 엔티티 생성 및 연관관계 편의 메서드 사용
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
             t.addGoalResult(result);
-
-            aggregateScore += achievementRate;
         }
 
-        // 3. 종합 점수 계산 (목표 개수로 나눈 평균값 등)
-        double totalScore = goals.isEmpty() ? 0 : round1(aggregateScore / goals.size());
-        t.setTotalScore(totalScore);
+        // 4. 최종 결과 확정
         t.setEndedAt(LocalDateTime.now());
-
-        // 4. 성공/실패 판정
-        boolean success = totalScore >= SUCCESS_THRESHOLD_PERCENT;
-
-        if (success) {
+        if (t.getTotalScore() >= SUCCESS_THRESHOLD_PERCENT) {
             t.setResult(TryResult.SUCCESS);
-            t.setFail(null);
-
-            Session s = t.getSession();
-            if (s != null) {
-                s.setSuccessTries(s.getSuccessTries() + 1);
+            if (t.getSession() != null) {
+                t.getSession().setSuccessTries(t.getSession().getSuccessTries() + 1);
             }
         } else {
             t.setResult(TryResult.FAIL);
-            // 실패 사유 로직 (우선 F1-수동 움직임으로 예시 설정)
-            Fail fail = failRepository.findById("F1").orElse(null);
-            t.setFail(fail);
+            t.setFail(failRepository.findById("F1").orElse(null));
         }
-
-        // 5. 피드백 메시지 생성(db 구조 변경)
-        // String feedbackMsg = generateFeedback(totalScore);
-
-        tryRepository.save(t); // CascadeType.ALL에 의해 TryGoalResult도 함께 저장됨
 
         return toResponse(t);
     }
 
-    // 간단한 달성률 계산 로직 (예: 목표값 대비 비율)
-    private double calculateAchievement(ExerciseGoal goal, double measured) {
-        // 실제 로직에 맞게 수정 필요 (예: 각도는 작을수록 좋을 수도, 클수록 좋을 수도 있음)
-        double rate = (measured / goal.getTargetValue()) * 100;
-        return Math.min(100.0, round1(rate));
+    private double calculateAchievement(ExerciseGoal goal, double measured, String side) {
+        double target = goal.getTargetValue();
+        String name = goal.getName();
+
+        if (name.contains("신전") || name.contains("수평") || name.contains("편차")) {
+            double error = Math.abs(target - measured);
+            return Math.max(0, 100.0 - (error * (name.contains("신전") ? 2.0 : 5.0)));
+        }
+
+        if (target == 0.0) {
+            return Math.max(0, 100.0 - (measured * getPenaltyWeight(name)));
+        }
+
+        if (target > 0) {
+            return Math.min(100.0, (measured / target) * 100);
+        }
+        return 0.0;
     }
 
-//    private String generateFeedback(double score) {
-//        if (score >= 90) return "완벽한 자세입니다!";
-//        if (score >= 80) return "잘하고 계십니다!";
-//        if (score >= 60) return "조금 더 정확하게 움직여볼까요?";
-//        return "치료사님의 가이드에 따라 천천히 다시 해보세요.";
-//    }
+    private double getPenaltyWeight(String name) {
+        return switch (name) {
+            case "상체 앞뒤 기울기", "상체 앞뒤 기울임" -> 5.0;
+            case "수행 가속도" -> 20.0;
+            case "비마비측 발목 흔들림" -> 10.0;
+            default -> 1.0;
+        };
+    }
 
     private TryFinishResponse toResponse(Try t) {
-        return new TryFinishResponse(
-                t.getId(),
-                t.getTotalScore(),
+        return new TryFinishResponse(t.getId(), t.getTotalScore(),
                 t.getResult() != null ? t.getResult().name() : "NONE",
-                t.getFail() != null ? t.getFail().getName() : null
-        );
-    }
-
-    private static double round1(double v) {
-        return Math.round(v * 10.0) / 10.0;
+                t.getFail() != null ? t.getFail().getName() : null);
     }
 }

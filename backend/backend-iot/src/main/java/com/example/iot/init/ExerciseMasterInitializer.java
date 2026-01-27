@@ -62,7 +62,7 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
                 // SUB: 자세 안정성 (0에 가까울수록 고득점인 감점형 지표들)
                 new ExerciseGoal(weightBearing, "SUB", "골반 수평 편차", "ANGLE", 0.0, "deg"),
                 new ExerciseGoal(weightBearing, "SUB", "비마비측 발목 흔들림", "STABILITY", 0.0, "score"),
-                new ExerciseGoal(weightBearing, "SUB", "상체 앞뒤 기울임", "ANGLE", 0.0, "deg")
+                new ExerciseGoal(weightBearing, "SUB", "상체 앞뒤 기울기", "ANGLE", 0.0, "deg")
 
         ));
 
