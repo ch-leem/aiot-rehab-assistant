@@ -43,8 +43,9 @@ async function start() {
   if (pc) return;
 
   setStatus("connecting");
-  ws = new WebSocket(`ws://${location.host}/ws`);
-
+  const scheme = (location.protocol === "https:") ? "wss" : "ws";
+  ws = new WebSocket(`${scheme}://${location.host}/test/ws`);
+  
   ws.onopen = async () => {
     log("WS connected");
 
