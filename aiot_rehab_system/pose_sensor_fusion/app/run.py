@@ -75,6 +75,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
     is_ingest = bool(cfg["ingest"]["enable"])
     is_webrtc_in = bool(cfg["webrtc"].get("enable", True))
 
+    is_local_vis = bool(cfg["local_vis"]["enable"])
+
     # 센서 모듈 시작
     imu = ImuUdpBuffer(
         listen_ip=imu_cfg["udp_ip"],
@@ -141,8 +143,9 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
             if depth_scale is None:
                 raise RuntimeError("Depth scale is None")
 
-            # cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-            # cv2.resizeWindow(win_name, 1280, 960)
+            if is_local_vis:
+                cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+                cv2.resizeWindow(win_name, 1280, 960)
 
             while not stop_flag.is_set():
                 bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
@@ -396,10 +399,11 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
                 # put_lines(disp, x=10, y=25, lines=debug_lines, scale=0.55, thickness=2, line_gap=18)
 
-                # cv2.imshow(win_name, disp)
-                # key = cv2.waitKey(1) & 0xFF
-                # if key == 27 or key == ord("q"):
-                #     break
+                if is_local_vis:
+                    cv2.imshow(win_name, disp)
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == 27 or key == ord("q"):
+                        break
 
                 frame_idx += 1
 

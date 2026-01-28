@@ -62,7 +62,7 @@ load_cell:
   max_abs_age_ms: 500.0
 
 ingest:
-  enable: true
+  enable: false
   url: ""   # ip.md 로컬 파일 참고
   timeout_sec: 0.2
   max_queue: 4
@@ -70,4 +70,8 @@ ingest:
   headers: {}    # 필요하면 {"Authorization": "Bearer ..."} 같은 식
 
 webrtc:
+  enable: false
   url: "ws://0.0.0.0:8080/ws"
+
+local_vis:
+  enable: true
