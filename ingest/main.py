@@ -27,7 +27,7 @@ ACTIVE_TRY_KEY = os.getenv("ACTIVE_TRY_KEY", "ingest:active_try")
 # ✅ 집계 설정
 REDIS_AGG_PREFIX = os.getenv("REDIS_AGG_PREFIX", "agg:try")  # compose: agg:try
 # compose 예: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,...
-AGG_METRICS = os.getenv("AGG_METRICS", "strength=sensor.strength")
+AGG_METRICS = os.getenv("AGG_METRICS", "strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z,power=sensor.power,trunk_forward_tilt=deg.mid.trunk_forward_tilt,pelvis_level=deg.mid.pelvis_level,l_elbow_extension=deg.left.elbow_extension,r_elbow_extension=deg.right.elbow_extension")
 
 r = redis.Redis(
     host=REDIS_HOST,
