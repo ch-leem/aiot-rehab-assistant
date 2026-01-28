@@ -10,6 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "i": "^0.3.7",
+    "framer-motion": "^11.3.0",
+    "recharts": "^2.12.7",
+    "three": "^0.160.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

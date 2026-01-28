@@ -104,7 +104,7 @@ fabric.properties
 *.ctxt
 
 # Mobile Tools for Java (J2ME)
-.mtj.tmp/
+mtj.tmp/
 
 # Package Files #
 *.jar
@@ -158,3 +158,24 @@ nginx/certbot/
 esp8266_mpu6050/
 
 docker-compose.local.yml
+
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+
+# Visual Studio
+*.csproj
+*.sln
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# temp files
+esp8266_mpu6050
+laundry-3d/
