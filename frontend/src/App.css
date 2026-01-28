@@ -589,7 +589,7 @@
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
-  margin-left: 100px;
+  margin-left: 200px;
 }
 
 .result-layout {
@@ -1072,6 +1072,14 @@
   white-space: nowrap;
   overflow-x: auto;
   text-overflow: clip;
+}
+
+.goal-change-list .change-item {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  align-items: flex-start;
 }
 
 .change-item.upper {

@@ -87,6 +87,7 @@ const RESULT_RULES = [
 ];
 
 export default function App() {
+  const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
   const isTherapistRoute =
     typeof window !== "undefined" &&
     window.location.pathname.startsWith("/therapist");
@@ -165,6 +166,27 @@ export default function App() {
     setIsLoggingIn(true);
     setLoginError("");
     try {
+      if (useMock) {
+        const data = {
+          patientId: Number(nextPatientId) || 1,
+          therapistId: Number(nextNurseId) || 1,
+          therapistName: "김치료사",
+          name: "홍길동",
+          disease_name: "뇌졸중",
+          rehab_phase: "MIDDLE",
+          exerciseIds: [1, 2],
+        };
+        setPatientId(String(data.patientId ?? nextPatientId));
+        setNurseId(String(data.therapistId ?? nextNurseId));
+        setTherapistName(data.therapistName ?? "");
+        setPatientName(data.name ?? "");
+        setDiseaseName(data.disease_name ?? "");
+        setRehabPhase(data.rehab_phase ?? "");
+        setExerciseIds(Array.isArray(data.exerciseIds) ? data.exerciseIds : []);
+        setExerciseIndex(0);
+        setScreen(SCREEN.PATIENT_CHECK);
+        return;
+      }
       console.log("[API] login GET", {
         url: `${API_USER_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
       });
@@ -240,6 +262,18 @@ export default function App() {
       return;
     }
     try {
+      if (useMock) {
+        setSequenceId(1);
+        setSequenceSessions(
+          todayExerciseIds.map((exerciseId, index) => ({
+            sessionId: 100 + index,
+            exerciseId,
+            tryIds: Array.from({ length: 10 }, (_, i) => 1000 + index * 10 + i),
+          }))
+        );
+        moveToExerciseIntro();
+        return;
+      }
       console.log("[API] sequence POST", {
         url: `${API_USER_BASE_URL}/api/sequence/${trimmedPatientId}`,
         body: { triesPerSession: 10 },
@@ -323,6 +357,24 @@ export default function App() {
     if (exerciseDetails[currentExerciseId]) return;
     const fetchDetail = async () => {
       try {
+        if (useMock) {
+          setExerciseDetails((prev) => ({
+            ...prev,
+            [currentExerciseId]: {
+              name: currentExerciseId === 1 ? "팔 들어올리기 운동" : "하체 힘 회복 운동",
+              description:
+                currentExerciseId === 1
+                  ? "팔을 천천히 들어 올리고 2초 유지한 뒤 내려주세요."
+                  : "하체에 힘을 주며 천천히 움직이고 균형을 유지해주세요.",
+              precautions:
+                currentExerciseId === 1
+                  ? "어깨가 올라가지 않도록 자연스럽게 움직여주세요."
+                  : "무릎이 과하게 앞으로 나가지 않도록 천천히 진행해주세요.",
+              postureGuide: "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
+            },
+          }));
+          return;
+        }
         console.log("[API] exercise detail GET", {
           url: `${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`,
         });
@@ -351,6 +403,11 @@ export default function App() {
       return;
     }
     try {
+      if (useMock) {
+        setStartedSessionId(sessionId);
+        setScreen(SCREEN.EXERCISE_SESSION);
+        return;
+      }
       console.log("[API] session start", {
         url: `${API_USER_BASE_URL}/sessions/${sessionId}/start`,
       });
@@ -368,6 +425,10 @@ export default function App() {
   const startTry = async (nextTryId) => {
     if (!nextTryId || activeTryId === nextTryId) return;
     try {
+      if (useMock) {
+        setActiveTryId(nextTryId);
+        return;
+      }
       console.log("[API] try start", {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/start`,
       });
@@ -382,6 +443,10 @@ export default function App() {
   const finishTry = async (nextTryId) => {
     if (!nextTryId) return;
     try {
+      if (useMock) {
+        setTryScores((prev) => ({ ...prev, [nextTryId]: 10 }));
+        return;
+      }
       console.log("[API] try finish", {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`,
         body: { tryId: nextTryId, failType: "", totalScore: 0 },
@@ -412,6 +477,7 @@ export default function App() {
     const sessionId = sequenceSessions[exerciseIndex]?.sessionId;
     if (!sessionId) return;
     try {
+      if (useMock) return;
       console.log("[API] session finish", {
         url: `${API_USER_BASE_URL}/api/sessions/${sessionId}/finish`,
       });
@@ -426,6 +492,7 @@ export default function App() {
   const finishSequence = async () => {
     if (!sequenceId) return;
     try {
+      if (useMock) return;
       console.log("[API] sequence finish", {
         url: `${API_USER_BASE_URL}/api/sequences/${sequenceId}/finish`,
       });
@@ -468,6 +535,13 @@ export default function App() {
     if (screen !== SCREEN.EXERCISE_RESULT || !sequenceId || !patientId) return;
     const fetchCompare = async () => {
       try {
+        if (useMock) {
+          setCompareItems([
+            { exerciseId: "upper", exerciseName: "상체 운동", diff: "6" },
+            { exerciseId: "lower", exerciseName: "하체 운동", diff: "-3" },
+          ]);
+          return;
+        }
         console.log("[API] compare-previous GET", {
           url: `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
         });
@@ -491,6 +565,13 @@ export default function App() {
     if (screen !== SCREEN.EXERCISE_RESULT || !sequenceId || !patientId) return;
     const fetchRecentGoals = async () => {
       try {
+        if (useMock) {
+          setRecentGoals([
+            { exerciseId: 1, goals: [8, 7, 6, 7, 8] },
+            { exerciseId: 2, goals: [5, 6, 6, 7, 7] },
+          ]);
+          return;
+        }
         console.log("[API] recent goals GET", {
           url: `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
         });
@@ -514,6 +595,13 @@ export default function App() {
     if (screen !== SCREEN.EXERCISE_RESULT || !sequenceId) return;
     const fetchAverages = async () => {
       try {
+        if (useMock) {
+          setSequenceAverages([
+            { exerciseId: 1, totalTries: 12, successTries: 10 },
+            { exerciseId: 2, totalTries: 12, successTries: 8 },
+          ]);
+          return;
+        }
         console.log("[API] sequence averages GET", {
           url: `${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`,
         });
@@ -834,7 +922,7 @@ export default function App() {
                     <div className="info-card">
                       <div>
                         <div className="card-title">앞으로의 목표</div>
-                        <div className="card-meta">
+                        <div className="card-meta goal-change-list">
                           {goalLines.map((line, index) => (
                             <div
                               key={line}

@@ -1,0 +1,104 @@
+version: "3.9"
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: rehab-iot-timescale
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Seoul
+    ports: 
+      - "${DB_PORT}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [appnet]
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: rehab-iot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    networks: [appnet]
+
+  ingest-api:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile
+    container_name: ingest-api
+    ports:
+      - "${INGEST_PORT}:8000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+  iot-api:
+    build:
+      context: ./backend
+      dockerfile: backend-iot/Dockerfile
+    container_name: rehab-iot-api-server
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      # Postgres JDBC
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8081:8080"
+    networks: [appnet]
+
+  user-api:
+    build:
+      context: ./backend
+      dockerfile: backend-user/Dockerfile
+    container_name: rehab-user-api-server
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    networks: [appnet]
+
+  frontend:
+    build: ./frontend
+    container_name: rehab-frontend-ui
+    restart: unless-stopped
+    depends_on: [iot-api, user-api]
+    ports:
+      - "3000:80"
+    networks: [appnet]
+
+networks:
+  appnet:
+
+volumes:
+  db-data:
+  redis-data:
