@@ -123,7 +123,7 @@ public class TryService {
 
     private double getPenaltyWeight(String name) {
         return switch (name) {
-            case "상체 앞뒤 기울기", "상체 앞뒤 기울임" -> 5.0;
+            case "상체 앞뒤 기울기" -> 5.0;
             case "수행 가속도" -> 20.0; // strength 기반 평균 가속도
             case "비마비측 발목 흔들림" -> 10.0; // XYZ 거리 기반
             default -> 1.0;
