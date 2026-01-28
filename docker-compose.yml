@@ -35,6 +35,10 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      ACTIVE_TRY_KEY: ingest:active_try
+      REDIS_AGG_PREFIX: agg:try
+      AGG_METRICS: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z
+
     depends_on:
       - redis
     networks:
