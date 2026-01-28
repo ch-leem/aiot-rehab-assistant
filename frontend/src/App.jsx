@@ -15,6 +15,7 @@ import MainLayout from "./components/MainLayout";
 import PatientCheck from "./components/PatientCheck";
 import Login from "./components/Login";
 import TherapistUI from "./components/TherapistUI";
+import ArmRaiseGame from "./components/ArmRaiseGame";
 
 const SCREEN = {
   LOGIN: "login",
@@ -663,7 +664,13 @@ export default function App() {
       {screen === SCREEN.EXERCISE_SESSION && (
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
-          <div className="session-visual">3D 반응형 화면 자리</div>
+          <div className="session-visual">
+            {currentExerciseId === 1 ? (
+              <ArmRaiseGame />
+            ) : (
+              <div className="session-visual-placeholder">3D 반응형 화면 자리</div>
+            )}
+          </div>
           <div className="session-panel session-panel-next">
             <div className="session-bar">
               <span
