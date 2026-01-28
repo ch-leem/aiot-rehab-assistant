@@ -9,7 +9,9 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class SequenceService {
@@ -55,13 +57,18 @@ public class SequenceService {
 
         // 1) Sequence 생성
         Sequence sequence = sequenceRepo.save(new Sequence(patient));
+        Set<Exercise> exerciseSet = new HashSet<>();
+
+        for(ExercisePatientMapping m : mappings) {
+            exerciseSet.add(m.getExercise());
+        }
 
         List<SessionTryResponse> sessionResponses = new ArrayList<>();
 
         // 2) Session + Try 생성
-        for (ExercisePatientMapping m : mappings) {
+        for (Exercise m : exerciseSet) {
 
-            Session session = new Session(sequence, m.getExercise());
+            Session session = new Session(sequence, m);
             session.setTotalTries(finalTryCount);
             session = sessionRepo.save(session);
 
