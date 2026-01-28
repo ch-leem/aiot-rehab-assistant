@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, Tuple
 
 import numpy as np
-from aiohttp import ClientSession, WSMsgType
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
+from aiohttp import ClientSession, WSMsgType, ClientWebSocketResponse
+from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.sdp import candidate_from_sdp
 from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
@@ -73,6 +73,12 @@ class WebRTCConfig:
     fps: int = 15
     enable_telemetry: bool = True
     telemetry_hz: float = 10.0
+    
+    # 시그널링(ws)이 끊겨도 PC가 살아있으면 계속 송출 유지
+    keep_streaming_on_ws_close: bool = True
+    # 운영에서 ws가 자주 끊기면 재연결까지 하고 싶으면 True로
+    reconnect_ws: bool = True
+    reconnect_backoff_sec: float = 1.0
 
 
 class WebRTCStreamer:
@@ -86,45 +92,56 @@ class WebRTCStreamer:
         self._stop_ev = asyncio.Event()
         self._pc: Optional[RTCPeerConnection] = None
         self._dc = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def stop(self):
-        try:
-            loop = asyncio.get_running_loop()
-            loop.call_soon_threadsafe(self._stop_ev.set)
-        except RuntimeError:
-            pass
+        if self._loop is not None:
+            print("[STOP] set by stop() call")
+            self._loop.call_soon_threadsafe(self._stop_ev.set)
 
     async def _telemetry_loop(self):
         if not self._dc:
             return
-        period = 1.0 / float(max(1e-6, self.cfg.telemetry_hz))
-        while not self._stop_ev.is_set():
-            frame, meta, _ = self.buf.pull()
-            if meta is not None and self._dc and self._dc.readyState == "open":
-                payload = {
-                    "type": "frame_meta",
-                    "frame_idx": int(meta.get("frame_idx", -1)),
-                    "tx_ms": float(meta.get("host_ts_ms", time.time() * 1000.0)),
-                }
-                try:
-                    self._dc.send(json.dumps(payload))
-                except Exception:
-                    pass
-            await asyncio.sleep(period)
 
-    async def run(self):
+        period = 1.0 / float(max(1e-6, self.cfg.telemetry_hz))
+        try:
+            while not self._stop_ev.is_set():
+                _, meta, _ = self.buf.pull()
+                if meta is not None and self._dc and self._dc.readyState == "open":
+                    payload = {
+                        "type": "frame_meta",
+                        "frame_idx": int(meta.get("frame_idx", -1)),
+                        "tx_ms": float(meta.get("host_ts_ms", time.time() * 1000.0)),
+                    }
+                    try:
+                        self._dc.send(json.dumps(payload))
+                    except Exception:
+                        pass
+                await asyncio.sleep(period)
+        except asyncio.CancelledError:
+            return
+
+    async def _wait_pc_end(self, pc: RTCPeerConnection):
+        # ws가 죽어도 pc가 살아있으면 계속 유지
+        while not self._stop_ev.is_set():
+            if pc.connectionState in ("failed", "closed", "disconnected"):
+                return
+            await asyncio.sleep(0.5)
+
+    async def _run_once(self) -> None:
         pc = RTCPeerConnection()
         self._pc = pc
 
         track = BufferVideoTrack(self.buf, target_fps=self.cfg.fps)
         pc.addTrack(track)
 
+        tel_task: Optional[asyncio.Task] = None
+
         if self.cfg.enable_telemetry:
             self._dc = pc.createDataChannel("telemetry")
 
             @self._dc.on("message")
             def on_message(msg):
-                # 브라우저 echo, {"type":"echo","frame_idx":..,"tx_ms":..,"rx_ms":..}
                 try:
                     o = json.loads(msg)
                 except Exception:
@@ -134,16 +151,18 @@ class WebRTCStreamer:
                     tx_ms = float(o.get("tx_ms", 0.0))
                     now_ms = time.time() * 1000.0
                     rtt_ms = now_ms - tx_ms
-                    # print(f"[LAT] frame={frame_idx} rtt_ms={rtt_ms:.1f}")
+                    print(f"[DC] echo frame={frame_idx} rtt_ms={rtt_ms:.1f}")
 
         @pc.on("connectionstatechange")
         async def on_state():
-            # print("[PC]", pc.connectionState)
+            print("[PC] connectionState:", pc.connectionState)
             if pc.connectionState in ("failed", "closed", "disconnected"):
+                print("[STOP] set by pc state:", pc.connectionState)
                 self._stop_ev.set()
 
         async with ClientSession() as session:
             async with session.ws_connect(self.cfg.ws_url) as ws:
+                print("[WS] connected:", self.cfg.ws_url)
                 await ws.send_str(json.dumps({"type": "jetson_hello"}))
 
                 @pc.on("icecandidate")
@@ -165,11 +184,11 @@ class WebRTCStreamer:
                         "type": "offer",
                         "sdp": {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp}
                     }))
-
-                tel_task = None
+                    print("[SIG] offer sent")
 
                 async for m in ws:
                     if self._stop_ev.is_set():
+                        print("[SIG] stop event set, exiting ws loop")
                         break
                     if m.type != WSMsgType.TEXT:
                         continue
@@ -178,58 +197,75 @@ class WebRTCStreamer:
                     t = msg.get("type")
 
                     if t == "browser_ready":
-                        # print("[SIG] browser_ready -> offer")
+                        print("[SIG] browser_ready")
                         await make_offer()
                         if self.cfg.enable_telemetry and tel_task is None:
                             tel_task = asyncio.create_task(self._telemetry_loop())
 
                     elif t == "answer":
                         sdp = msg["sdp"]
-                        await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp["sdp"], type=sdp["type"]))
-                        # print("[SIG] answer set")
-
-                    # elif t == "candidate":
-                    #     c = msg["candidate"]
-                    #     try:
-                    #         cand = RTCIceCandidate(
-                    #             sdpMid=c.get("sdpMid"),
-                    #             sdpMLineIndex=c.get("sdpMLineIndex"),
-                    #             candidate=c.get("candidate"),
-                    #         )
-                    #         await pc.addIceCandidate(cand)
-                    #     except Exception as e:
-                    #         print("[SIG] addIceCandidate error", e)
+                        await pc.setRemoteDescription(
+                            RTCSessionDescription(sdp=sdp["sdp"], type=sdp["type"])
+                        )
+                        print("[SIG] answer set")
 
                     elif t == "candidate":
                         c = msg["candidate"]
+                        cand_s = c.get("candidate")
+
+                        if not cand_s:
+                            await pc.addIceCandidate(None)
+                            continue
+
+                        if cand_s.startswith("candidate:"):
+                            cand_s = cand_s.split(":", 1)[1]
+
+                        cand = candidate_from_sdp(cand_s)
+                        cand.sdpMid = c.get("sdpMid")
+                        cand.sdpMLineIndex = c.get("sdpMLineIndex")
+
                         try:
-                            cand_s = c.get("candidate")
-
-                            # 브라우저가 end-of-candidates를 null 또는 ""로 보내는 경우가 있음
-                            # aiortc는 addIceCandidate(None)으로 종료 신호를 줄 수 있음
-                            if not cand_s:
-                                await pc.addIceCandidate(None)
-                                continue
-
-                            # JS candidate는 보통 "candidate:..."로 시작
-                            # aiortc의 candidate_from_sdp는 "candidate:" prefix 없이 받는 형태라 strip 해줌
-                            if cand_s.startswith("candidate:"):
-                                cand_s = cand_s.split(":", 1)[1]
-
-                            cand = candidate_from_sdp(cand_s)
-                            cand.sdpMid = c.get("sdpMid")
-                            cand.sdpMLineIndex = c.get("sdpMLineIndex")
-
                             await pc.addIceCandidate(cand)
-
                         except Exception as e:
                             print("[SIG] addIceCandidate error", e)
 
-                if tel_task:
-                    tel_task.cancel()
-                    try:
-                        await tel_task
-                    except Exception:
-                        pass
+                print("[WS] loop ended. ws.closed =", ws.closed, "code =", ws.close_code)
 
-        await pc.close()
+        # 여기서부터가 핵심 변경점
+        if self.cfg.keep_streaming_on_ws_close and pc.connectionState not in ("failed", "closed", "disconnected"):
+            print("[KEEP] signaling ended, keep streaming until pc ends")
+            await self._wait_pc_end(pc)
+
+        # cleanup
+        if tel_task:
+            tel_task.cancel()
+            await asyncio.gather(tel_task, return_exceptions=True)
+
+        try:
+            await pc.close()
+        except Exception:
+            pass
+
+    async def run(self):
+        self._loop = asyncio.get_running_loop()
+
+        if not self.cfg.reconnect_ws:
+            await self._run_once()
+            return
+
+        # 재연결 모드
+        backoff = max(0.2, float(self.cfg.reconnect_backoff_sec))
+        while not self._stop_ev.is_set():
+            try:
+                await self._run_once()
+            except asyncio.CancelledError:
+                self._stop_ev.set()
+            except Exception as e:
+                print("[RUN] ws/pc error:", repr(e))
+
+            if self._stop_ev.is_set():
+                break
+
+            print(f"[RUN] reconnecting in {backoff:.1f}s...")
+            await asyncio.sleep(backoff)
+        print("[RUN] exited reconnect loop")
