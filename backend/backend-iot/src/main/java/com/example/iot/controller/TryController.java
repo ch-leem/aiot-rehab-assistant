@@ -34,18 +34,28 @@ public class TryController {
      */
     @PostMapping("/{tryId}/finish")
     public ResponseEntity<TryFinishResponse> finish(@PathVariable Long tryId) {
-        // 1. Redis에서 해당 Try의 프레임 데이터 리스트 조회
-        // 키 패턴은 "frames:try:{tryId}"로 가정
-        // 일단 있는 값 다 가져오기
+        // 1. Redis에서 최신 프레임(Latest)과 집계 데이터(Agg) 조회
         String rawFrame = redisService.getLatest();
         Map<Object, Object> rawAgg = redisService.getAgg(tryId);
-        //로그로 최종확인
-        log.info("rawAgg = {}", (String) rawAgg.getOrDefault("sum.strength", "0"));
-        log.info("request = {}", rawFrame);
-        //끝났음 신호
+
+        // 2. 로그로 데이터 수신 상태 확인
+        log.info("운동 종료 요청 - tryId: {}", tryId);
+        if (rawAgg != null) {
+            log.info("수신된 집계 데이터(Agg) 요약: 가속도합={}, 카운트={}",
+                    rawAgg.getOrDefault("sum.strength", "0"),
+                    rawAgg.getOrDefault("count.strength", "0"));
+        } else {
+            log.warn("tryId: {}에 해당하는 Agg 데이터가 Redis에 없습니다.", tryId);
+        }
+
+        // 3. 디바이스/인제스트 서버에 종료 신호 전송
         ingestClient.stopTry();
-        // 2. 조회된 데이터를 포함하여 서비스 호출
-        return ResponseEntity.ok(tryService.finishTry(tryId, rawFrame));
+
+        // 4. 서비스 호출 (수정된 파라미터 반영: rawFrame, rawAgg 전달)
+        // 이제 TryService 내의 FrameAnalyzer가 이 데이터들을 요리합니다.
+        TryFinishResponse response = tryService.finishTry(tryId, rawFrame, rawAgg);
+
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -53,8 +63,8 @@ public class TryController {
      */
     @PostMapping("/{tryId}/start")
     public ResponseEntity<TryStartResponse> start(@PathVariable Long tryId) {
+        log.info("운동 시작 요청 - tryId: {}", tryId);
         ingestClient.startTry(String.valueOf(tryId));
         return ResponseEntity.ok(tryService.startTry(tryId));
     }
-
 }

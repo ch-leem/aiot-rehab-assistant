@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -15,40 +17,75 @@ public class FrameAnalyzer {
     private final ObjectMapper objectMapper;
 
     /**
-     * Redis에서 이미 집계(Max, Avg 등)된 단일 JSON 문자열을 파싱하여 DTO로 반환합니다.
+     * @param rawFrame : 최신 프레임 JSON (latest)
+     * @param agg      : Redis에서 가져온 집계 데이터 Map (sum, count, max 포함)
+     * @param side     : 환자의 마비측 ("LEFT" or "RIGHT")
      */
-    public TryEvaluationRequest analyzeSummary(String rawFrame, String side) {
+    public TryEvaluationRequest analyzeSummary(String rawFrame, Map<Object, Object> agg, String side) {
         TryEvaluationRequest req = new TryEvaluationRequest();
-
-        if (rawFrame == null || rawFrame.isEmpty()) {
-            log.warn("분석할 Redis 데이터가 비어있습니다.");
+        if (agg == null || agg.isEmpty()) {
+            log.warn("분석할 Redis 집계 데이터(agg)가 비어있습니다.");
             return req;
         }
 
-        String sideKey = side.toLowerCase(); // "left" or "right"
+        String sideKey = side.toLowerCase();
+        String nonAffectedSide = sideKey.equals("left") ? "r" : "l"; // 비마비측 (발목 흔들림용)
 
+        // 1. Latest 데이터 처리 (필요시 사용)
         try {
-            // Redis가 준 요약본 JSON을 트리 구조로 읽음
-            JsonNode root = objectMapper.readTree(rawFrame);
-
-            // 1. 각도 관련 통계 (Redis가 이미 max, avg를 계산해서 넣었다고 가정)
-            // JSON 구조가 기존 프레임과 동일하다면 아래와 같이 접근하고,
-            // 만약 평평한 구조(Flat JSON)라면 root.path("max_shoulder").asDouble() 식으로 수정 필요
-            JsonNode deg = root.path("deg");
-
-            req.setMaxShoulderFlexionAngle(deg.path(sideKey).path("shoulder_flexion").asDouble());
-            req.setAvgElbowExtensionAngle(deg.path(sideKey).path("elbow_extension").asDouble());
-            req.setMaxTrunkForwardTilt(deg.path("mid").path("trunk_forward_tilt").asDouble());
-
-            // 2. 기타 통계 (가속도, 발목 흔들림 등 Redis 계산값)
-            // Redis 집계 로직에 따라 경로를 유연하게 설정하세요.
-            req.setAnkleSwayDistance(root.path("ankle_sway").asDouble(0.0));
-            req.setMaxMovementAcceleration(root.path("max_accel").asDouble(0.0));
-
+            if (rawFrame != null && !rawFrame.isEmpty()) {
+                JsonNode root = objectMapper.readTree(rawFrame);
+                // 현재는 대부분 agg를 사용하므로 latest가 필요한 경우 여기에 추가
+            }
         } catch (Exception e) {
-            log.error("JSON 요약 데이터 파싱 중 오류 발생: ", e);
+            log.error("Latest JSON 파싱 실패: ", e);
         }
 
+        // 2. Agg 데이터를 통한 지표 계산 (평균/최대 전환 유연성 확보)
+
+        // [MAIN] 어깨 외전 각도: 최대값 사용
+        req.setMaxShoulderFlexionAngle(getVal(agg, "max.shoulder_flexion"));
+
+        // [MAIN] 팔꿈치 신전 상태: 평균값 사용 (Sum / Count)
+        req.setAvgElbowExtensionAngle(getAverage(agg, "sum.elbow_extension", "count.elbow_extension"));
+
+        // [MAIN] 마비측 발판 압력: 최대값 사용 (Power = 압력)
+        req.setMaxPressure(getVal(agg, "max.power"));
+
+        // [SUB] 상체 앞뒤 기울기: 평균값 사용
+        req.setAvgTrunkForwardTilt(getAverage(agg, "sum.trunk_forward_tilt", "count.trunk_forward_tilt"));
+
+        // [SUB] 어깨 수평/골반 수평 불균형: 평균값 사용
+        double avgLevelDiff = getAverage(agg, "sum.pelvis_level", "count.pelvis_level");
+        req.setAvgShoulderLevelDiff(avgLevelDiff); // 어깨 수평 불균형 목표용
+        req.setAvgPelvisLevelDiff(avgLevelDiff);   // 골반 수평 편차 목표용
+
+        // [SUB] 수행 가속도: 평균값 사용 (Strength = 가속도)
+        req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));
+
+        // [SUB] 비마비측 발목 흔들림: XYZ 편차 거리 환산
+        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonAffectedSide));
+
         return req;
+    }
+
+    // --- Helper Methods ---
+
+    private double getVal(Map<Object, Object> agg, String key) {
+        Object val = agg.get(key);
+        return val != null ? Double.parseDouble(val.toString()) : 0.0;
+    }
+
+    private double getAverage(Map<Object, Object> agg, String sumKey, String countKey) {
+        double sum = getVal(agg, sumKey);
+        double count = getVal(agg, countKey);
+        return count > 0 ? sum / count : 0.0;
+    }
+
+    private double calculateAnkleSway(Map<Object, Object> agg, String sidePrefix) {
+        double dx = getVal(agg, "max." + sidePrefix + "_ankle_x") - getVal(agg, "min." + sidePrefix + "_ankle_x");
+        double dy = getVal(agg, "max." + sidePrefix + "_ankle_y") - getVal(agg, "min." + sidePrefix + "_ankle_y");
+        double dz = getVal(agg, "max." + sidePrefix + "_ankle_z") - getVal(agg, "min." + sidePrefix + "_ankle_z");
+        return Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2) + Math.pow(dz, 2));
     }
 }
