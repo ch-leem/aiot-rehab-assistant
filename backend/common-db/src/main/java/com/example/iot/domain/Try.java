@@ -6,11 +6,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Entity
 @Table(name = "try")
 @Getter @Setter
@@ -71,7 +73,7 @@ public class Try {
         if (this.goalResults == null || this.goalResults.isEmpty()) {
             return 0.0;
         }
-
+        log.info("객체 내용 확인 {}", this.goalResults);
         return this.goalResults.stream()
                 .mapToDouble(TryGoalResult::getAchievementRate)
                 .average()
