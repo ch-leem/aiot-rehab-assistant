@@ -1145,6 +1145,126 @@
   place-items: center;
   font-size: 1.2rem;
   letter-spacing: 0.06em;
+  position: relative;
+  overflow: hidden;
+}
+
+.arm-raise-container {
+  position: absolute;
+  inset: 0;
+}
+
+.arm-raise-wrapper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.arm-raise-hud {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(10px);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+  color: #0f172a;
+  min-width: 360px;
+  user-select: none;
+  z-index: 2;
+}
+
+.arm-raise-title {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+
+.arm-raise-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+.arm-raise-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.arm-raise-pill {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.07);
+  white-space: nowrap;
+}
+
+.arm-raise-bar-wrap {
+  margin-top: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.12);
+  overflow: hidden;
+}
+
+.arm-raise-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #60a5fa, #34d399, #fbbf24);
+}
+
+.arm-raise-msg {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(2, 6, 23, 0.82);
+  line-height: 1.4;
+}
+
+.arm-raise-hint {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 12px 14px;
+  border-radius: 14px;
+  font: 12px/1.45 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+  backdrop-filter: blur(10px);
+  user-select: none;
+  pointer-events: none;
+  width: 200px;
+  z-index: 2;
+}
+
+.arm-raise-hint b {
+  color: #fff;
+}
+
+.arm-raise-footer {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(2, 6, 23, 0.62);
+  padding: 10px 12px;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+  user-select: none;
+  z-index: 2;
+}
+
+.session-visual-placeholder {
+  position: relative;
+  z-index: 1;
 }
 
 .session-bar {
