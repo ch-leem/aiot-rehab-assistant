@@ -28,14 +28,14 @@ public class FrameAnalyzer {
             return req;
         }
 
-        String sideKey = side.toLowerCase();
-        String nonAffectedSide = sideKey.equals("left") ? "r" : "l"; // 비마비측 (발목 흔들림용)
+        String sidePrefix = side.equalsIgnoreCase("LEFT") ? "l_" : "r_";
+        String nonSidePrefix = side.equalsIgnoreCase("LEFT") ? "r_" : "l_"; // 비마비측 (발목 흔들림용)
 
         // 1. Latest 데이터 처리 (필요시 사용)
         try {
             if (rawFrame != null && !rawFrame.isEmpty()) {
                 JsonNode root = objectMapper.readTree(rawFrame);
-                // 현재는 대부분 agg를 사용하므로 latest가 필요한 경우 여기에 추가
+                // 추가 로직 필요 시 작성
             }
         } catch (Exception e) {
             log.error("Latest JSON 파싱 실패: ", e);
@@ -44,10 +44,12 @@ public class FrameAnalyzer {
         // 2. Agg 데이터를 통한 지표 계산 (평균/최대 전환 유연성 확보)
 
         // [MAIN] 어깨 외전 각도: 최대값 사용
-        req.setMaxShoulderFlexionAngle(getVal(agg, "max.shoulder_flexion"));
+        req.setMaxShoulderFlexionAngle(getVal(agg, "max." + sidePrefix + "shoulder_flexion"));
 
         // [MAIN] 팔꿈치 신전 상태: 평균값 사용 (Sum / Count)
-        req.setAvgElbowExtensionAngle(getAverage(agg, "sum.elbow_extension", "count.elbow_extension"));
+        req.setAvgElbowExtensionAngle(getAverage(agg,
+                "sum." + sidePrefix + "elbow_extension",
+                "count." + sidePrefix + "elbow_extension"));
 
         // [MAIN] 마비측 발판 압력: 최대값 사용 (Power = 압력)
         req.setMaxPressure(getVal(agg, "max.power"));
@@ -64,7 +66,7 @@ public class FrameAnalyzer {
         req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));
 
         // [SUB] 비마비측 발목 흔들림: XYZ 편차 거리 환산
-        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonAffectedSide));
+        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonSidePrefix));
 
         return req;
     }
@@ -78,7 +80,7 @@ public class FrameAnalyzer {
             return Double.parseDouble(val.toString());
         } catch (NumberFormatException e) {
             log.error("Redis 데이터 형식 오류 - Key: {}, Value: {}", key, val);
-            return 0.0; // 데이터가 이상해도 프로세스는 죽지 않게 보호
+            return 0.0;
         }
     }
 
