@@ -91,9 +91,9 @@ public class FrameAnalyzer {
     }
 
     private double calculateAnkleSway(Map<Object, Object> agg, String sidePrefix) {
-        double dx = getVal(agg, "max." + sidePrefix + "_ankle_x") - getVal(agg, "min." + sidePrefix + "_ankle_x");
-        double dy = getVal(agg, "max." + sidePrefix + "_ankle_y") - getVal(agg, "min." + sidePrefix + "_ankle_y");
-        double dz = getVal(agg, "max." + sidePrefix + "_ankle_z") - getVal(agg, "min." + sidePrefix + "_ankle_z");
+        double dx = getVal(agg, "max." + sidePrefix + "ankle_x") - getVal(agg, "min." + sidePrefix + "ankle_x");
+        double dy = getVal(agg, "max." + sidePrefix + "ankle_y") - getVal(agg, "min." + sidePrefix + "ankle_y");
+        double dz = getVal(agg, "max." + sidePrefix + "ankle_z") - getVal(agg, "min." + sidePrefix + "ankle_z");
         return Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2) + Math.pow(dz, 2));
     }
 }
