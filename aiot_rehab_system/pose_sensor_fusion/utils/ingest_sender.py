@@ -114,15 +114,15 @@ class IngestSender:
                 )
                 if r.ok:
                     self.sent_ok += 1
-                    if self.log_every > 0 and (self.sent_ok % self.log_every) == 0:
-                        with self._print_lock:
-                            print(f"[INGEST OK] ok={self.sent_ok} fail={self.sent_fail} q={self.q.qsize()}")
+                    # if self.log_every > 0 and (self.sent_ok % self.log_every) == 0:
+                    #     with self._print_lock:
+                    #         print(f"[INGEST OK] ok={self.sent_ok} fail={self.sent_fail} q={self.q.qsize()}")
                 else:
                     self.sent_fail += 1
                     self.last_err = f"HTTP {r.status_code}: {r.text[:200]}"
-                    if self.log_fail:
-                        with self._print_lock:
-                            print(f"[INGEST FAIL] ok={self.sent_ok} fail={self.sent_fail} q={self.q.qsize()} err={self.last_err}")
+                    # if self.log_fail:
+                    #     with self._print_lock:
+                    #         print(f"[INGEST FAIL] ok={self.sent_ok} fail={self.sent_fail} q={self.q.qsize()} err={self.last_err}")
             except Exception as e:
                 self.sent_fail += 1
                 self.last_err = str(e)
