@@ -73,7 +73,11 @@ public class Try {
         if (this.goalResults == null || this.goalResults.isEmpty()) {
             return 0.0;
         }
-        log.info("객체 내용 확인 {}", this.goalResults);
+        for(TryGoalResult temp : goalResults){
+            log.info("객체 내용 확인1 {}", temp.getExerciseGoal());
+            log.info("객체 내용 확인2 {}", temp.getMeasuredValue());
+        }
+
         return this.goalResults.stream()
                 .mapToDouble(TryGoalResult::getAchievementRate)
                 .average()
