@@ -20,7 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TryService {
 
-    private static final double SUCCESS_THRESHOLD_PERCENT = 80.0;
+    private static final double SUCCESS_THRESHOLD_PERCENT = 70.0;
 
     private final TryRepository tryRepository;
     private final FailRepository failRepository;
