@@ -2,9 +2,11 @@ import { useState } from "react";
 
 type LoginProps = {
   onSubmit: (data: { nextPatientId: string; nextNurseId: string }) => void;
+  isLoading?: boolean;
+  errorMessage?: string;
 };
 
-export default function Login({ onSubmit }: LoginProps) {
+export default function Login({ onSubmit, isLoading = false, errorMessage }: LoginProps) {
   const [nextPatientId, setNextPatientId] = useState("");
   const [nextNurseId, setNextNurseId] = useState("");
   const isReady = nextPatientId.trim() !== "" && nextNurseId.trim() !== "";
@@ -21,7 +23,7 @@ export default function Login({ onSubmit }: LoginProps) {
           className="login-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!isReady) return;
+            if (!isReady || isLoading) return;
             onSubmit({
               nextPatientId: nextPatientId.trim(),
               nextNurseId: nextNurseId.trim(),
@@ -53,10 +55,11 @@ export default function Login({ onSubmit }: LoginProps) {
             </label>
           </div>
           <div className="cta-row login-cta">
-            <button className="primary-button" type="submit" disabled={!isReady}>
+            <button className="primary-button" type="submit" disabled={!isReady || isLoading}>
               확인하고 시작
             </button>
           </div>
+          {errorMessage && <div className="login-error">{errorMessage}</div>}
         </form>
       </div>
     </div>
