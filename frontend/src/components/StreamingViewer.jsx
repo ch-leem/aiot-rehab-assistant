@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export default function StreamingViewer({ wsUrl = "ws://70.12.246.183:8080/ws" }) {
+export default function StreamingViewer({ wsUrl = "ws://70.12.108.90:8080/ws" }) {
   const videoRef = useRef(null);
   const pcRef = useRef(null);
   const wsRef = useRef(null);
