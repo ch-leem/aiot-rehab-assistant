@@ -73,7 +73,13 @@ public class FrameAnalyzer {
 
     private double getVal(Map<Object, Object> agg, String key) {
         Object val = agg.get(key);
-        return val != null ? Double.parseDouble(val.toString()) : 0.0;
+        if (val == null) return 0.0;
+        try {
+            return Double.parseDouble(val.toString());
+        } catch (NumberFormatException e) {
+            log.error("Redis 데이터 형식 오류 - Key: {}, Value: {}", key, val);
+            return 0.0; // 데이터가 이상해도 프로세스는 죽지 않게 보호
+        }
     }
 
     private double getAverage(Map<Object, Object> agg, String sumKey, String countKey) {
