@@ -8,10 +8,7 @@ import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class SequenceService {
@@ -57,7 +54,12 @@ public class SequenceService {
 
         // 1) Sequence 생성
         Sequence sequence = sequenceRepo.save(new Sequence(patient));
-        Set<Exercise> exerciseSet = new HashSet<>();
+        Set<Exercise> exerciseSet = new TreeSet<>(new Comparator<Exercise>() {
+            @Override
+            public int compare(Exercise o1, Exercise o2) {
+                return (int) (o1.getId() - o2.getId());
+            }
+        });
 
         for(ExercisePatientMapping m : mappings) {
             exerciseSet.add(m.getExercise());
