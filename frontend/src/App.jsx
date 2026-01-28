@@ -40,7 +40,8 @@ const EXERCISE_CATALOG = {
     instruction: "하체에 힘을 주며 천천히 움직이고 균형을 유지해주세요.",
   },
 };
-const API_BASE_URL = "http://70.12.246.185:8083";
+const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
+const API_USER_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_USER_BASE_URL);
 
 const RESULT_RULES = [
   {
@@ -165,10 +166,10 @@ export default function App() {
     setLoginError("");
     try {
       console.log("[API] login GET", {
-        url: `${API_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
+        url: `${API_USER_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
       });
       const res = await fetch(
-        `${API_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
+        `${API_USER_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
         { method: "GET" }
       );
       console.log("[API] login status", res.status);
@@ -240,11 +241,11 @@ export default function App() {
     }
     try {
       console.log("[API] sequence POST", {
-        url: `${API_BASE_URL}/api/sequence/${trimmedPatientId}`,
+        url: `${API_USER_BASE_URL}/api/sequence/${trimmedPatientId}`,
         body: { triesPerSession: 10 },
       });
       const res = await fetch(
-        `${API_BASE_URL}/api/sequence/${trimmedPatientId}`,
+        `${API_USER_BASE_URL}/api/sequence/${trimmedPatientId}`,
         {
           method: "POST",
           headers: {
@@ -323,9 +324,9 @@ export default function App() {
     const fetchDetail = async () => {
       try {
         console.log("[API] exercise detail GET", {
-          url: `${API_BASE_URL}/api/exercises/${currentExerciseId}`,
+          url: `${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`,
         });
-        const res = await fetch(`${API_BASE_URL}/api/exercises/${currentExerciseId}`, {
+        const res = await fetch(`${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`, {
           method: "GET",
         });
         console.log("[API] exercise detail status", res.status);
@@ -351,9 +352,9 @@ export default function App() {
     }
     try {
       console.log("[API] session start", {
-        url: `${API_BASE_URL}/sessions/${sessionId}/start`,
+        url: `${API_USER_BASE_URL}/sessions/${sessionId}/start`,
       });
-      await fetch(`${API_BASE_URL}/sessions/${sessionId}/start`, {
+      await fetch(`${API_USER_BASE_URL}/sessions/${sessionId}/start`, {
         method: "POST",
       });
     } catch {
@@ -368,9 +369,9 @@ export default function App() {
     if (!nextTryId || activeTryId === nextTryId) return;
     try {
       console.log("[API] try start", {
-        url: `${API_BASE_URL}/api/tries/${nextTryId}/start`,
+        url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/start`,
       });
-      await fetch(`${API_BASE_URL}/api/tries/${nextTryId}/start`, { method: "POST" });
+      await fetch(`${API_USER_BASE_URL}/api/tries/${nextTryId}/start`, { method: "POST" });
     } catch {
       // ignore start errors for now
     } finally {
@@ -382,10 +383,10 @@ export default function App() {
     if (!nextTryId) return;
     try {
       console.log("[API] try finish", {
-        url: `${API_BASE_URL}/api/tries/${nextTryId}/finish`,
+        url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`,
         body: { tryId: nextTryId, failType: "", totalScore: 0 },
       });
-      const res = await fetch(`${API_BASE_URL}/api/tries/${nextTryId}/finish`, {
+      const res = await fetch(`${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -412,9 +413,9 @@ export default function App() {
     if (!sessionId) return;
     try {
       console.log("[API] session finish", {
-        url: `${API_BASE_URL}/api/sessions/${sessionId}/finish`,
+        url: `${API_USER_BASE_URL}/api/sessions/${sessionId}/finish`,
       });
-      await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/finish`, {
+      await fetch(`${API_USER_BASE_URL}/api/sessions/${sessionId}/finish`, {
         method: "POST",
       });
     } catch {
@@ -426,9 +427,9 @@ export default function App() {
     if (!sequenceId) return;
     try {
       console.log("[API] sequence finish", {
-        url: `${API_BASE_URL}/api/sequences/${sequenceId}/finish`,
+        url: `${API_USER_BASE_URL}/api/sequences/${sequenceId}/finish`,
       });
-      await fetch(`${API_BASE_URL}/api/sequences/${sequenceId}/finish`, {
+      await fetch(`${API_USER_BASE_URL}/api/sequences/${sequenceId}/finish`, {
         method: "POST",
       });
     } catch {
@@ -468,10 +469,10 @@ export default function App() {
     const fetchCompare = async () => {
       try {
         console.log("[API] compare-previous GET", {
-          url: `${API_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
+          url: `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
         });
         const res = await fetch(
-          `${API_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
+          `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
           { method: "GET" }
         );
         console.log("[API] compare-previous status", res.status);
@@ -491,10 +492,10 @@ export default function App() {
     const fetchRecentGoals = async () => {
       try {
         console.log("[API] recent goals GET", {
-          url: `${API_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
+          url: `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
         });
         const res = await fetch(
-          `${API_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
+          `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
           { method: "GET" }
         );
         console.log("[API] recent goals status", res.status);
@@ -514,9 +515,9 @@ export default function App() {
     const fetchAverages = async () => {
       try {
         console.log("[API] sequence averages GET", {
-          url: `${API_BASE_URL}/api/sequence/${sequenceId}/average`,
+          url: `${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`,
         });
-        const res = await fetch(`${API_BASE_URL}/api/sequence/${sequenceId}/average`, {
+        const res = await fetch(`${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`, {
           method: "GET",
         });
         console.log("[API] sequence averages status", res.status);

@@ -7,7 +7,8 @@ const VIEW = {
   LOOKUP: "lookup",
 };
 
-const API_BASE_URL = "http://70.12.246.185:8083";
+const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
+const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -106,7 +107,7 @@ export default function TherapistUI() {
         setView(VIEW.LOOKUP);
         return;
       }
-      const res = await fetch(`${API_BASE_URL}/api/therapist/${trimmedId}/dashboard`, {
+      const res = await fetch(`${API_IOT_BASE_URL}/api/therapist/${trimmedId}/dashboard`, {
         method: "GET",
       });
       if (!res.ok) {
@@ -194,12 +195,12 @@ export default function TherapistUI() {
       }
 
       const [profileRes, sequencesRes, reportRes, exercisesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
-        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
-        fetch(`${API_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
+        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
+        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
+        fetch(`${API_IOT_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
           method: "GET",
         }),
-        fetch(`${API_BASE_URL}/api/patients/${patient.patientId}/exercises`, {
+        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/exercises`, {
           method: "GET",
         }),
       ]);
@@ -221,7 +222,7 @@ export default function TherapistUI() {
       let sequenceSummary = null;
       if (latestSequence?.sequence_id) {
         const summaryRes = await fetch(
-          `${API_BASE_URL}/api/patients/sequences/${latestSequence.sequence_id}`,
+          `${API_IOT_BASE_URL}/api/patients/sequences/${latestSequence.sequence_id}`,
           { method: "GET" }
         );
         if (summaryRes.ok) {
