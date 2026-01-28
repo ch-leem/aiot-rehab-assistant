@@ -93,6 +93,8 @@ services:
     container_name: rehab-frontend-ui
     restart: unless-stopped
     depends_on: [iot-api, user-api]
+    env_file:
+      - .env
     expose:
       - "80"
     networks: [appnet]
