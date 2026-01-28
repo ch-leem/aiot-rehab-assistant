@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, Tuple
 import numpy as np
 from aiohttp import ClientSession, WSMsgType
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
+from aiortc.sdp import candidate_from_sdp
 from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
 
@@ -187,15 +188,40 @@ class WebRTCStreamer:
                         await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp["sdp"], type=sdp["type"]))
                         # print("[SIG] answer set")
 
+                    # elif t == "candidate":
+                    #     c = msg["candidate"]
+                    #     try:
+                    #         cand = RTCIceCandidate(
+                    #             sdpMid=c.get("sdpMid"),
+                    #             sdpMLineIndex=c.get("sdpMLineIndex"),
+                    #             candidate=c.get("candidate"),
+                    #         )
+                    #         await pc.addIceCandidate(cand)
+                    #     except Exception as e:
+                    #         print("[SIG] addIceCandidate error", e)
+
                     elif t == "candidate":
                         c = msg["candidate"]
                         try:
-                            cand = RTCIceCandidate(
-                                sdpMid=c.get("sdpMid"),
-                                sdpMLineIndex=c.get("sdpMLineIndex"),
-                                candidate=c.get("candidate"),
-                            )
+                            cand_s = c.get("candidate")
+
+                            # 브라우저가 end-of-candidates를 null 또는 ""로 보내는 경우가 있음
+                            # aiortc는 addIceCandidate(None)으로 종료 신호를 줄 수 있음
+                            if not cand_s:
+                                await pc.addIceCandidate(None)
+                                continue
+
+                            # JS candidate는 보통 "candidate:..."로 시작
+                            # aiortc의 candidate_from_sdp는 "candidate:" prefix 없이 받는 형태라 strip 해줌
+                            if cand_s.startswith("candidate:"):
+                                cand_s = cand_s.split(":", 1)[1]
+
+                            cand = candidate_from_sdp(cand_s)
+                            cand.sdpMid = c.get("sdpMid")
+                            cand.sdpMLineIndex = c.get("sdpMLineIndex")
+
                             await pc.addIceCandidate(cand)
+
                         except Exception as e:
                             print("[SIG] addIceCandidate error", e)
 
