@@ -2,7 +2,7 @@ server:
   port: 8080
 
 ingest:
-  base-url: http://ingest-api:8000
+  base-url: ${INGEST_BASE_URL:http://ingest-api:8000}
 
 spring:
   datasource:

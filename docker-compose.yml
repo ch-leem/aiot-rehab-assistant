@@ -63,6 +63,9 @@ services:
       # Redis
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+
+      # base url
+      INGEST_BASE_URL: http://ingest-api:8000
     expose:
       - "8080"
     networks: [appnet]
