@@ -10,23 +10,35 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Seoul
-    ports: 
-      - "${DB_PORT}:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     networks: [appnet]
-
+    ports:
+    - "127.0.0.1:5432:5432"
 
   redis:
     image: redis:7-alpine
     container_name: rehab-iot-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT}:6379"
     volumes:
       - redis-data:/data
     networks: [appnet]
+
+  ingest-api:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile
+    container_name: ingest-api
+    expose:
+      - "8000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+    networks:
+      - appnet
 
   iot-api:
     build:
@@ -47,8 +59,8 @@ services:
       # Redis
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-    ports:
-      - "8081:8080"
+    expose:
+      - "8080"
     networks: [appnet]
 
   user-api:
@@ -68,8 +80,8 @@ services:
 
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     networks: [appnet]
 
   frontend:
@@ -77,9 +89,49 @@ services:
     container_name: rehab-frontend-ui
     restart: unless-stopped
     depends_on: [iot-api, user-api]
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     networks: [appnet]
+
+  frontend-test:
+    build: ./frontendTest
+    container_name: frontend-test
+    expose:
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - appnet
+  
+  nginx:
+    image: nginx:alpine
+    container_name: rehab-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
+    depends_on:
+      - user-api
+      - iot-api
+      - frontend
+    networks:
+      - appnet
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    container_name: rehab-certbot
+    volumes:
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/certs:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do
+               certbot renew;
+               sleep 12h;
+             done"
 
 networks:
   appnet:

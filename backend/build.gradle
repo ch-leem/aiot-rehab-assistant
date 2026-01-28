@@ -1,3 +1,4 @@
+// backend/build.gradle
 plugins {
     id 'java'
     id 'org.springframework.boot' version '3.4.1' apply false
@@ -25,6 +26,7 @@ subprojects {
         }
     }
 
+    // 모든 모듈 공통 의존성 (여기에 적으면 하위 모듈은 안 적어도 됨)
     dependencies {
         compileOnly 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
@@ -33,6 +35,10 @@ subprojects {
         testCompileOnly 'org.projectlombok:lombok'
         testAnnotationProcessor 'org.projectlombok:lombok'
     }
+
+    // 기본값 설정 (실행 모듈에서만 bootJar를 켬)
+    bootJar { enabled = false }
+    jar { enabled = true }
 
     tasks.named('test') {
         useJUnitPlatform()

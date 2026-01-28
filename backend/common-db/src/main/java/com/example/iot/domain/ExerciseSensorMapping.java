@@ -22,7 +22,7 @@ public class ExerciseSensorMapping {
     @JoinColumn(name = "sensor_id", nullable = false)
     private Sensor sensor;
 
-    @Column(length = 50)
+    @Column(name = "role", length = 255)
     private String role;
 
     protected ExerciseSensorMapping() {}

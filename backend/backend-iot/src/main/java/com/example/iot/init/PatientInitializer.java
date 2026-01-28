@@ -1,12 +1,16 @@
 package com.example.iot.init;
 
 import com.example.iot.domain.Patient;
+import com.example.iot.domain.constant.Gender;
+import com.example.iot.domain.constant.RehabPhase;
 import com.example.iot.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -23,16 +27,20 @@ public class PatientInitializer implements CommandLineRunner {
         Patient p1 = Patient.builder()
                 .name("홍길동")
                 .birthDate(LocalDate.of(1994, 5, 20))
-                .gender("M")
-                .rehabPhase("mid")
+                .diseaseName("편마비")
+                .gender(Gender.MALE)
+                .rehabPhase(RehabPhase.MIDDLE)
+                .createdAt(LocalDateTime.now())
                 .build();
         patientRepository.save(p1);
 
         Patient p2 = Patient.builder()
                 .name("김철수")
                 .birthDate(LocalDate.of(1999, 2, 10))
-                .gender("M")
-                .rehabPhase("mid")
+                .diseaseName("뇌졸증")
+                .gender(Gender.MALE)
+                .rehabPhase(RehabPhase.MIDDLE)
+                .createdAt(LocalDateTime.now())
                 .build();
         patientRepository.save(p2);
 

@@ -1,11 +1,15 @@
+bootJar { enabled = true }
+jar { enabled = false }
+
 dependencies {
-    // 공통 모듈 참조
     implementation project(':common-db')
 
-    // IoT 서비스 전용 의존성
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // JUnit 실행 환경을 위한 설정만 추가
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 }

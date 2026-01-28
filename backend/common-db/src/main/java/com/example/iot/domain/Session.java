@@ -25,6 +25,12 @@ public class Session {
 
     private String goal;
 
+    @Column(name = "total_tries")
+    private int totalTries = 0; // 전체 시도 횟수
+
+    @Column(name = "success_tries")
+    private int successTries = 0; // 성공 시도 횟수
+
     private LocalDateTime startedAt;
 
     private LocalDateTime endedAt;
@@ -35,10 +41,15 @@ public class Session {
         this.sequence = sequence;
         this.exercise = exercise;
         this.startedAt = LocalDateTime.now();
+        this.totalTries = 0;
+        this.successTries = 0;
     }
 
     @PrePersist
     public void prePersist() {
         if (startedAt == null) startedAt = LocalDateTime.now();
+    }
+    public void addSuccessTries() {
+        this.successTries++;
     }
 }

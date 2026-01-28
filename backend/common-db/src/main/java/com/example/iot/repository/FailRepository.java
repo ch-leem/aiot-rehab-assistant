@@ -7,6 +7,5 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface FailRepository extends JpaRepository<Fail, Long> {
-    Fail findById(String id);
+public interface FailRepository extends JpaRepository<Fail, String> {
 }

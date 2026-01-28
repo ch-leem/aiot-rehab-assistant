@@ -13,10 +13,10 @@ public class Sensor {
     @Column(name = "sensor_id", length = 20)
     private String id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "sensor_name", nullable = false, length = 50)
     private String name;
 
-    @Column(length = 20)
+    @Column(name = "input_unit", length = 20)
     private String inputUnit;
 
     protected Sensor() {}
