@@ -20,6 +20,16 @@ export default function StreamingViewer({ wsUrl = "wss://i14a203.p.ssafy.io/test
         });
         pcRef.current = pc;
 
+        pc.onconnectionstatechange = () => {
+          console.log("[WebRTC] connectionState:", pc.connectionState);
+        };
+        pc.oniceconnectionstatechange = () => {
+          console.log("[WebRTC] iceConnectionState:", pc.iceConnectionState);
+        };
+        pc.onicegatheringstatechange = () => {
+          console.log("[WebRTC] iceGatheringState:", pc.iceGatheringState);
+        };
+
         pc.ondatachannel = (ev) => {
           const ch = ev.channel;
           ch.onmessage = (e) => {
@@ -79,7 +89,12 @@ export default function StreamingViewer({ wsUrl = "wss://i14a203.p.ssafy.io/test
       };
 
       ws.onclose = () => {
+        console.log("[WebSocket] closed");
         wsRef.current = null;
+      };
+
+      ws.onerror = (err) => {
+        console.log("[WebSocket] error", err);
       };
     };
 
