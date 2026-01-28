@@ -141,8 +141,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
             if depth_scale is None:
                 raise RuntimeError("Depth scale is None")
 
-            cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-            cv2.resizeWindow(win_name, 1280, 960)
+            # cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+            # cv2.resizeWindow(win_name, 1280, 960)
 
             while not stop_flag.is_set():
                 bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
@@ -396,10 +396,10 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
                 # put_lines(disp, x=10, y=25, lines=debug_lines, scale=0.55, thickness=2, line_gap=18)
 
-                cv2.imshow(win_name, disp)
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27 or key == ord("q"):
-                    break
+                # cv2.imshow(win_name, disp)
+                # key = cv2.waitKey(1) & 0xFF
+                # if key == 27 or key == ord("q"):
+                #     break
 
                 frame_idx += 1
 
