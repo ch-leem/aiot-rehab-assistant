@@ -4,9 +4,33 @@ export default function StreamingViewer({ wsUrl = "wss://i14a203.p.ssafy.io/test
   const videoRef = useRef(null);
   const pcRef = useRef(null);
   const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
+
+    const cleanup = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+
+    const restUrl = wsUrl
+      .replace(/^wss:\/\//i, "https://")
+      .replace(/^ws:\/\//i, "http://")
+      .replace(/\/ws$/, "");
 
     const start = async () => {
       if (!mounted || pcRef.current || wsRef.current) return;
@@ -98,21 +122,27 @@ export default function StreamingViewer({ wsUrl = "wss://i14a203.p.ssafy.io/test
       };
     };
 
+    const restart = async () => {
+      cleanup();
+      try {
+        await fetch(`${restUrl}/restart`, { method: "POST" });
+      } catch {
+        // ignore restart errors
+      }
+      reconnectTimerRef.current = setTimeout(() => {
+        start();
+      }, 800);
+    };
+
     start();
+
+    const handleRestart = () => restart();
+    window.addEventListener("webrtc-restart", handleRestart);
 
     return () => {
       mounted = false;
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (pcRef.current) {
-        pcRef.current.close();
-        pcRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      window.removeEventListener("webrtc-restart", handleRestart);
+      cleanup();
     };
   }, [wsUrl]);
 

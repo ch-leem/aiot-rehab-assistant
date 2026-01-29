@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
+import os
 import ssl
+import threading
 from aiohttp import web
 
 INDEX_HTML = r"""
@@ -73,10 +75,19 @@ async def ws_handler(request):
   return ws
 
 
+async def restart(request):
+  def _exit():
+    os._exit(0)
+
+  threading.Timer(0.3, _exit).start()
+  return web.json_response({"status": "restarting"})
+
+
 def main():
   app = web.Application()
   app.router.add_get("/", index)
   app.router.add_get("/ws", ws_handler)
+  app.router.add_post("/restart", restart)
 
   # TODO: update these paths to your cert and key
   ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)

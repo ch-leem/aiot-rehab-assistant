@@ -142,6 +142,33 @@
   color: var(--muted);
 }
 
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signal-restart {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #b03a3a;
+  background: #e14b4b;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 16px rgba(176, 58, 58, 0.25);
+}
+
+.signal-restart:hover {
+  background: #c93a3a;
+}
+
 .panel-footer {
   font-size: 15px;
   color: var(--muted);

@@ -45,7 +45,22 @@ export default function MainLayout({
       <div className={`layout-body${hideCamera ? " layout-body-wide" : ""}`}>
         {!hideCamera && (
           <section className="camera-panel">
-            <div className="panel-header">실시간 카메라</div>
+            <div className="panel-row">
+              <div className="panel-header">실시간 카메라</div>
+              <button
+                className="signal-restart"
+                type="button"
+                onClick={() => {
+                  const ok = window.confirm(
+                    "시그널링 서버를 재시작하면 현재 영상 연결이 끊기고 다시 연결됩니다. 계속할까요?"
+                  );
+                  if (ok) {
+                    window.dispatchEvent(new Event("webrtc-restart"));
+                  }
+                }}
+              >
+              </button>
+            </div>
             <div className="camera-feed">
               <StreamingViewer />
               <div className="camera-overlay">
