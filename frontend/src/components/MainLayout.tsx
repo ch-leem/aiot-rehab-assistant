@@ -31,12 +31,14 @@ export default function MainLayout({
 
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const [wsState, setWsState] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    const WS_URL = "/test/ws";
+    const WS_URL = "test/ws";
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
+    setWsState(ws);
 
     ws.onopen = () => {
       console.log("WS connected");
@@ -47,15 +49,21 @@ export default function MainLayout({
     ws.onclose = () => {
       console.log("WS closed");
       setConnected(false);
+      wsRef.current = null;
+      setWsState(null);
     };
 
     ws.onerror = (e) => console.error("WS error", e);
-    ws.onmessage = (e) => console.log("WS message:", e.data);
+    const onMsg = (e: MessageEvent) => console.log("WS message:", e.data);
+    ws.addEventListener("message", onMsg);
 
     return () => {
+      ws.removeEventListener("message", onMsg);
       ws.close();
       wsRef.current = null;
+      setWsState(null);
     };
+
   }, []);
 
   return (
@@ -131,7 +139,7 @@ export default function MainLayout({
               
 
             <div className="camera-feed">
-              <StreamingViewer />
+              <StreamingViewer ws={wsState} />
               <div className="camera-overlay">
                 <span className="overlay-dot" />
                 <span className="overlay-ring" />
