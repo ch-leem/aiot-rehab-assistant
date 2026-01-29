@@ -37,8 +37,7 @@ services:
       REDIS_PORT: 6379
       ACTIVE_TRY_KEY: ingest:active_try
       REDIS_AGG_PREFIX: agg:try
-      AGG_METRICS: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z,power=sensor.power,trunk_forward_tilt=deg.mid.trunk_forward_tilt,pelvis_level=deg.mid.pelvis_level,l_elbow_extension=deg.left.elbow_extension,r_elbow_extension=deg.right.elbow_extension
-
+      AGG_METRICS: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z,power=sensor.power,trunk_forward_tilt=deg.mid.trunk_forward_tilt,pelvis_level=deg.mid.pelvis_level,l_elbow_extension=deg.left.elbow_extension,r_elbow_extension=deg.right.elbow_extension,trunk_rotation_lateral_flexion=deg.mid.trunk_rotation_lateral_flexion,l_shoulder_flexion=deg.left.shoulder_flexion,r_shoulder_flexion=deg.right.shoulder_flexion
     depends_on:
       - redis
     networks:

@@ -70,7 +70,24 @@ public class TryService {
         for (ExerciseGoal goal : goals) {
             // DTO 내부의 getValueByGoalName을 사용하여 목표에 맞는 수치(Avg/Max) 추출
             double measuredValue = evalRequest.getValueByGoalName(goal.getName());
-            double achievementRate = calculateAchievement(goal, measuredValue);
+            double finalTarget;
+
+            // "마비측 발판 압력"인 경우에만 몸무게 비례 계산 적용
+            if (goal.getName().equals("마비측 발판 압력")) {
+                // 몸무게가 있으면 비율 계산, 없으면 기본값(50kg) 사용
+                if (patient.getWeight() != null) {
+                    double patientWeight = patient.getWeight().doubleValue();
+                    double targetPercent = goal.getTargetValue();
+                    finalTarget = patientWeight * (targetPercent / 100.0);
+                } else {
+                    finalTarget = 50.0;
+                }
+            } else {
+                finalTarget = goal.getTargetValue(); // 수평(180)이나 기울기(0) 등은 기존 DB값 사용
+            }
+
+            // 계산된 finalTarget을 사용하는 새로운 calculateAchievement 호출 (파라미터 변경 필요)
+            double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
 
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
             t.addGoalResult(result);
@@ -95,37 +112,47 @@ public class TryService {
     /**
      * 개별 목표 달성률 계산
      */
-    private double calculateAchievement(ExerciseGoal goal, double measured) {
-        double target = goal.getTargetValue();
+    /**
+     * 개별 목표 달성률 계산 (동적 타겟 반영)
+     */
+    private double calculateAchievement(ExerciseGoal goal, double measured, double finalTarget) {
         String name = goal.getName();
+        double rawScore;
 
-        // [수렴형] 특정 수치에 도달/유지해야 함 (평균 오차 기반)
-        if (name.contains("신전") || name.contains("수평") || name.contains("편차")) {
-            double error = Math.abs(target - measured);
-            // 평균값은 최대값보다 오차가 작게 수렴하므로 가중치(Weight)를 적절히 조절
-            double weight = name.contains("신전") ? 2.0 : 5.0;
-            return Math.max(0, 100.0 - (error * weight));
+        // 1. [안정형] 기준점(Target)이 180도인 경우 (수평, 편차, 상체 앞뒤 기울기 등)
+        // 이제 기울기도 finalTarget이 180.0으로 설정되어야 합니다.
+        if (finalTarget == 180.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
+            // [핵심] -180 ~ 180 사이의 불연속성을 해결하기 위해 0~360 범위로 정규화
+            double normalizedMeasured = (measured % 360 + 360) % 360;
+
+            // 180도(수평)와의 절대 오차 계산
+            double error = Math.abs(180.0 - normalizedMeasured);
+
+            rawScore = 100.0 - (error * getPenaltyWeight(name));
         }
 
-        // [안정형] 0에 가까울수록 고점 (평균 가속도, 흔들림 등)
-        if (target == 0.0) {
-            return Math.max(0, 100.0 - (measured * getPenaltyWeight(name)));
-        }
-
-        // [달성형] 타겟 수치 이상이어야 함 (최대 압력, 최대 각도 등)
-        if (target > 0) {
+        // 2. [달성형] 0보다 큰 특정 목표치를 넘어야 하는 경우 (압력, 각도 등)
+        else if (finalTarget > 0) {
             if (measured <= 0) return 0.0;
-            double rate = (measured / target) * 100;
-            return Math.min(100.0, round1(rate));
+            double rate = (measured / finalTarget) * 100;
+            rawScore = round1(rate);
         }
-        return 0.0;
+
+        // 3. 그 외 (0 기준 감점형 등)
+        else {
+            double error = Math.abs(measured); // 0도 기준
+            rawScore = 100.0 - (error * getPenaltyWeight(name));
+        }
+
+        return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
     private double getPenaltyWeight(String name) {
         return switch (name) {
+            case "골반 수평 편차", "어깨 수평 불균형" -> 2.0;
             case "상체 앞뒤 기울기" -> 5.0;
-            case "수행 가속도" -> 20.0; // strength 기반 평균 가속도
-            case "비마비측 발목 흔들림" -> 10.0; // XYZ 거리 기반
+            case "수행 가속도" -> 20.0;
+            case "비마비측 발목 흔들림" -> 10.0;
             default -> 1.0;
         };
     }
