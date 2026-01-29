@@ -33,7 +33,7 @@ export default function MainLayout({
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const WS_URL = "wss://i14a203.p.ssafy.io/test/ws";
+    const WS_URL = "ws://70.12.246.186:18080/ws";
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
@@ -90,7 +90,7 @@ export default function MainLayout({
                 type="button"
                 onClick={() => {
                   const ok = window.confirm(
-                    "시그널링 서버를 재시작하면 현재 영상 연결이 끊기고 다시 연결됩니다. 계속할까요?"
+                    "재활 운동 보조를 재시작 합니다. 계속할까요?"
                   );
                   if (!ok) return;
 
@@ -101,7 +101,7 @@ export default function MainLayout({
                     console.warn("WebSocket not connected");
                   }
 
-                  window.dispatchEvent(new Event("webrtc-restart"));
+                  // window.dispatchEvent(new Event("webrtc-restart"));
                 }}
               />
             </div>
