@@ -18,7 +18,6 @@ from typing import Optional
 
 import requests
 
-
 FAILURE_MAP = {
     "F1": "수동 움직임입니다, 근활성 부족이에요",
     "F2": "보상 동작입니다, 자세가 무너지고 있어요",
@@ -31,6 +30,16 @@ FAILURE_MAP = {
 
 PERFECT_TEXT = "완벽합니다"
 
+UPPER_START_TEXT = "상체 운동을 시작합니다"
+LOWER_START_TEXT = "하체 운동을 시작합니다"
+
+UPPER_TRY_TEXT = "8초간 양팔을 최대한 들어주세요"
+LOWER_TRY_TEXT = "8초간 다리에 힘을 주세요"
+
+UPPER_TRY_END_TEXT = "팔을 내려주세요"
+LOWER_TRY_END_TEXT = "다리 힘을 빼주세요"
+
+END_TEXT = "운동을 종료합니다 고생하셨습니다"
 
 def play_audio_file(filepath: str) -> None:
     system = platform.system().lower()
@@ -89,13 +98,13 @@ class ExerciseSession:
         self.cur_set = 1
 
     def _start_text(self):
-        return "상체 운동을 시작합니다" if self.ex_type == 1 else "하체 운동을 시작합니다"
+        return UPPER_START_TEXT if self.ex_type == 1 else LOWER_START_TEXT
 
     def _hold_text(self):
-        return "8초간 양팔을 최대한 들어주세요" if self.ex_type == 1 else "8초간 다리에 힘을 주세요"
+        return UPPER_TRY_TEXT if self.ex_type == 1 else LOWER_TRY_TEXT
 
     def _release_text(self):
-        return "팔을 내려주세요" if self.ex_type == 1 else "다리 힘을 빼주세요"
+        return UPPER_TRY_END_TEXT if self.ex_type == 1 else LOWER_TRY_END_TEXT
 
     def run(self):
         self.tts.speak(self._start_text())
@@ -119,7 +128,7 @@ class ExerciseSession:
             else:
                 print("알 수 없는 코드")
 
-        self.tts.speak("운동을 종료합니다 고생하셨습니다")
+        self.tts.speak(END_TEXT)
 
 
 def main():
