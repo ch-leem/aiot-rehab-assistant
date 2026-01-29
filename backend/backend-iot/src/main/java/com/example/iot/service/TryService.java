@@ -70,7 +70,24 @@ public class TryService {
         for (ExerciseGoal goal : goals) {
             // DTO 내부의 getValueByGoalName을 사용하여 목표에 맞는 수치(Avg/Max) 추출
             double measuredValue = evalRequest.getValueByGoalName(goal.getName());
-            double achievementRate = calculateAchievement(goal, measuredValue);
+            double finalTarget;
+
+            // "마비측 발판 압력"인 경우에만 몸무게 비례 계산 적용
+            if (goal.getName().equals("마비측 발판 압력")) {
+                // 몸무게가 있으면 비율 계산, 없으면 기본값(50kg) 사용
+                if (patient.getWeight() != null) {
+                    double patientWeight = patient.getWeight().doubleValue();
+                    double targetPercent = goal.getTargetValue();
+                    finalTarget = patientWeight * (targetPercent / 100.0);
+                } else {
+                    finalTarget = 50.0;
+                }
+            } else {
+                finalTarget = goal.getTargetValue(); // 수평(180)이나 기울기(0) 등은 기존 DB값 사용
+            }
+
+            // 계산된 finalTarget을 사용하는 새로운 calculateAchievement 호출 (파라미터 변경 필요)
+            double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
 
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
             t.addGoalResult(result);
@@ -95,23 +112,27 @@ public class TryService {
     /**
      * 개별 목표 달성률 계산
      */
-    private double calculateAchievement(ExerciseGoal goal, double measured) {
-        double target = goal.getTargetValue();
+    /**
+     * 개별 목표 달성률 계산 (동적 타겟 반영)
+     */
+    private double calculateAchievement(ExerciseGoal goal, double measured, double finalTarget) {
         String name = goal.getName();
-        double rawScore; // 계산된 원본 점수
+        double rawScore;
 
-        // 1. [안정형 & 수렴형 통합] 기준점(Target)을 중심으로 안정을 유지해야 하는 경우
-        // 골반 수평 편차, 어깨 수평 불균형, 상체 앞뒤 기울기 등
-        if (target == 0.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
-            // 기준점과의 절대 오차 계산 (예: 180도 기준이면 |180 - measured|)
-            double error = Math.abs(target - measured);
+        // 1. [안정형 & 수렴형] 특정 수치(finalTarget)를 '유지'해야 하는 경우
+        // 골반/어깨 수평(180), 상체 기울기(0), 흔들림(0) 등
+        if (finalTarget == 0.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
+            // 기준점과의 절대 오차 계산
+            double error = Math.abs(finalTarget - measured);
             rawScore = 100.0 - (error * getPenaltyWeight(name));
         }
 
-        // 2. [달성형] 타겟 수치 이상이어야 함 (최대 압력, 신전 각도 등)
-        else if (target > 0) {
+        // 2. [달성형] 타겟 수치(finalTarget) '이상'이어야 하는 경우
+        // 최대 압력(몸무게 비례 kg), 어깨 외전 각도 등
+        else if (finalTarget > 0) {
             if (measured <= 0) return 0.0;
-            double rate = (measured / target) * 100;
+            // 계산된 실제 목표(kg 또는 각도) 대비 달성률
+            double rate = (measured / finalTarget) * 100;
             rawScore = round1(rate);
         }
 
@@ -120,7 +141,7 @@ public class TryService {
             rawScore = 0.0;
         }
 
-        // 최종 점수 제한 (0~100)
+        // 최종 점수 범위 제한: 0점 미만은 0점, 100점 초과는 100점
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
