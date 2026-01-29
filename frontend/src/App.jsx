@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -110,6 +110,9 @@ export default function App() {
   const [sequenceSessions, setSequenceSessions] = useState([]);
   const [startedSessionId, setStartedSessionId] = useState(null);
   const [tryIndex, setTryIndex] = useState(0);
+  const [armRaiseCount, setArmRaiseCount] = useState(0);
+  const [armRaiseTotal, setArmRaiseTotal] = useState(10);
+  const autoAdvanceRef = useRef(false);
   const [activeTryId, setActiveTryId] = useState(null);
   const [compareItems, setCompareItems] = useState([]);
   const [sequenceAverages, setSequenceAverages] = useState([]);
@@ -250,6 +253,10 @@ export default function App() {
       currentExerciseDetail?.postureGuide ??
       "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
   };
+  const sessionCount =
+    currentExerciseId === 1 ? armRaiseCount : Math.min(tryIndex + 1, totalTries);
+  const sessionTotal = currentExerciseId === 1 ? armRaiseTotal : totalTries;
+
 
   const startSequence = async () => {
     if (!hasExercises) {
@@ -504,6 +511,47 @@ export default function App() {
     }
   };
 
+  const goToNextStep = useCallback(async (options = {}) => {
+    const { forceComplete = false } = options;
+    const currentTryId = currentTryIds[tryIndex];
+    if (currentTryId) {
+      await finishTry(currentTryId);
+    }
+    if (!forceComplete && tryIndex < totalTries - 1) {
+      setTryIndex((prev) => prev + 1);
+      return;
+    }
+    await finishSession();
+    if (exerciseIndex < todayExercises.length - 1) {
+      setExerciseIndex((prev) => prev + 1);
+      setScreen(SCREEN.EXERCISE_INTRO);
+    } else {
+      await finishSequence();
+      setScreen(SCREEN.EXERCISE_RESULT);
+    }
+  }, [
+    currentTryIds,
+    tryIndex,
+    totalTries,
+    finishTry,
+    finishSession,
+    finishSequence,
+    exerciseIndex,
+    todayExercises.length,
+  ]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
+      autoAdvanceRef.current = false;
+      return;
+    }
+    if (!armRaiseTotal) return;
+    if (armRaiseCount >= armRaiseTotal && !autoAdvanceRef.current) {
+      autoAdvanceRef.current = true;
+      goToNextStep({ forceComplete: true });
+    }
+  }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
+
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
     const timeout = setTimeout(() => {
@@ -755,7 +803,12 @@ export default function App() {
           <div className="screen-label">운동 진행</div>
           <div className="session-visual">
             {currentExerciseId === 1 ? (
-              <ArmRaiseGame />
+              <ArmRaiseGame
+                onCountChange={(count, total) => {
+                  setArmRaiseCount(count);
+                  setArmRaiseTotal(total);
+                }}
+              />
             ) : (
               <div className="session-visual-placeholder">3D 반응형 화면 자리</div>
             )}
@@ -765,34 +818,19 @@ export default function App() {
               <span
                 style={{
                   width: `${
-                    totalTries ? (Math.min(tryIndex + 1, totalTries) / totalTries) * 100 : 0
+                    sessionTotal ? (Math.min(sessionCount, sessionTotal) / sessionTotal) * 100 : 0
                   }%`,
                 }}
               />
             </div>
-            <div className="card-meta">현재 {Math.min(tryIndex + 1, totalTries)}/{totalTries} 회</div>
+            <div className="card-meta">
+              현재 {Math.min(sessionCount, sessionTotal)}/{sessionTotal} 회
+            </div>
           </div>
           <button
             className="ghost-button session-next"
             type="button"
-            onClick={async () => {
-              const currentTryId = currentTryIds[tryIndex];
-              if (currentTryId) {
-                await finishTry(currentTryId);
-              }
-              if (tryIndex < totalTries - 1) {
-                setTryIndex((prev) => prev + 1);
-                return;
-              }
-              await finishSession();
-              if (exerciseIndex < todayExercises.length - 1) {
-                setExerciseIndex((prev) => prev + 1);
-                setScreen(SCREEN.EXERCISE_INTRO);
-              } else {
-                await finishSequence();
-                setScreen(SCREEN.EXERCISE_RESULT);
-              }
-            }}
+            onClick={goToNextStep}
           >
             다음 단계
           </button>
