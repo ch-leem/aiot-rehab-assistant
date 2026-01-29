@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-export default function ArmRaiseGame() {
+export default function ArmRaiseGame({ onCountChange }) {
   const containerRef = useRef(null);
-  const barRef = useRef(null);
-  const stateRef = useRef(null);
-  const countRef = useRef(null);
-  const msgRef = useRef(null);
+  const cameraRef = useRef(null);
+  const controlsRef = useRef(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -15,7 +15,13 @@ export default function ArmRaiseGame() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    const getSize = () => {
+      const w = container.clientWidth || 1;
+      const h = container.clientHeight || 1;
+      return [w, Math.max(360, h)];
+    };
+    const [initW, initH] = getSize();
+    renderer.setSize(initW, initH);
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     container.appendChild(renderer.domElement);
@@ -23,234 +29,383 @@ export default function ArmRaiseGame() {
     const scene = new THREE.Scene();
     scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment()).texture;
     scene.background = new THREE.Color(0xf2f5fa);
-    scene.fog = new THREE.Fog(0xf2f5fa, 5, 30);
+    scene.fog = null;
 
-    const camera = new THREE.PerspectiveCamera(
-      55,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      100
-    );
-    camera.position.set(0, 1.75, 3.1);
-    camera.lookAt(0, 1.9, -4);
+    const camera = new THREE.PerspectiveCamera(58, initW / initH, 0.1, 120);
+    camera.position.set(-0.044532207971679935, 1.7996827340612096, 4.74469444693795);
+    camera.lookAt(0, 0.75, 0);
+    cameraRef.current = camera;
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false; // 팬 비활성화
+    controls.enableRotate = false; // 회전 비활성화
+    controls.enableZoom = false; // 줌 비활성화
+    controls.minDistance = 0.8;
+    controls.maxDistance = 12;
+    controls.target.set(0, 0.75, 0);
+    controls.update();
+    controlsRef.current = controls;
+
+    const useFixedCamera = true;
+
+    const sun = new THREE.DirectionalLight(0xffffff, 2.0);
     sun.position.set(6, 10, 4);
     sun.castShadow = true;
     scene.add(sun);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cbb8, 0.35));
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 40),
-      new THREE.MeshStandardMaterial({ color: 0xd8c9b4, roughness: 0.95 })
+    const debugBox = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0xff6b6b })
     );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
+    debugBox.visible = false;
+    debugBox.position.set(0, 1, 0);
+    scene.add(debugBox);
 
-    const table = new THREE.Mesh(
-      new THREE.BoxGeometry(3.2, 0.15, 1.4),
-      new THREE.MeshStandardMaterial({ color: 0x4a4f58, roughness: 0.8 })
+    let hangPoints = [
+      new THREE.Vector3(-1.8, 2.9, -3.9),
+      new THREE.Vector3(-1.4, 2.9, -3.9),
+      new THREE.Vector3(-1.0, 2.9, -3.9),
+      new THREE.Vector3(-0.6, 2.9, -3.9),
+      new THREE.Vector3(-0.2, 2.9, -3.9),
+      new THREE.Vector3(0.2, 2.9, -3.9),
+      new THREE.Vector3(0.6, 2.9, -3.9),
+      new THREE.Vector3(1.0, 2.9, -3.9),
+      new THREE.Vector3(1.4, 2.9, -3.9),
+      new THREE.Vector3(1.8, 2.9, -3.9),
+    ];
+
+    let startZ = 0.6;
+    let baseY = 1.05;
+    let stackOrigin = new THREE.Vector3(-1.6, baseY, startZ);
+    
+    // 더 큰 빨래 바구니 생성
+    const basketGroup = new THREE.Group();
+    const basketMat = new THREE.MeshStandardMaterial({
+      color: 0xd4a574,
+      roughness: 0.8,
+    });
+    
+    // 바구니 크기 증가
+    const basketWidth = 0.8;
+    const basketHeight = 0.35;
+    const basketDepth = 0.6;
+    const wallThickness = 0.03;
+    
+    // 바구니 바닥 (두껍게)
+    const basketBottom = new THREE.Mesh(
+      new THREE.BoxGeometry(basketWidth, 0.08, basketDepth),
+      basketMat
     );
-    table.position.set(0, 1, 0.2);
-    table.castShadow = true;
-    scene.add(table);
+    basketBottom.position.set(0, 0.04, 0); // 바닥을 y=0 위치에
+    basketBottom.castShadow = true;
+    basketBottom.receiveShadow = true;
+    
+    // 바구니 앞면
+    const basketFront = new THREE.Mesh(
+      new THREE.BoxGeometry(basketWidth, basketHeight, wallThickness),
+      basketMat
+    );
+    basketFront.position.set(0, basketHeight / 2 + 0.08, basketDepth / 2);
+    basketFront.castShadow = true;
+    basketFront.receiveShadow = true;
+    
+    // 바구니 뒷면
+    const basketBack = new THREE.Mesh(
+      new THREE.BoxGeometry(basketWidth, basketHeight, wallThickness),
+      basketMat
+    );
+    basketBack.position.set(0, basketHeight / 2 + 0.08, -basketDepth / 2);
+    basketBack.castShadow = true;
+    basketBack.receiveShadow = true;
+    
+    // 바구니 왼쪽면
+    const basketLeft = new THREE.Mesh(
+      new THREE.BoxGeometry(wallThickness, basketHeight, basketDepth),
+      basketMat
+    );
+    basketLeft.position.set(-basketWidth / 2, basketHeight / 2 + 0.08, 0);
+    basketLeft.castShadow = true;
+    basketLeft.receiveShadow = true;
+    
+    // 바구니 오른쪽면
+    const basketRight = new THREE.Mesh(
+      new THREE.BoxGeometry(wallThickness, basketHeight, basketDepth),
+      basketMat
+    );
+    basketRight.position.set(basketWidth / 2, basketHeight / 2 + 0.08, 0);
+    basketRight.castShadow = true;
+    basketRight.receiveShadow = true;
+    
+    basketGroup.add(basketBottom, basketFront, basketBack, basketLeft, basketRight);
+    basketGroup.position.set(stackOrigin.x, baseY, stackOrigin.z);
+    scene.add(basketGroup);
 
-    function makeRack() {
-      const g = new THREE.Group();
-      const metal = new THREE.MeshStandardMaterial({
-        color: 0xd4dae3,
-        metalness: 0.92,
-        roughness: 0.28,
-      });
-      const plastic = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.6 });
+    const loader = new GLTFLoader();
+    loader.load(
+      "/living_room2.glb",
+      (gltf) => {
+        const room = gltf.scene;
+        if (!room) {
+          debugBox.visible = true;
+          return;
+        }
 
-      const baseZ = -3.9;
-      const topY = 2.95;
-      const footY = 0.06;
-      const halfW = 1.35;
-      const halfD = 0.55;
-      const legOut = 1.18;
+        room.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+          }
+        });
+        room.position.set(0, 0, 0);
+        room.scale.set(1, 1, 1);
+        room.rotation.y = Math.PI;
+        scene.add(room);
 
-      const addTube = (a, b, r, mat) => {
-        const dir = new THREE.Vector3().subVectors(b, a);
-        const len = dir.length();
-        const geo = new THREE.CylinderGeometry(r, r, len, 28);
-        const m = new THREE.Mesh(geo, mat);
-        m.position.copy(a).add(b).multiplyScalar(0.5);
-        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-        m.castShadow = true;
-        return m;
-      };
+        let bounds = new THREE.Box3().setFromObject(room);
+        const size = bounds.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 50) {
+          const scale = 10 / maxDim;
+          room.scale.setScalar(scale);
+          bounds = new THREE.Box3().setFromObject(room);
+        }
 
-      const topFL = new THREE.Vector3(-halfW, topY, baseZ - halfD);
-      const topFR = new THREE.Vector3(halfW, topY, baseZ - halfD);
-      const topBL = new THREE.Vector3(-halfW, topY, baseZ + halfD);
-      const topBR = new THREE.Vector3(halfW, topY, baseZ + halfD);
+        const resizedSize = bounds.getSize(new THREE.Vector3());
+        const floorY = bounds.min.y;
 
-      const footFL = new THREE.Vector3(-halfW * legOut, footY, baseZ - halfD * legOut);
-      const footFR = new THREE.Vector3(halfW * legOut, footY, baseZ - halfD * legOut);
-      const footBL = new THREE.Vector3(-halfW * legOut, footY, baseZ + halfD * legOut);
-      const footBR = new THREE.Vector3(halfW * legOut, footY, baseZ + halfD * legOut);
+        if (!useFixedCamera) {
+          const resizedCenter = bounds.getCenter(new THREE.Vector3());
+          const fov = camera.fov * (Math.PI / 180);
+          let cameraZ = Math.abs(
+            Math.max(resizedSize.x, resizedSize.y, resizedSize.z) / (2 * Math.tan(fov / 2))
+          );
+          cameraZ *= 0.72;
+          camera.position.set(
+            resizedCenter.x,
+            floorY + resizedSize.y * 0.45,
+            resizedCenter.z + cameraZ
+          );
+          camera.lookAt(resizedCenter.x, floorY + resizedSize.y * 0.25, resizedCenter.z);
+          controls.target.set(resizedCenter.x, floorY + resizedSize.y * 0.25, resizedCenter.z);
+          controls.update();
+        }
 
-      g.add(addTube(footFL, topFL, 0.035, metal));
-      g.add(addTube(footFR, topFR, 0.035, metal));
-      g.add(addTube(footBL, topBL, 0.035, metal));
-      g.add(addTube(footBR, topBR, 0.035, metal));
+        startZ = bounds.max.z + resizedSize.z * 0.06;
+        baseY = floorY + resizedSize.y * 0.12;
+        stackOrigin = new THREE.Vector3(
+          bounds.min.x + resizedSize.x * 0.18,
+          baseY,
+          bounds.max.z + resizedSize.z * 0.08
+        );
+        
+        // 바구니 위치 업데이트
+        basketGroup.position.set(stackOrigin.x, baseY, stackOrigin.z);
 
-      g.add(addTube(topFL, topFR, 0.03, metal));
-      g.add(addTube(topBL, topBR, 0.03, metal));
-      g.add(addTube(topFL, topBL, 0.03, metal));
-      g.add(addTube(topFR, topBR, 0.03, metal));
+        let rackObject = null;
+        room.traverse((obj) => {
+          if ((obj.name || "").toLowerCase() === "object_4") rackObject = obj;
+        });
 
-      const midY = 1.1;
-      const midFL = new THREE.Vector3(-halfW * 0.9, midY, baseZ - halfD * 0.9);
-      const midFR = new THREE.Vector3(halfW * 0.9, midY, baseZ - halfD * 0.9);
-      const midBL = new THREE.Vector3(-halfW * 0.9, midY, baseZ + halfD * 0.9);
-      const midBR = new THREE.Vector3(halfW * 0.9, midY, baseZ + halfD * 0.9);
+        if (rackObject) {
+          const box = new THREE.Box3().setFromObject(rackObject);
+          const size = new THREE.Vector3();
+          const center = new THREE.Vector3();
+          box.getSize(size);
+          box.getCenter(center);
 
-      g.add(addTube(midFL, midFR, 0.028, metal));
-      g.add(addTube(midBL, midBR, 0.028, metal));
-      g.add(addTube(midFL, midBL, 0.028, metal));
-      g.add(addTube(midFR, midBR, 0.028, metal));
+          const width = size.x || 1.2;
+          const baseTopY = box.max.y - 0.15;
+          const z = center.z + size.z * 0.15;
+          const span = width * 0.48;
 
-      const barCount = 6;
-      for (let i = 0; i < barCount; i += 1) {
-        const t = i / (barCount - 1);
-        const z = THREE.MathUtils.lerp(baseZ - halfD * 0.75, baseZ + halfD * 0.75, t);
-        const a = new THREE.Vector3(-halfW * 0.92, topY - 0.03, z);
-        const b = new THREE.Vector3(halfW * 0.92, topY - 0.03, z);
-        g.add(addTube(a, b, 0.022, metal));
+          hangPoints = [];
+          for (let i = 0; i < 10; i++) {
+            const t = i / 9;
+            const x = center.x - span + t * span * 2;
+            
+            // 높이 변화: 2~3번은 낮아지고, 4~7번은 6번 높이로 평평, 8~9번은 올라감
+            let yOffset = 0;
+            if (i >= 1 && i <= 2) {
+              // 2~3번 (index 1~2): 점점 낮아짐
+              const dropAmount = (i - 0) * 0.08; // 각 옷마다 8cm씩 낮아짐
+              yOffset = -dropAmount;
+            } else if (i >= 3 && i <= 6) {
+              // 4~7번 (index 3~6): 6번 높이로 평평하게
+              yOffset = -0.24; // 3번이 내려간 높이 유지
+            } else if (i >= 7 && i <= 8) {
+              // 8~9번 (index 7~8): 점점 올라감
+              const riseAmount = (i - 6) * 0.08; // 7번부터 다시 올라감
+              yOffset = -0.24 + riseAmount;
+            }
+            
+            hangPoints.push(new THREE.Vector3(x, baseTopY + yOffset, z));
+          }
+
+          const stackOffsetX = width * 0.7;
+          const stackOffsetZ = size.z * 0.45;
+          stackOrigin = new THREE.Vector3(
+            center.x - span - stackOffsetX,
+            baseY + 0.02,
+            z + stackOffsetZ
+          );
+        }
+
+        basketGroup.position.set(stackOrigin.x, baseY, stackOrigin.z);
+
+        clothes.forEach((c, i) => {
+          if (!c.started) {
+            const randomRotY = (Math.random() - 0.5) * 0.4;
+            const randomRotX = -0.2 + (Math.random() - 0.5) * 0.15;
+            const randomOffsetX = (Math.random() - 0.5) * 0.2;
+            const randomOffsetZ = (Math.random() - 0.5) * 0.15;
+            
+            c.mesh.position.set(
+              stackOrigin.x + randomOffsetX,
+              baseY + 0.15 + i * 0.03, // 바구니 바닥 위에 쌓임
+              stackOrigin.z + randomOffsetZ
+            );
+            c.mesh.rotation.x = randomRotX;
+            c.mesh.rotation.y = randomRotY;
+            c.mesh.scale.set(0.8, 0.8, 0.8);
+          }
+        });
+      },
+      undefined,
+      (err) => {
+        console.warn("GLB load failed", err);
+        debugBox.visible = true;
       }
-
-      const jointGeo = new THREE.SphereGeometry(0.04, 20, 16);
-      for (const p of [topFL, topFR, topBL, topBR]) {
-        const j = new THREE.Mesh(jointGeo, metal);
-        j.position.copy(p);
-        j.castShadow = true;
-        g.add(j);
-      }
-
-      const footGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
-      for (const p of [footFL, footFR, footBL, footBR]) {
-        const f = new THREE.Mesh(footGeo, plastic);
-        f.position.copy(p);
-        f.rotation.x = Math.PI / 2;
-        f.castShadow = true;
-        g.add(f);
-      }
-
-      scene.add(g);
-      const xs = [-1.08, -0.36, 0.36, 1.08];
-      return xs.map((x) => new THREE.Vector3(x, topY - 0.05, baseZ));
-    }
-
-    const hangPoints = makeRack();
+    );
 
     class Cloth {
-      constructor(color) {
-        this.geo = new THREE.PlaneGeometry(0.9, 0.65, 22, 16);
-        this.geo.rotateY(Math.PI);
-        this.mat = new THREE.MeshStandardMaterial({
+      constructor(color, index, type) {
+        this.index = index;
+        this.type = type;
+        
+        this.mesh = new THREE.Group();
+        
+        const mat = new THREE.MeshStandardMaterial({
           color,
           roughness: 0.95,
           side: THREE.DoubleSide,
         });
-        this.mesh = new THREE.Mesh(this.geo, this.mat);
-        this.mesh.castShadow = true;
+        const thickness = 0.04;
+        
+        if (type === 'shirt') {
+          const bodyGeo = new THREE.BoxGeometry(0.35, 0.45, thickness);
+          const body = new THREE.Mesh(bodyGeo, mat);
+          body.castShadow = true;
+          body.receiveShadow = true;
+          
+          const leftArmGeo = new THREE.BoxGeometry(0.12, 0.25, thickness);
+          const leftArm = new THREE.Mesh(leftArmGeo, mat);
+          leftArm.position.set(-0.235, 0.08, 0);
+          leftArm.rotation.z = -0.3;
+          leftArm.castShadow = true;
+          
+          const rightArmGeo = new THREE.BoxGeometry(0.12, 0.25, thickness);
+          const rightArm = new THREE.Mesh(rightArmGeo, mat);
+          rightArm.position.set(0.235, 0.08, 0);
+          rightArm.rotation.z = 0.3;
+          rightArm.castShadow = true;
+          
+          this.mesh.add(body, leftArm, rightArm);
+        } else if (type === 'pants') {
+          const waistGeo = new THREE.BoxGeometry(0.35, 0.1, thickness);
+          const waist = new THREE.Mesh(waistGeo, mat);
+          waist.position.set(0, 0.2, 0);
+          waist.castShadow = true;
+          
+          const leftLegGeo = new THREE.BoxGeometry(0.15, 0.4, thickness);
+          const leftLeg = new THREE.Mesh(leftLegGeo, mat);
+          leftLeg.position.set(-0.1, -0.05, 0);
+          leftLeg.castShadow = true;
+          
+          const rightLegGeo = new THREE.BoxGeometry(0.15, 0.4, thickness);
+          const rightLeg = new THREE.Mesh(rightLegGeo, mat);
+          rightLeg.position.set(0.1, -0.05, 0);
+          rightLeg.castShadow = true;
+          
+          this.mesh.add(waist, leftLeg, rightLeg);
+        } else if (type === 'towel') {
+          const towelGeo = new THREE.BoxGeometry(0.3, 0.4, thickness);
+          const towel = new THREE.Mesh(towelGeo, mat);
+          towel.castShadow = true;
+          towel.receiveShadow = true;
+          
+          this.mesh.add(towel);
+        }
+        
         scene.add(this.mesh);
 
-        this.p = [];
-        this.pp = [];
-        this.pin = [];
-
-        const pos = this.geo.attributes.position;
-        for (let i = 0; i < pos.count; i += 1) {
-          const v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
-          this.p.push(v.clone());
-          this.pp.push(v.clone());
-          this.pin.push(false);
-        }
-
-        this.links = [];
-        const w = 22;
-        const h = 16;
-        const idx = (x, y) => x + (w + 1) * y;
-        const rx = 0.9 / w;
-        const ry = 0.65 / h;
-
-        for (let y = 0; y <= h; y += 1) {
-          for (let x = 0; x <= w; x += 1) {
-            if (x < w) this.links.push([idx(x, y), idx(x + 1, y), rx]);
-            if (y < h) this.links.push([idx(x, y), idx(x, y + 1), ry]);
-          }
-        }
-
         this.enabled = false;
-        this.gravity = -14.5;
-        this.damping = 0.972;
-        this.w = w;
-        this.h = h;
+        this.started = false;
+        this.hangSway = 0;
       }
 
-      pinTop() {
-        const idx = (x, y) => x + (this.w + 1) * y;
-        this.pin[idx(0, this.h)] = true;
-        this.pin[idx(this.w, this.h)] = true;
-      }
-
-      setPinPos(l, r) {
-        const idx = (x, y) => x + (this.w + 1) * y;
-        this.p[idx(0, this.h)].copy(l);
-        this.p[idx(this.w, this.h)].copy(r);
-        this.pp[idx(0, this.h)].copy(l);
-        this.pp[idx(this.w, this.h)].copy(r);
-      }
-
-      step(dt) {
+      simulateHanging(dt, hangPoint) {
         if (!this.enabled) return;
-        const pos = this.geo.attributes.position;
+        
+        const time = Date.now() * 0.001;
+        
+        const swayDecay = Math.max(0, 1 - this.hangSway * 0.33);
+        const swayAmp = 0.25 * swayDecay;
+        const swaySpeed = 2.5;
+        
+        this.mesh.rotation.x = Math.sin(time * swaySpeed) * swayAmp * 0.5;
+        this.mesh.rotation.z = Math.cos(time * swaySpeed * 0.7) * swayAmp * 0.8;
+        
+        this.hangSway += dt;
+      }
 
-        for (let i = 0; i < this.p.length; i += 1) {
-          if (this.pin[i]) continue;
-          const cur = this.p[i];
-          const prev = this.pp[i];
-          const vel = cur.clone().sub(prev).multiplyScalar(this.damping);
-          const next = cur.clone().add(vel);
-          next.y += this.gravity * dt * dt;
-          this.pp[i] = cur.clone();
-          this.p[i] = next;
+      flutter(t) {
+        if (this.enabled) return;
+        
+        const amp = 0.01;
+        this.mesh.rotation.x = Math.sin(t * 2 + this.index) * amp;
+      }
+      
+      liftAnimation(progress, from, target, t, index) {
+        const eased = 1 - Math.pow(1 - progress, 3);
+        this.mesh.position.lerpVectors(from, target, eased);
+        
+        if (progress < 0.6) {
+          const wobble = Math.sin(progress * Math.PI * 6 + t * 8) * (1 - progress * 1.5) * 0.02;
+          this.mesh.rotation.x = wobble;
+          this.mesh.rotation.y = 0;
+          this.mesh.scale.set(1, 1, 1);
+        } else {
+          const rotProgress = (progress - 0.6) / 0.4;
+          this.mesh.rotation.y = rotProgress * Math.PI / 2;
+          this.mesh.rotation.x = 0;
+          this.mesh.scale.set(1, 1, 1);
         }
-
-        for (let k = 0; k < 4; k += 1) {
-          for (const [a, b, r] of this.links) {
-            const p1 = this.p[a];
-            const p2 = this.p[b];
-            const d = p2.clone().sub(p1);
-            const dist = d.length() || 0.0001;
-            const diff = (dist - r) / dist * 0.5;
-            if (!this.pin[a]) p1.add(d.clone().multiplyScalar(diff));
-            if (!this.pin[b]) p2.sub(d.clone().multiplyScalar(diff));
-          }
-        }
-
-        for (let i = 0; i < this.p.length; i += 1) {
-          pos.setXYZ(i, this.p[i].x, this.p[i].y, this.p[i].z);
-        }
-
-        pos.needsUpdate = true;
-        this.geo.computeVertexNormals();
       }
     }
 
-    const colors = [0x5fa8ff, 0xff7a7a, 0x7cff9d, 0xffd66b];
+    const colors = [0x5fa8ff, 0xff7a7a, 0x7cff9d, 0xffd66b, 0xc89dff, 0xff9d9d, 0x9dffc8, 0xffc89d, 0x9dd6ff, 0xffffff];
+    const types = ['shirt', 'shirt', 'pants', 'towel', 'shirt', 'pants', 'towel', 'shirt', 'pants', 'towel'];
     const clothes = [];
-    const startX = [-1.1, -0.37, 0.37, 1.1];
 
-    for (let i = 0; i < 4; i += 1) {
-      const c = new Cloth(colors[i]);
-      c.mesh.position.set(startX[i], 1.15, 0.35);
-      c.mesh.rotation.x = -0.2;
+    for (let i = 0; i < 10; i += 1) {
+      const c = new Cloth(colors[i], i, types[i]);
+      const randomRotY = (Math.random() - 0.5) * 0.4;
+      const randomRotX = -0.2 + (Math.random() - 0.5) * 0.15;
+      const randomOffsetX = (Math.random() - 0.5) * 0.2;
+      const randomOffsetZ = (Math.random() - 0.5) * 0.15;
+      
+      c.mesh.position.set(
+        stackOrigin.x + randomOffsetX,
+        baseY + 0.15 + i * 0.03,
+        stackOrigin.z + randomOffsetZ
+      );
+      c.mesh.rotation.x = randomRotX;
+      c.mesh.rotation.y = randomRotY;
+      c.mesh.scale.set(0.8, 0.8, 0.8);
       clothes.push(c);
     }
 
@@ -259,85 +414,45 @@ export default function ArmRaiseGame() {
     let progress = 0;
     const total = clothes.length;
 
-    const hang = (cloth, pt) => {
-      cloth.mesh.position.copy(pt);
-      cloth.mesh.rotation.set(0, Math.PI, 0);
-      cloth.enabled = true;
-      cloth.pinTop();
-
-      const left = pt.clone().add(new THREE.Vector3(-0.18, 0, 0));
-      const right = pt.clone().add(new THREE.Vector3(0.18, 0, 0));
-      const inv = cloth.mesh.matrixWorld.clone().invert();
-      cloth.setPinPos(left.applyMatrix4(inv), right.applyMatrix4(inv));
-    };
-
     let audioCtx = null;
-    let masterGain = null;
+    const playHangSfx = () => {
+      if (!audioCtx || audioCtx.state !== "running") return;
+      const now = audioCtx.currentTime;
+      
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(800, now);
+      osc1.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+      
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1600, now);
+      osc2.frequency.exponentialRampToValueAtTime(2400, now + 0.08);
+      
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.15, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.15);
+      osc2.stop(now + 0.15);
+    };
 
     const ensureAudio = () => {
       if (audioCtx) return;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      masterGain = audioCtx.createGain();
-      masterGain.gain.value = 0.18;
-      masterGain.connect(audioCtx.destination);
     };
 
-    const playHangSfx = () => {
-      if (!audioCtx || audioCtx.state !== "running") return;
-      const now = audioCtx.currentTime;
-      const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.28, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-      gain.connect(masterGain);
-
-      const osc1 = audioCtx.createOscillator();
-      osc1.type = "square";
-      osc1.frequency.setValueAtTime(720, now);
-      osc1.frequency.exponentialRampToValueAtTime(260, now + 0.12);
-      osc1.connect(gain);
-
-      const osc2 = audioCtx.createOscillator();
-      osc2.type = "triangle";
-      osc2.frequency.setValueAtTime(1200, now);
-      osc2.frequency.exponentialRampToValueAtTime(340, now + 0.1);
-      osc2.connect(gain);
-
-      const noiseBuf = audioCtx.createBuffer(
-        1,
-        Math.floor(audioCtx.sampleRate * 0.08),
-        audioCtx.sampleRate
-      );
-      const data = noiseBuf.getChannelData(0);
-      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.35;
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = noiseBuf;
-      const hp = audioCtx.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.setValueAtTime(900, now);
-      noise.connect(hp);
-      hp.connect(gain);
-
-      osc1.start(now);
-      osc1.stop(now + 0.14);
-      osc2.start(now);
-      osc2.stop(now + 0.14);
-      noise.start(now);
-      noise.stop(now + 0.08);
-    };
-
-    const updateHud = () => {
-      if (barRef.current) barRef.current.style.width = `${progress * 100}%`;
-      if (stateRef.current) {
-        stateRef.current.textContent =
-          active >= total ? "완료" : hold || progress > 0 ? "진행" : "대기";
-      }
-      if (countRef.current) countRef.current.textContent = String(active);
-      if (msgRef.current) {
-        msgRef.current.textContent =
-          active >= total
-            ? "완료! 잘했어요. 다음 단계로 이동하세요."
-            : "W를 누르고 유지하세요. 목표 위치에 도달하면 자동으로 걸립니다.";
+    const notifyCount = () => {
+      if (typeof onCountChange === "function") {
+        onCountChange(active, total);
       }
     };
 
@@ -362,6 +477,7 @@ export default function ArmRaiseGame() {
     const animate = () => {
       rafId = requestAnimationFrame(animate);
       const dt = Math.min(0.033, clock.getDelta());
+      const t = clock.elapsedTime;
 
       if (active < clothes.length) {
         const c = clothes[active];
@@ -369,30 +485,53 @@ export default function ArmRaiseGame() {
           if (hold) progress = Math.min(1, progress + 0.8 * dt);
           else progress = Math.max(0, progress - 0.3 * dt);
 
-          const e = 1 - Math.pow(1 - progress, 3);
-          c.mesh.position.y = 1.15 + e * 1.8;
-          c.mesh.position.z = 0.35 - e * 4.1;
+          const target = hangPoints[active];
+          const randomOffsetX = (Math.random() - 0.5) * 0.2;
+          const randomOffsetZ = (Math.random() - 0.5) * 0.15;
+          const from = new THREE.Vector3(
+            stackOrigin.x + randomOffsetX,
+            baseY + 0.15 + active * 0.03,
+            stackOrigin.z + randomOffsetZ
+          );
+          
+          if (progress > 0) {
+            c.mesh.scale.lerp(new THREE.Vector3(1, 1, 1), progress * 2);
+          }
+          
+          c.liftAnimation(progress, from, target, t, active);
+          c.started = true;
 
           if (progress >= 1) {
-            hang(c, hangPoints[active]);
+            c.enabled = true;
+            c.hangSway = 0;
+            c.mesh.rotation.y = Math.PI / 2;
+            c.mesh.rotation.x = 0;
+            c.mesh.scale.set(1, 1, 1);
             playHangSfx();
             active += 1;
+            notifyCount();
             progress = 0;
           }
         }
       }
 
-      for (const c of clothes) c.step(dt);
-      updateHud();
+      clothes.forEach((c, i) => {
+        if (c.enabled) {
+          c.simulateHanging(dt, hangPoints[i]);
+        } else {
+          c.flutter(t);
+        }
+      });
+      
+      controls.update();
       renderer.render(scene, camera);
     };
 
-    updateHud();
+    notifyCount();
     animate();
 
     const resize = () => {
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
+      const [w, h] = getSize();
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -406,8 +545,11 @@ export default function ArmRaiseGame() {
       window.removeEventListener("keyup", onKeyUp);
       resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
+      controls.dispose();
       renderer.dispose();
       scene.clear();
+      cameraRef.current = null;
+      controlsRef.current = null;
       if (audioCtx && audioCtx.state !== "closed") audioCtx.close();
       if (renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
@@ -418,27 +560,6 @@ export default function ArmRaiseGame() {
   return (
     <div className="arm-raise-wrapper">
       <div ref={containerRef} className="arm-raise-container" />
-      <div className="arm-raise-hud">
-        <div className="arm-raise-title">🧺 재활 게이미피케이션: 티셔츠 빨래 걸기</div>
-        <div className="arm-raise-sub">
-          시선 고정 · W 유지(팔 올리기) → 목표 높이 도달 시 자동으로 “착!”
-        </div>
-        <div className="arm-raise-row">
-          <div className="arm-raise-pill">조작: <b>W</b> 유지</div>
-          <div className="arm-raise-pill">상태: <span ref={stateRef}>대기</span></div>
-          <div className="arm-raise-pill">
-            성공: <span ref={countRef}>0</span>/4
-          </div>
-        </div>
-        <div className="arm-raise-bar-wrap">
-          <div ref={barRef} className="arm-raise-bar" />
-        </div>
-        <div ref={msgRef} className="arm-raise-msg">
-          W를 누르고 유지하세요. 목표 위치에 도달하면 자동으로 걸립니다.
-        </div>
-      </div>
-      <div className="arm-raise-hint">팔을 들어올리듯 <b>W</b>를 눌러 유지</div>
-      <div className="arm-raise-footer">🔊 사운드: 첫 키 입력 이후 활성화</div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 package com.example.iot.service;
 
+import com.example.iot.domain.Exercise;
 import com.example.iot.domain.Sequence;
 import com.example.iot.domain.Session;
 import com.example.iot.dto.response.ExerciseRecentGoalsItem;
@@ -7,12 +8,15 @@ import com.example.iot.dto.response.RecentGoalsByExerciseResponse;
 import com.example.iot.repository.SequenceRepository;
 import com.example.iot.repository.SessionRepository;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 public class RecentGoalsService {
 
@@ -22,11 +26,14 @@ public class RecentGoalsService {
 
     private final SequenceRepository sequenceRepository;
     private final SessionRepository sessionRepository;
+    private final ExerciseService exerciseService;
 
     public RecentGoalsService(SequenceRepository sequenceRepository,
-                              SessionRepository sessionRepository) {
+                              SessionRepository sessionRepository,
+                              ExerciseService exerciseService) {
         this.sequenceRepository = sequenceRepository;
         this.sessionRepository = sessionRepository;
+        this.exerciseService = exerciseService;
     }
 
     @Transactional
@@ -64,14 +71,29 @@ public class RecentGoalsService {
         Map<Long, ExerciseBucket> bucketMap = new LinkedHashMap<>();
 
         for (Session s : sessions) {
+
+
             Long exId = s.getExercise().getId();
-            String exName = s.getExercise().getName();
-            String goal = normalizeGoal(s.getGoal());
+            Exercise exercise = exerciseService.getExercise(exId);
+            String exName = exercise.getName();
+            int sucess = s.getSuccessTries();
+            int total = s.getTotalTries();
+
+            String goal = "";
+            if(total == 0) {
+                goal = "0";
+            } else{
+                double temp = (double) ((double)sucess / (double)total) * 100;
+                log.info("temp={}", temp);
+                goal = String.valueOf(temp);
+            }
 
             ExerciseBucket bucket = bucketMap.computeIfAbsent(exId, k -> new ExerciseBucket(exId, exName));
 
             if (bucket.goals.size() < RECENT_GOALS_PER_EXERCISE) {
+                log.info("sucess = {}, total={}", sucess, total);
                 bucket.goals.add(goal);
+                log.info("sessionid={}", s.getId());
             }
         }
 
@@ -92,6 +114,13 @@ public class RecentGoalsService {
         String t = g.trim();
         if (t.isEmpty()) return "0";
         return t.replace("%", "");
+    }
+    private static String percent(int success, int total) {
+        if (total <= 0) return "0.0"; // 혹은 "N/A"
+        return BigDecimal.valueOf(success)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP)
+                .toPlainString();
     }
 
     private static class ExerciseBucket {
