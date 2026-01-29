@@ -67,27 +67,21 @@ public class TryService {
 
         // 3. 목표별 점수 산출 및 저장
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
+
+        double minScore = 101.0;      // 비교를 위해 만점보다 높은 값으로 초기화
+        String worstGoalName = "";    // 가장 점수가 낮은 목표의 이름을 저장
+
         for (ExerciseGoal goal : goals) {
-            // DTO 내부의 getValueByGoalName을 사용하여 목표에 맞는 수치(Avg/Max) 추출
             double measuredValue = evalRequest.getValueByGoalName(goal.getName());
-            double finalTarget;
 
-            // "마비측 발판 압력"인 경우에만 몸무게 비례 계산 적용
-            if (goal.getName().equals("마비측 발판 압력")) {
-                // 몸무게가 있으면 비율 계산, 없으면 기본값(50kg) 사용
-                if (patient.getWeight() != null) {
-                    double patientWeight = patient.getWeight().doubleValue();
-                    double targetPercent = goal.getTargetValue();
-                    finalTarget = patientWeight * (targetPercent / 100.0);
-                } else {
-                    finalTarget = 50.0;
-                }
-            } else {
-                finalTarget = goal.getTargetValue(); // 수평(180)이나 기울기(0) 등은 기존 DB값 사용
-            }
+            double finalTarget = getFinalTargetValue(goal, patient);
 
-            // 계산된 finalTarget을 사용하는 새로운 calculateAchievement 호출 (파라미터 변경 필요)
             double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
+
+            if (achievementRate < minScore) {
+                minScore = achievementRate;
+                worstGoalName = goal.getName();
+            }
 
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
             t.addGoalResult(result);
@@ -103,7 +97,8 @@ public class TryService {
             }
         } else {
             t.setResult(TryResult.FAIL);
-            t.setFail(failRepository.findById("F1").orElse(null));
+            String failId = mapGoalNameToFailId(worstGoalName);
+            t.setFail(failRepository.findById(failId).orElse(null));
         }
 
         return toResponse(t);
@@ -111,9 +106,6 @@ public class TryService {
 
     /**
      * 개별 목표 달성률 계산
-     */
-    /**
-     * 개별 목표 달성률 계산 (동적 타겟 반영)
      */
     private double calculateAchievement(ExerciseGoal goal, double measured, double finalTarget) {
         String name = goal.getName();
@@ -147,6 +139,16 @@ public class TryService {
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
+    private double getFinalTargetValue(ExerciseGoal goal, Patient patient) {
+        if ("마비측 발판 압력".equals(goal.getName())) {
+            if (patient.getWeight() != null) {
+                return patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
+            }
+            return 50.0; // 기본값
+        }
+        return goal.getTargetValue(); // 압력이 아니면 DB에 설정된 값(180 등) 반환
+    }
+
     private double getPenaltyWeight(String name) {
         return switch (name) {
             case "골반 수평 편차", "어깨 수평 불균형" -> 2.0;
@@ -164,6 +166,20 @@ public class TryService {
                 t.getResult() != null ? t.getResult().name() : "NONE",
                 t.getFail() != null ? t.getFail().getName() : null
         );
+    }
+
+    private String mapGoalNameToFailId(String goalName) {
+        return switch (goalName) {
+            case "어깨 외전 각도" -> "F_SH_FLEX";
+            case "팔꿈치 신전 상태" -> "F_EL_EXT";
+            case "상체 앞뒤 기울기" -> "F_TR_TILT";
+            case "어깨 수평 불균형" -> "F_SH_HOR";
+            case "수행 가속도" -> "F_ACCEL";
+            case "마비측 발판 압력" -> "F_PR_LOAD";
+            case "골반 수평 편차" -> "F_PL_HOR";
+            case "비마비측 발목 흔들림" -> "F_ANK_STB";
+            default -> "F_ELSE"; // 예외 케이스용 일반 실패 코드
+        };
     }
 
     private static double round1(double v) {
