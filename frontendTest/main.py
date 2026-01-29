@@ -179,7 +179,7 @@ async def ws_handler(request):
                     log.info("Browser ready: jetson is offline")
                     await send_json(ws, {"type": "jetson_status", "online": False}, tag="[server->browser]")
 
-            elif t == "jetson_hello":
+            elif t == "jetson_hello" or t == "heartbeat_hello":
                 role = "jetson"
                 hub.jetson = ws
                 hub.last_jetson_seen = now()
