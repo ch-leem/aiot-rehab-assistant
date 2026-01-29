@@ -119,29 +119,31 @@ public class TryService {
         String name = goal.getName();
         double rawScore;
 
-        // 1. [안정형 & 수렴형] 특정 수치(finalTarget)를 '유지'해야 하는 경우
-        // 골반/어깨 수평(180), 상체 기울기(0), 흔들림(0) 등
-        if (finalTarget == 0.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
-            // 기준점과의 절대 오차 계산
-            double error = Math.abs(finalTarget - measured);
+        // 1. [안정형] 기준점(Target)이 180도인 경우 (수평, 편차, 상체 앞뒤 기울기 등)
+        // 이제 기울기도 finalTarget이 180.0으로 설정되어야 합니다.
+        if (finalTarget == 180.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
+            // [핵심] -180 ~ 180 사이의 불연속성을 해결하기 위해 0~360 범위로 정규화
+            double normalizedMeasured = (measured % 360 + 360) % 360;
+
+            // 180도(수평)와의 절대 오차 계산
+            double error = Math.abs(180.0 - normalizedMeasured);
+
             rawScore = 100.0 - (error * getPenaltyWeight(name));
         }
 
-        // 2. [달성형] 타겟 수치(finalTarget) '이상'이어야 하는 경우
-        // 최대 압력(몸무게 비례 kg), 어깨 외전 각도 등
+        // 2. [달성형] 0보다 큰 특정 목표치를 넘어야 하는 경우 (압력, 각도 등)
         else if (finalTarget > 0) {
             if (measured <= 0) return 0.0;
-            // 계산된 실제 목표(kg 또는 각도) 대비 달성률
             double rate = (measured / finalTarget) * 100;
             rawScore = round1(rate);
         }
 
-        // 3. 예외 케이스
+        // 3. 그 외 (0 기준 감점형 등)
         else {
-            rawScore = 0.0;
+            double error = Math.abs(measured); // 0도 기준
+            rawScore = 100.0 - (error * getPenaltyWeight(name));
         }
 
-        // 최종 점수 범위 제한: 0점 미만은 0점, 100점 초과는 100점
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 

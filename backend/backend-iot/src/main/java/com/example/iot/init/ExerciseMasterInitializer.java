@@ -41,8 +41,8 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
 
                 // SUB: 보상 동작 억제 (0에 가까울수록 고득점인 감점형 지표들)
                 // 가속도 값은 추후 조정 필요
-                new ExerciseGoal(shoulderFlexion, "SUB", "상체 앞뒤 기울기", "ANGLE", 0.0, "deg"),
-                new ExerciseGoal(shoulderFlexion, "SUB", "어깨 수평 불균형", "ANGLE", 0.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "SUB", "상체 앞뒤 기울기", "ANGLE", 180.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "SUB", "어깨 수평 불균형", "ANGLE", 180.0, "deg"),
                 new ExerciseGoal(shoulderFlexion, "SUB", "수행 가속도", "ACCEL", 0.0, "m/s²")
         ));
 
@@ -60,9 +60,9 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
                 new ExerciseGoal(weightBearing, "MAIN", "마비측 발판 압력", "PRESSURE", 60.0, "%"),
 
                 // SUB: 자세 안정성 (0에 가까울수록 고득점인 감점형 지표들)
-                new ExerciseGoal(weightBearing, "SUB", "골반 수평 편차", "ANGLE", 0.0, "deg"),
+                new ExerciseGoal(weightBearing, "SUB", "골반 수평 편차", "ANGLE", 180.0, "deg"),
                 new ExerciseGoal(weightBearing, "SUB", "비마비측 발목 흔들림", "STABILITY", 0.0, "score"),
-                new ExerciseGoal(weightBearing, "SUB", "상체 앞뒤 기울기", "ANGLE", 0.0, "deg")
+                new ExerciseGoal(weightBearing, "SUB", "상체 앞뒤 기울기", "ANGLE", 180.0, "deg")
 
         ));
 
