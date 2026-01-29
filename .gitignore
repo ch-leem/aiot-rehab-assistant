@@ -179,3 +179,6 @@ Thumbs.db
 # temp files
 esp8266_mpu6050
 laundry-3d/
+
+# GMS
+gms.yaml
