@@ -87,8 +87,8 @@ async def connect_and_run(
         print(f"[WS] connected: {ws_url}")
 
         # 1, 반드시 최초 hello
-        await ws.send(json.dumps({"type": "jetson_hello"}))
-        print("[WS] sent jetson_hello")
+        await ws.send(json.dumps({"type": "heartbeat_hello"}))
+        print("[WS] sent heartbeat_hello")
 
         # 2, 수신 루프 + heartbeat 루프 동시 실행
         recv_task = asyncio.create_task(recv_loop(ws))
