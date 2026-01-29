@@ -63,9 +63,9 @@ public class FrameAnalyzer {
                 "count.trunk_rotation_lateral_flexion"));
 
         // [SUB] 골반 수평 편차
-                req.setAvgPelvisLevelDiff(getAverage(agg,
-                        "sum.pelvis_level",
-                        "count.pelvis_level"));
+        req.setAvgPelvisLevelDiff(getAverage(agg,
+                "sum.pelvis_level",
+                "count.pelvis_level"));
 
         // [SUB] 수행 가속도: 평균값 사용 (Strength = 가속도)
         req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));
