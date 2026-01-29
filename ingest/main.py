@@ -94,7 +94,6 @@ def _parse_metrics(spec: str) -> Dict[str, str]:
 
 METRIC_PATHS = _parse_metrics(AGG_METRICS)
 
-
 def _get_by_path(obj: Any, path: str) -> Optional[float]:
     """
     path: "sensor.strength" 같은 dot path를 따라가서 숫자(float)로 반환(불가하면 None)
@@ -108,7 +107,12 @@ def _get_by_path(obj: Any, path: str) -> Optional[float]:
     try:
         if cur is None:
             return None
-        return float(cur)
+        v = float(cur)
+
+        if math.isnan(v) or math.isinf(v):
+            return None
+        
+        return v
     except Exception:
         return None
 
