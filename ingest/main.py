@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+import logging
 from typing import Any, Dict, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Request
@@ -38,8 +39,8 @@ r = redis.Redis(
 )
 
 app = FastAPI(title="Ingest API", version="1.0")
-
-
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("ingest")
 # ----------------------------
 # Models
 # ----------------------------
@@ -184,6 +185,9 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         frame0 = payload.frames[0]
         key = _agg_key(try_id)
         pipe = r.pipeline()
+        trlf = _get_by_path(frame0, "deg.mid.trunk_rotation_lateral_flexion")
+        log.info("try=%s trunk_rotation_lateral_flexion=%s frame_idx=%s ip=%s", try_id, trlf, frame0.get("frame_idx"), client_ip)
+
 
         values: Dict[str, float] = {}
         for metric_name, path in METRIC_PATHS.items():
