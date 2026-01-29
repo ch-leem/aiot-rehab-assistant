@@ -124,6 +124,7 @@ services:
       - user-api
       - iot-api
       - frontend
+      - ingest-api
     networks:
       - appnet
     restart: always
