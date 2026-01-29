@@ -57,10 +57,15 @@ public class FrameAnalyzer {
         // [SUB] 상체 앞뒤 기울기: 평균값 사용
         req.setAvgTrunkForwardTilt(getAverage(agg, "sum.trunk_forward_tilt", "count.trunk_forward_tilt"));
 
-        // [SUB] 어깨 수평/골반 수평 불균형: 평균값 사용
-        double avgLevelDiff = getAverage(agg, "sum.pelvis_level", "count.pelvis_level");
-        req.setAvgShoulderLevelDiff(avgLevelDiff); // 어깨 수평 불균형 목표용
-        req.setAvgPelvisLevelDiff(avgLevelDiff);   // 골반 수평 편차 목표용
+        // [SUB] 어깨 수평 불균형
+        req.setAvgShoulderLevelDiff(getAverage(agg,
+                "sum.trunk_rotation_lateral_flexion",
+                "count.trunk_rotation_lateral_flexion"));
+
+        // [SUB] 골반 수평 편차
+                req.setAvgPelvisLevelDiff(getAverage(agg,
+                        "sum.pelvis_level",
+                        "count.pelvis_level"));
 
         // [SUB] 수행 가속도: 평균값 사용 (Strength = 가속도)
         req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));

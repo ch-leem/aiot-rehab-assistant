@@ -98,27 +98,29 @@ public class TryService {
     private double calculateAchievement(ExerciseGoal goal, double measured) {
         double target = goal.getTargetValue();
         String name = goal.getName();
+        double rawScore; // 계산된 원본 점수
 
-        // [수렴형] 특정 수치에 도달/유지해야 함 (평균 오차 기반)
+        // [수렴형] 특정 수치에 도달/유지해야 함 (오차 기반)
         if (name.contains("신전") || name.contains("수평") || name.contains("편차")) {
             double error = Math.abs(target - measured);
-            // 평균값은 최대값보다 오차가 작게 수렴하므로 가중치(Weight)를 적절히 조절
             double weight = name.contains("신전") ? 2.0 : 5.0;
-            return Math.max(0, 100.0 - (error * weight));
+            rawScore = 100.0 - (error * weight);
         }
-
         // [안정형] 0에 가까울수록 고점 (평균 가속도, 흔들림 등)
-        if (target == 0.0) {
-            return Math.max(0, 100.0 - (measured * getPenaltyWeight(name)));
+        else if (target == 0.0) {
+            rawScore = 100.0 - (measured * getPenaltyWeight(name));
         }
-
         // [달성형] 타겟 수치 이상이어야 함 (최대 압력, 최대 각도 등)
-        if (target > 0) {
+        else if (target > 0) {
             if (measured <= 0) return 0.0;
             double rate = (measured / target) * 100;
-            return Math.min(100.0, round1(rate));
+            rawScore = round1(rate);
+        } else {
+            rawScore = 0.0;
         }
-        return 0.0;
+
+        // 최종 점수 제한: 0점 미만은 0점, 100점 초과는 100점
+        return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
     private double getPenaltyWeight(String name) {
