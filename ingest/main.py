@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import time
+import math
 import logging
 from typing import Any, Dict, Optional, Tuple
+
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -52,6 +54,8 @@ class TryStartRequest(BaseModel):
     try_id: str = Field(...)
 
 
+def _dist3(a, b) -> float:
+    return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
 # ----------------------------
 # Utils
 # ----------------------------
@@ -186,9 +190,38 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         key = _agg_key(try_id)
         pipe = r.pipeline()
         trlf = _get_by_path(frame0, "deg.mid.trunk_rotation_lateral_flexion")
+        
+        #pipe = r.pipeline()
+
         log.info("try=%s trunk_rotation_lateral_flexion=%s frame_idx=%s ip=%s", try_id, trlf, frame0.get("frame_idx"), client_ip)
+        lx = _get_by_path(frame0, "position.left.left_ankle.x")
+        ly = _get_by_path(frame0, "position.left.left_ankle.y")
+        lz = _get_by_path(frame0, "position.left.left_ankle.z")
+        
+        if lx is not None and ly is not None and lz is not None:
+            # 이전 좌표 읽기
+            prev = r.hmget(key, ["prev.l_ankle.x", "prev.l_ankle.y", "prev.l_ankle.z"])
+            if prev[0] is not None and prev[1] is not None and prev[2] is not None:
+                px, py, pz = float(prev[0]), float(prev[1]), float(prev[2])
+                d = _dist3((lx, ly, lz), (px, py, pz))
 
+                pipe.hincrbyfloat(key, "sum.l_ankle_jitter", d)
+                pipe.hincrbyfloat(key, "sum_sq.l_ankle_jitter", d*d)  # 분산/표준편차용
+                pipe.hincrby(key, "count.l_ankle_jitter", 1)
 
+                cur_max = r.hget(key, "max.l_ankle_jitter")
+                if cur_max is None or d > float(cur_max):
+                    pipe.hset(key, "max.l_ankle_jitter", d)
+
+            # 현재 좌표를 prev로 저장(다음 프레임 대비)
+            pipe.hset(key, mapping={
+                "prev.l_ankle.x": lx,
+                "prev.l_ankle.y": ly,
+                "prev.l_ankle.z": lz,
+            })
+
+        pipe.execute()
+        
         values: Dict[str, float] = {}
         for metric_name, path in METRIC_PATHS.items():
             v = _get_by_path(frame0, path)
