@@ -57,7 +57,7 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
 
         exerciseGoalRepository.saveAll(List.of(
                 // MAIN: 하중 지지 및 유지 능력
-                new ExerciseGoal(weightBearing, "MAIN", "마비측 발판 압력", "PRESSURE", 50.0, "kg"),
+                new ExerciseGoal(weightBearing, "MAIN", "마비측 발판 압력", "PRESSURE", 60.0, "%"),
 
                 // SUB: 자세 안정성 (0에 가까울수록 고득점인 감점형 지표들)
                 new ExerciseGoal(weightBearing, "SUB", "골반 수평 편차", "ANGLE", 0.0, "deg"),
