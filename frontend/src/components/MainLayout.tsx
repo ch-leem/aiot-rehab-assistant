@@ -31,12 +31,14 @@ export default function MainLayout({
 
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const [wsState, setWsState] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    const WS_URL = "/test/ws";
+    const WS_URL = "test/ws";
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
+    setWsState(ws);
 
     ws.onopen = () => {
       console.log("WS connected");
@@ -47,15 +49,21 @@ export default function MainLayout({
     ws.onclose = () => {
       console.log("WS closed");
       setConnected(false);
+      wsRef.current = null;
+      setWsState(null);
     };
 
     ws.onerror = (e) => console.error("WS error", e);
-    ws.onmessage = (e) => console.log("WS message:", e.data);
+    const onMsg = (e: MessageEvent) => console.log("WS message:", e.data);
+    ws.addEventListener("message", onMsg);
 
     return () => {
+      ws.removeEventListener("message", onMsg);
       ws.close();
       wsRef.current = null;
+      setWsState(null);
     };
+
   }, []);
 
   return (
@@ -85,29 +93,53 @@ export default function MainLayout({
             <div className="panel-row">
               <div className="panel-header">실시간 카메라</div>
 
-              <button
-                className="signal-restart"
-                type="button"
-                onClick={() => {
-                  const ok = window.confirm(
-                    "재활 운동 보조를 재시작 합니다. 계속할까요?"
-                  );
-                  if (!ok) return;
+              <div className="panel-actions">
+                <button
+                  className="signal-restart"
+                  type="button"
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "재활 운동 보조를 재시작 합니다. 계속할까요?"
+                    );
+                    if (!ok) return;
 
-                  const ws = wsRef.current;
-                  if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: "run" }));
-                  } else {
-                    console.warn("WebSocket not connected");
-                  }
+                    const ws = wsRef.current;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify({ type: "run" }));
+                    } else {
+                      console.warn("WebSocket not connected");
+                    }
 
-                  // window.dispatchEvent(new Event("webrtc-restart"));
-                }}
-              />
-            </div>
+                    // window.dispatchEvent(new Event("webrtc-restart"));
+                  }}
+
+                />
+
+                <button
+                  className="signal-stop"
+                  type="button"
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "재활 운동 보조를 중지 합니다. 계속할까요?"
+                    );
+                    if (!ok) return;
+
+                    const ws = wsRef.current;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify({ type: "stop" }));
+                    } else {
+                      console.warn("WebSocket not connected");
+                    }
+                  }}
+                >
+                </button>
+              </div>
+
+              </div>
+              
 
             <div className="camera-feed">
-              <StreamingViewer />
+              <StreamingViewer ws={wsState} />
               <div className="camera-overlay">
                 <span className="overlay-dot" />
                 <span className="overlay-ring" />
