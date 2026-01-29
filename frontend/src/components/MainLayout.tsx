@@ -33,7 +33,7 @@ export default function MainLayout({
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const WS_URL = "wss://frontend-test:8080/ws";
+    const WS_URL = "wss://i14a203.p.ssafy.io/test/ws";
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
