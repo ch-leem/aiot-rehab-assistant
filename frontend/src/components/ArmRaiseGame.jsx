@@ -410,7 +410,8 @@ export default function ArmRaiseGame({ onCountChange }) {
     }
 
     let active = 0;
-    let hold = false;
+    let reps = 0;
+    let wasRaised = false;
     let progress = 0;
     const total = clothes.length;
 
@@ -452,24 +453,94 @@ export default function ArmRaiseGame({ onCountChange }) {
 
     const notifyCount = () => {
       if (typeof onCountChange === "function") {
-        onCountChange(active, total);
+        onCountChange(reps, total);
       }
     };
 
-    const onKeyDown = (e) => {
-      if (e.code !== "KeyW") return;
-      hold = true;
-      ensureAudio();
-      if (audioCtx.state !== "running") audioCtx.resume();
+    const poseSseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
+    let poseStream = null;
+    let targetProgress = 0;
+    let lastPoseAt = 0;
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    const isValidPoint = (point) =>
+      point &&
+      typeof point.x === "number" &&
+      typeof point.y === "number" &&
+      typeof point.conf === "number" &&
+      point.conf >= 0.3;
+
+    const flexScore = (flexion) => {
+      if (typeof flexion !== "number") return null;
+      return clamp((flexion - 30) / 60, 0, 1);
     };
 
-    const onKeyUp = (e) => {
-      if (e.code !== "KeyW") return;
-      hold = false;
+    const limbRaiseScore = (shoulder, wrist, hip) => {
+      if (!isValidPoint(shoulder) || !isValidPoint(wrist)) return null;
+      const dy = shoulder.y - wrist.y;
+      if (dy <= 0) return 0;
+
+      let denom = 0.3;
+      if (isValidPoint(hip)) {
+        const torso = Math.abs(hip.y - shoulder.y);
+        if (torso > 0) denom = torso * 0.8;
+      }
+
+      return clamp(dy / denom, 0, 1);
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
+    const getArmRaiseScore = (frame) => {
+      if (!frame) return 0;
+      const scores = [];
+      const deg = frame.deg || {};
+      const leftDeg = deg.left || {};
+      const rightDeg = deg.right || {};
+      const leftFlex = flexScore(leftDeg.shoulder_flexion);
+      const rightFlex = flexScore(rightDeg.shoulder_flexion);
+
+      if (typeof leftFlex === "number") scores.push(leftFlex);
+      if (typeof rightFlex === "number") scores.push(rightFlex);
+
+      const pos = frame.position || {};
+      const left = pos.left || {};
+      const right = pos.right || {};
+
+      const leftScore = limbRaiseScore(left.left_shoulder, left.left_wrist, left.left_hip);
+      const rightScore = limbRaiseScore(right.right_shoulder, right.right_wrist, right.right_hip);
+
+      if (typeof leftScore === "number") scores.push(leftScore);
+      if (typeof rightScore === "number") scores.push(rightScore);
+
+      return scores.length ? Math.max(...scores) : 0;
+    };
+
+    if (poseSseUrl && typeof EventSource !== "undefined") {
+      try {
+        poseStream = new EventSource(poseSseUrl);
+        poseStream.onmessage = (ev) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            const frames = Array.isArray(payload?.frames) ? payload.frames : [];
+            const frame = frames.length ? frames[frames.length - 1] : null;
+            const score = getArmRaiseScore(frame);
+            targetProgress = score;
+            lastPoseAt = performance.now();
+            if (score > 0) {
+              ensureAudio();
+              if (audioCtx && audioCtx.state !== "running") audioCtx.resume();
+            }
+          } catch {
+            // ignore parse errors
+          }
+        };
+        poseStream.onerror = () => {
+          targetProgress = 0;
+        };
+      } catch {
+        // ignore stream errors
+      }
+    }
 
     const clock = new THREE.Clock();
     let rafId = 0;
@@ -482,8 +553,28 @@ export default function ArmRaiseGame({ onCountChange }) {
       if (active < clothes.length) {
         const c = clothes[active];
         if (!c.enabled) {
-          if (hold) progress = Math.min(1, progress + 0.8 * dt);
-          else progress = Math.max(0, progress - 0.3 * dt);
+          if (lastPoseAt && performance.now() - lastPoseAt > 500) {
+            targetProgress = 0;
+          }
+          const smoothing = 1 - Math.exp(-dt * 6);
+          progress += (targetProgress - progress) * smoothing;
+          progress = Math.max(0, Math.min(1, progress));
+
+          const raiseThreshold = 0.6;
+          const lowerThreshold = 0.35;
+          const signal = targetProgress;
+
+          if (!wasRaised && signal >= raiseThreshold) {
+            wasRaised = true;
+          }
+
+          if (wasRaised && signal <= lowerThreshold) {
+            wasRaised = false;
+            if (reps < total) {
+              reps += 1;
+              notifyCount();
+            }
+          }
 
           const target = hangPoints[active];
           const randomOffsetX = (Math.random() - 0.5) * 0.2;
@@ -509,7 +600,6 @@ export default function ArmRaiseGame({ onCountChange }) {
             c.mesh.scale.set(1, 1, 1);
             playHangSfx();
             active += 1;
-            notifyCount();
             progress = 0;
           }
         }
@@ -541,8 +631,10 @@ export default function ArmRaiseGame({ onCountChange }) {
     resizeObserver.observe(container);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
+      if (poseStream) {
+        poseStream.close();
+        poseStream = null;
+      }
       resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
       controls.dispose();

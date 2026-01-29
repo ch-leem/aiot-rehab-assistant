@@ -113,6 +113,8 @@ export default function App() {
   const [armRaiseCount, setArmRaiseCount] = useState(0);
   const [armRaiseTotal, setArmRaiseTotal] = useState(10);
   const autoAdvanceRef = useRef(false);
+  const armRaiseTimeoutRef = useRef(null);
+  const lastArmRaiseCountRef = useRef(0);
   const [activeTryId, setActiveTryId] = useState(null);
   const [compareItems, setCompareItems] = useState([]);
   const [sequenceAverages, setSequenceAverages] = useState([]);
@@ -512,9 +514,9 @@ export default function App() {
   };
 
   const goToNextStep = useCallback(async (options = {}) => {
-    const { forceComplete = false } = options;
+    const { forceComplete = false, skipTryFinish = false } = options;
     const currentTryId = currentTryIds[tryIndex];
-    if (currentTryId) {
+    if (!skipTryFinish && currentTryId) {
       await finishTry(currentTryId);
     }
     if (!forceComplete && tryIndex < totalTries - 1) {
@@ -548,7 +550,7 @@ export default function App() {
     if (!armRaiseTotal) return;
     if (armRaiseCount >= armRaiseTotal && !autoAdvanceRef.current) {
       autoAdvanceRef.current = true;
-      goToNextStep({ forceComplete: true });
+      goToNextStep({ forceComplete: true, skipTryFinish: true });
     }
   }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
 
@@ -559,6 +561,42 @@ export default function App() {
     }, 1200);
     return () => clearTimeout(timeout);
   }, [screen, postureChecked, exerciseIndex, sequenceSessions, startedSessionId]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
+      lastArmRaiseCountRef.current = armRaiseCount;
+      if (armRaiseTimeoutRef.current) {
+        clearTimeout(armRaiseTimeoutRef.current);
+        armRaiseTimeoutRef.current = null;
+      }
+      return;
+    }
+    if (armRaiseCount <= lastArmRaiseCountRef.current) return;
+    lastArmRaiseCountRef.current = armRaiseCount;
+
+    const currentTryId = currentTryIds[tryIndex];
+    if (currentTryId) {
+      finishTry(currentTryId);
+    }
+
+    if (armRaiseCount < armRaiseTotal) {
+      if (armRaiseTimeoutRef.current) {
+        clearTimeout(armRaiseTimeoutRef.current);
+      }
+      armRaiseTimeoutRef.current = setTimeout(() => {
+        setTryIndex((prev) => prev + 1);
+        armRaiseTimeoutRef.current = null;
+      }, 4000);
+    }
+  }, [
+    screen,
+    currentExerciseId,
+    armRaiseCount,
+    armRaiseTotal,
+    currentTryIds,
+    tryIndex,
+    finishTry,
+  ]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION) return;
