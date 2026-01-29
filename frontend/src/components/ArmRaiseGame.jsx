@@ -520,6 +520,7 @@ export default function ArmRaiseGame({ onCountChange }) {
         poseStream = new EventSource(poseSseUrl);
         poseStream.onmessage = (ev) => {
           try {
+            console.log("[SSE] pose message", ev.data);
             const payload = JSON.parse(ev.data);
             const frames = Array.isArray(payload?.frames) ? payload.frames : [];
             const frame = frames.length ? frames[frames.length - 1] : null;
