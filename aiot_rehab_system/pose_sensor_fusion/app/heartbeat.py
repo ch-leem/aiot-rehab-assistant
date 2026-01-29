@@ -111,7 +111,7 @@ async def main() -> None:
     with open("/home/a203/workspace/S14P11A203/aiot_rehab_system/configs/pose_sensor_fusion/run.yaml", "r") as f:
         cfg = yaml.safe_load(f)
 
-    ws_url = cfg["ingest"]["url"]
+    ws_url = cfg["heartbeat"]["url"]
     heartbeat_interval_sec = float(os.getenv("HEARTBEAT_SEC", "3.0")) 
     retry_min_sec = float(os.getenv("RETRY_MIN_SEC", "0.5"))
     retry_max_sec = float(os.getenv("RETRY_MAX_SEC", "5.0"))

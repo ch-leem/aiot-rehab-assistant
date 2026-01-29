@@ -73,5 +73,9 @@ webrtc:
   enable: false
   url: "ws://0.0.0.0:8080/ws"
 
+heartbeat:
+  enable: true
+  url: 
+
 local_vis:
   enable: true
