@@ -72,23 +72,10 @@ public class TryService {
         String worstGoalName = "";    // 가장 점수가 낮은 목표의 이름을 저장
 
         for (ExerciseGoal goal : goals) {
-            // DTO 내부의 getValueByGoalName을 사용하여 목표에 맞는 수치(Avg/Max) 추출
             double measuredValue = evalRequest.getValueByGoalName(goal.getName());
-            double finalTarget;
 
-            // "마비측 발판 압력"인 경우에만 몸무게 비례 계산 적용
-            if (goal.getName().equals("마비측 발판 압력")) {
-                // 몸무게가 있으면 비율 계산, 없으면 기본값(50kg) 사용
-                if (patient.getWeight() != null) {
-                    finalTarget = patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
-                } else {
-                    finalTarget = 50.0;
-                }
-            } else {
-                finalTarget = goal.getTargetValue(); // 수평(180)이나 기울기(0) 등은 기존 DB값 사용
-            }
+            double finalTarget = getFinalTargetValue(goal, patient);
 
-            // 계산된 finalTarget을 사용하는 새로운 calculateAchievement 호출 (파라미터 변경 필요)
             double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
 
             if (achievementRate < minScore) {
@@ -150,6 +137,16 @@ public class TryService {
         }
 
         return Math.max(0.0, Math.min(100.0, rawScore));
+    }
+
+    private double getFinalTargetValue(ExerciseGoal goal, Patient patient) {
+        if ("마비측 발판 압력".equals(goal.getName())) {
+            if (patient.getWeight() != null) {
+                return patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
+            }
+            return 50.0; // 기본값
+        }
+        return goal.getTargetValue(); // 압력이 아니면 DB에 설정된 값(180 등) 반환
     }
 
     private double getPenaltyWeight(String name) {
