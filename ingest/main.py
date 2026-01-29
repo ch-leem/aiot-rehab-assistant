@@ -148,7 +148,7 @@ def try_stop():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"redis error: {e}")
 
-
+#값 추가
 @app.post("/ingest/stream")
 async def ingest_stream(payload: IngestPayload, request: Request):
     """
@@ -180,26 +180,41 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         r.xadd(_try_stream_key(try_id), try_event, maxlen=MAXLEN, approximate=True)
         r.set(_try_latest_key(try_id), payload_json)
 
-        # ✅ 집계 업데이트: frames[0]만 사용(원하면 모든 frame 돌려도 됨)
+        # ✅ 집계 업데이트: frames[0]만 사용
         frame0 = payload.frames[0]
+        key = _agg_key(try_id)
+        pipe = r.pipeline()
 
-        agg_updates: Dict[str, float] = {}
+        values: Dict[str, float] = {}
         for metric_name, path in METRIC_PATHS.items():
             v = _get_by_path(frame0, path)
-            if v is None:
-                continue
-            # sum.<metric> 누적
-            agg_updates[f"sum.{metric_name}"] = v
+            if v is not None:
+                values[metric_name] = v
 
-        if agg_updates:
-            # Redis hash에 누적합/카운트 저장
-            key = _agg_key(try_id)
+        if values:
+            # 2) min/max 현재값을 한 번에 읽기
+            min_fields = [f"min.{m}" for m in values.keys()]
+            max_fields = [f"max.{m}" for m in values.keys()]
+            cur_mins = r.hmget(key, min_fields)
+            cur_maxs = r.hmget(key, max_fields)
 
-            # HINCRBYFLOAT로 누적합
             pipe = r.pipeline()
-            for k, v in agg_updates.items():
-                pipe.hincrbyfloat(key, k, v)
-            pipe.hincrby(key, "count", 1)
+
+            # 3) sum/count는 무조건 업데이트
+            for m, v in values.items():
+                pipe.hincrbyfloat(key, f"sum.{m}", v)
+                pipe.hincrby(key, f"count.{m}", 1)
+
+            # 4) min/max는 비교 후 필요할 때만 set
+            for i, (m, v) in enumerate(values.items()):
+                cur_min = cur_mins[i]
+                if cur_min is None or v < float(cur_min):
+                    pipe.hset(key, f"min.{m}", v)
+
+                cur_max = cur_maxs[i]
+                if cur_max is None or v > float(cur_max):
+                    pipe.hset(key, f"max.{m}", v)
+
             pipe.execute()
 
     return {"ok": True, "stream": STREAM_KEY, "id": msg_id, "active_try": try_id}
