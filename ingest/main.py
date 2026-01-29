@@ -197,6 +197,10 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         lx = _get_by_path(frame0, "position.left.left_ankle.x")
         ly = _get_by_path(frame0, "position.left.left_ankle.y")
         lz = _get_by_path(frame0, "position.left.left_ankle.z")
+
+        rx = _get_by_path(frame0, "position.right.right_ankle.x")
+        ry = _get_by_path(frame0, "position.right.right_ankle.y")
+        rz = _get_by_path(frame0, "position.right.right_ankle.z")
         
         if lx is not None and ly is not None and lz is not None:
             # 이전 좌표 읽기
@@ -218,6 +222,28 @@ async def ingest_stream(payload: IngestPayload, request: Request):
                 "prev.l_ankle.x": lx,
                 "prev.l_ankle.y": ly,
                 "prev.l_ankle.z": lz,
+            })
+
+        if rx is not None and ry is not None and rz is not None:
+            # 이전 좌표 읽기
+            prev = r.hmget(key, ["prev.r_ankle.x", "prev.r_ankle.y", "prev.r_ankle.z"])
+            if prev[0] is not None and prev[1] is not None and prev[2] is not None:
+                px, py, pz = float(prev[0]), float(prev[1]), float(prev[2])
+                d = _dist3((rx, ry, rz), (px, py, pz))
+
+                pipe.hincrbyfloat(key, "sum.r_ankle_jitter", d)
+                pipe.hincrbyfloat(key, "sum_sq.r_ankle_jitter", d*d)  # 분산/표준편차용
+                pipe.hincrby(key, "count.r_ankle_jitter", 1)
+
+                cur_max = r.hget(key, "max.r_ankle_jitter")
+                if cur_max is None or d > float(cur_max):
+                    pipe.hset(key, "max.r_ankle_jitter", d)
+
+            # 현재 좌표를 prev로 저장(다음 프레임 대비)
+            pipe.hset(key, mapping={
+                "prev.r_ankle.x": rx,
+                "prev.r_ankle.y": ry,
+                "prev.r_ankle.z": rz,
             })
 
         pipe.execute()
