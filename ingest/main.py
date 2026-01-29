@@ -5,6 +5,8 @@ import time
 import math
 import logging
 from typing import Any, Dict, Optional, Tuple
+import asyncio
+from fastapi.responses import StreamingResponse
 
 
 from fastapi import FastAPI, HTTPException, Request
@@ -32,6 +34,8 @@ REDIS_AGG_PREFIX = os.getenv("REDIS_AGG_PREFIX", "agg:try")  # compose: agg:try
 # compose 예: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,...
 AGG_METRICS = os.getenv("AGG_METRICS", "strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z,power=sensor.power,trunk_forward_tilt=deg.mid.trunk_forward_tilt,pelvis_level=deg.mid.pelvis_level,l_elbow_extension=deg.left.elbow_extension,r_elbow_extension=deg.right.elbow_extension")
 
+
+
 r = redis.Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
@@ -43,6 +47,9 @@ r = redis.Redis(
 app = FastAPI(title="Ingest API", version="1.0")
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ingest")
+subscribers: set[asyncio.Queue[str]] = set()
+
+PUB_CHANNEL = os.getenv("REDIS_PUB_CHANNEL", "ingest:pub")
 # ----------------------------
 # Models
 # ----------------------------
@@ -53,6 +60,15 @@ class IngestPayload(BaseModel):
 class TryStartRequest(BaseModel):
     try_id: str = Field(...)
 
+
+def push_sse(payload_json: str):
+    for q in list(subscribers):
+        try:
+            if q.full():
+                q.get_nowait()   # 하나 버리고
+            q.put_nowait(payload_json)  # 최신 넣기
+        except Exception:
+            pass
 
 def _dist3(a, b) -> float:
     return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
@@ -177,6 +193,9 @@ async def ingest_stream(payload: IngestPayload, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"redis error: {e}")
 
+    # ✅ try 상관없이 들어오는 stream을 SSE로 계속 push
+    push_sse(payload_json)
+
     # 2) ✅ 활성 try가 있으면 try별 처리
     try_id = r.get(ACTIVE_TRY_KEY)
     if try_id:
@@ -184,6 +203,7 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         try_event = {"ts_ms": str(now_ms), "client_ip": client_ip, "payload": payload_json}
         r.xadd(_try_stream_key(try_id), try_event, maxlen=MAXLEN, approximate=True)
         r.set(_try_latest_key(try_id), payload_json)
+        r.publish(PUB_CHANNEL, payload_json)
 
         # ✅ 집계 업데이트: frames[0]만 사용
         frame0 = payload.frames[0]
@@ -281,3 +301,29 @@ async def ingest_stream(payload: IngestPayload, request: Request):
             pipe.execute()
 
     return {"ok": True, "stream": STREAM_KEY, "id": msg_id, "active_try": try_id}
+
+@app.get("/events")
+async def events():
+    q: asyncio.Queue[str] = asyncio.Queue(maxsize=200)
+    subscribers.add(q)
+
+    async def gen():
+        try:
+            while True:
+                data = await q.get()
+                yield f"data: {data}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            subscribers.discard(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
