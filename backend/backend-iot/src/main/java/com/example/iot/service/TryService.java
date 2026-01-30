@@ -117,7 +117,23 @@ public class TryService {
         rawScore = switch (name) {
 
             // [안정형/유지형] 기준값(Target)과의 편차를 측정 (180도 보정 포함)
-            case "상체 앞뒤 기울기", "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태" -> {
+            case "상체 앞뒤 기울기" -> {
+                double normalizedMeasured = (measured % 360 + 360) % 360;
+                double error = Math.abs(180.0 - normalizedMeasured);
+
+                // 오차가 작은 경우에는 선형적으로 점수를 깎고, 큰 경우에는 급격히 감소
+                double penalty = Math.pow(error, 2) * getPenaltyWeight(name);  // error 제곱을 곱해 급격한 감점 방지
+                double score = 100.0 - penalty;
+
+                // error가 작을 때는 100점에서 조금씩 점수를 빼는 방식
+                if (error <= 5) {
+                    score = 100.0 - (error * 5);  // error가 5도 이내일 때는 점수 차이를 부드럽게
+                }
+
+                // 60점 이상 유지
+                yield Math.max(60.0, score);
+            }
+            case "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태" -> {
                 double normalizedMeasured = (measured % 360 + 360) % 360;
                 double error = Math.abs(180.0 - normalizedMeasured);
                 yield 100.0 - (error * getPenaltyWeight(name));
