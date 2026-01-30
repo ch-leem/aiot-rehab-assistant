@@ -418,6 +418,8 @@ export default function ArmRaiseGame({ onCountChange }) {
     let reps = 0;
     let progress = 0;
     let canLift = true;
+    let attemptActive = false;
+    let attemptResolved = false;
     const total = clothes.length;
 
     let audioCtx = null;
@@ -492,6 +494,11 @@ export default function ArmRaiseGame({ onCountChange }) {
       // force reflow to restart animation
       void el.offsetWidth;
       el.classList.add("is-active");
+    };
+
+    const showNextTrySignal = () => {
+      triggerFlash();
+      showFeedback("다음 빨래 널기 시작", 1200);
     };
 
     const poseSseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
@@ -602,6 +609,13 @@ export default function ArmRaiseGame({ onCountChange }) {
             progress += (targetProgress - progress) * smoothing;
             progress = Math.max(0, Math.min(1, progress));
           }
+          const signal = targetProgress;
+          const raiseStartThreshold = 0.4;
+          const lowerThreshold = 0.2;
+
+          if (canLift && !attemptResolved && !attemptActive && signal >= raiseStartThreshold) {
+            attemptActive = true;
+          }
 
           const target = hangPoints[active];
           const randomOffsetX = (Math.random() - 0.5) * 0.2;
@@ -632,13 +646,9 @@ export default function ArmRaiseGame({ onCountChange }) {
               notifyCount();
             }
             triggerFlash();
-            showFeedback("잘했어요! 천천히 팔을 내려주세요.", 2000);
-            feedbackTimers.push(
-              setTimeout(() => {
-                showFeedback("다음 빨래 널기 시작", 1200);
-              }, 2000)
-            );
+            showFeedback("잘했어요!", 2000);
             canLift = false;
+            attemptResolved = true;
             const waitForLower = () => {
               if (targetProgress > 0.25) {
                 feedbackTimers.push(setTimeout(waitForLower, 120));
@@ -647,6 +657,29 @@ export default function ArmRaiseGame({ onCountChange }) {
               feedbackTimers.push(
                 setTimeout(() => {
                   canLift = true;
+                  attemptActive = false;
+                  attemptResolved = false;
+                  showNextTrySignal();
+                }, 2000)
+              );
+            };
+            waitForLower();
+            progress = 0;
+          } else if (canLift && attemptActive && !attemptResolved && signal <= lowerThreshold) {
+            attemptResolved = true;
+            canLift = false;
+            showFeedback("팔 높이를 더 올려주세요", 2000);
+            const waitForLower = () => {
+              if (targetProgress > 0.25) {
+                feedbackTimers.push(setTimeout(waitForLower, 120));
+                return;
+              }
+              feedbackTimers.push(
+                setTimeout(() => {
+                  canLift = true;
+                  attemptActive = false;
+                  attemptResolved = false;
+                  showNextTrySignal();
                 }, 2000)
               );
             };
