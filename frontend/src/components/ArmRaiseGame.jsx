@@ -497,11 +497,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
       el.classList.add("is-active");
     };
 
-    const showNextTrySignal = () => {
-      triggerFlash();
-      showFeedback("다음 빨래 널기 시작", 1200);
-    };
-
     const poseSseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
     let poseStream = null;
     let targetProgress = 0;
@@ -658,7 +653,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
                 canLift = true;
                 attemptActive = false;
                 attemptResolved = false;
-                showNextTrySignal();
               }, 2000);
             };
             waitForLower();
@@ -670,7 +664,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
               reps += 1;
               notifyCount();
             }
-            showFeedback("팔 높이를 더 올려주세요", 2000);
             const waitForLower = () => {
               if (targetProgress > 0.25) {
                 setTimeout(waitForLower, 120);
@@ -680,7 +673,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
                 canLift = true;
                 attemptActive = false;
                 attemptResolved = false;
-                showNextTrySignal();
               }, 2000);
             };
             waitForLower();

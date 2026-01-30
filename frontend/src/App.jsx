@@ -120,6 +120,8 @@ export default function App() {
   const moleAutoAdvanceRef = useRef(false);
   const armRaiseTimeoutRef = useRef(null);
   const lastArmRaiseCountRef = useRef(0);
+  const armRaiseCompleteRef = useRef(false);
+  const prevTryIndexRef = useRef(0);
   const [activeTryId, setActiveTryId] = useState(null);
   const [compareItems, setCompareItems] = useState([]);
   const [sequenceAverages, setSequenceAverages] = useState([]);
@@ -557,12 +559,21 @@ export default function App() {
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
       autoAdvanceRef.current = false;
+      armRaiseCompleteRef.current = false;
       return;
     }
     if (!armRaiseTotal) return;
     if (armRaiseCount >= armRaiseTotal && !autoAdvanceRef.current) {
       autoAdvanceRef.current = true;
-      goToNextStep({ forceComplete: true, skipTryFinish: true });
+      armRaiseCompleteRef.current = true;
+      setArmRaiseFeedback({
+        id: Date.now(),
+        message: "고생하셨습니다. 오늘도 완료하셨습니다",
+        duration: 5000,
+      });
+      setTimeout(() => {
+        goToNextStep({ forceComplete: true, skipTryFinish: true });
+      }, 5000);
     }
   }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
 
@@ -599,6 +610,7 @@ export default function App() {
     lastArmRaiseCountRef.current = armRaiseCount;
 
     const run = async () => {
+      let nextDelayMs = 2000;
       const currentTryId = currentTryIds[tryIndex];
       if (currentTryId) {
         const result = await finishTry(currentTryId);
@@ -610,12 +622,14 @@ export default function App() {
               message: "잘하셨어요!",
               duration: 2000,
             });
+            nextDelayMs = 2000;
           } else if (status === "FAIL") {
             setArmRaiseFeedback({
               id: Date.now(),
               message: result.failName || "팔 높이를 더 올려주세요",
               duration: 2400,
             });
+            nextDelayMs = 2400;
           }
         }
       }
@@ -627,7 +641,7 @@ export default function App() {
         armRaiseTimeoutRef.current = setTimeout(() => {
           setTryIndex((prev) => prev + 1);
           armRaiseTimeoutRef.current = null;
-        }, 2000);
+        }, nextDelayMs);
       }
     };
 
@@ -660,6 +674,25 @@ export default function App() {
       startTry(nextTryId);
     }
   }, [screen, tryIndex, currentTryIds]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
+      prevTryIndexRef.current = tryIndex;
+      return;
+    }
+    if (
+      tryIndex > 0 &&
+      tryIndex !== prevTryIndexRef.current &&
+      !armRaiseCompleteRef.current
+    ) {
+      setArmRaiseFeedback({
+        id: Date.now(),
+        message: "다음 빨래 널기 시작",
+        duration: 1200,
+      });
+    }
+    prevTryIndexRef.current = tryIndex;
+  }, [screen, currentExerciseId, tryIndex]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_RESULT || !sequenceId || !patientId) return;

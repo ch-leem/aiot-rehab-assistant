@@ -1198,6 +1198,11 @@
   box-shadow: 0 12px 22px rgba(58, 42, 22, 0.08);
 }
 
+.session-panel-next .card-meta {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
 .session-visual {
   width: 100%;
   min-height: 180px;
@@ -1406,7 +1411,7 @@
 
 .session-bar {
   position: relative;
-  height: 16px;
+  height: 24px;
   border-radius: 999px;
   background: rgba(244, 177, 79, 0.35);
   overflow: hidden;
