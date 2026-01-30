@@ -290,7 +290,7 @@ async def ingest_stream(payload: IngestPayload, request: Request):
 
             # 3) sum/count는 무조건 업데이트
             for m, v in values.items():
-                if m == "trunk_forward_tilt":
+                if m == "trunk_forward_tilt" or m == "trunk_rotation_lateral_flexion":
                     pipe.hincrbyfloat(key, f"sum.{m}", abs(v))
                 else:
                     pipe.hincrbyfloat(key, f"sum.{m}", v)
