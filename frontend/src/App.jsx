@@ -628,7 +628,7 @@ export default function App() {
           } else if (status === "FAIL") {
             setArmRaiseFeedback({
               id: Date.now(),
-              message: result.failName || "팔 높이를 더 올려주세요",
+              message: result.failId || "팔 높이를 더 올려주세요",
               duration: 2400,
             });
             nextDelayMs = 2400;
