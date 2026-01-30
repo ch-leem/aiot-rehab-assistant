@@ -616,7 +616,7 @@ export default function ArmRaiseGame({ onCountChange }) {
           c.liftAnimation(progress, from, target, t, active);
           c.started = true;
 
-          if (progress >= 1) {
+          if (progress >= 0.9) {
             c.enabled = true;
             c.hangSway = 0;
             c.mesh.rotation.y = Math.PI / 2;
