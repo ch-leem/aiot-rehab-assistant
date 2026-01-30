@@ -15,7 +15,8 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
   const showFeedback = (message, duration = 2000) => {
     const el = feedbackRef.current;
     if (!el) return;
-    el.textContent = message;
+    const nextMessage = message == null ? "" : String(message);
+    el.textContent = nextMessage;
     el.style.opacity = "1";
     if (feedbackTimerRef.current) {
       clearTimeout(feedbackTimerRef.current);
@@ -563,7 +564,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
         poseStream = new EventSource(poseSseUrl);
         poseStream.onmessage = (ev) => {
           try {
-            console.log("[SSE] pose message", ev.data);
             const payload = JSON.parse(ev.data);
             const frames = Array.isArray(payload?.frames) ? payload.frames : [];
             const frame = frames.length ? frames[frames.length - 1] : null;

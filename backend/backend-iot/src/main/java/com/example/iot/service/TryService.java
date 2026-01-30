@@ -162,9 +162,9 @@ public class TryService {
 
     private double getPenaltyWeight(String name) {
         return switch (name) {
-            case "골반 수평 편차", "어깨 수평 불균형" -> 2.0;
-            case "상체 앞뒤 기울기" -> 5.0;
-            case "수행 가속도" -> 50.0;
+            case "골반 수평 편차", "어깨 수평 불균형" -> 10.0;
+            case "상체 앞뒤 기울기" -> 20.0;
+            case "수행 가속도" -> 20.0;
             case "비마비측 발목 흔들림" -> 2500.0;
             default -> 1.0;
         };
