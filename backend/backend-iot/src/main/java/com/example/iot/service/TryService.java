@@ -122,8 +122,25 @@ public class TryService {
 
             // [기준유지형] 특정 수치(가속도 등)를 일정하게 유지해야 하는 경우
             case "수행 가속도" -> {
-                double error = Math.abs(finalTarget - measured);
-                yield 100.0 - (error * getPenaltyWeight(name));
+                // measured: 실제 가속도/속도/파워 값 (frameAnalyzer에서 만든 값)
+                // finalTarget: 목표 (예: 목표 가속도)
+                double ratio = measured / finalTarget; // 1.0이면 딱 목표
+
+                // 1) 허용 구간(10% 이내는 그냥 성공으로 봄)
+                double tol = 0.10; // 10%
+                double diff = Math.abs(ratio - 1.0);
+
+                if (diff <= tol) {
+                    yield 100.0;
+                }
+
+                // 2) 허용 구간 밖부터는 "완만→급격" 감점 (제곱)
+                double over = diff - tol; // 허용 구간을 얼마나 넘었는지
+                // scale은 너가 민감도 조절하는 노브(값이 클수록 더 빨리 깎임)
+                double scale = 120.0; // 시작값(너 운동 데이터 보고 80~200에서 튜닝)
+                double penalty = scale * over * over;  // 제곱 벌점
+
+                yield 100.0 - penalty;
             }
 
             // [감점형] 0(정지/안정)이 목표인 경우 (발목 흔들림 등)
