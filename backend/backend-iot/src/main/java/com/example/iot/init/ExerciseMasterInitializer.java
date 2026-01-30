@@ -35,7 +35,7 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
 
         exerciseGoalRepository.saveAll(List.of(
                 // MAIN: 성취도 및 유지 능력
-                new ExerciseGoal(shoulderFlexion, "MAIN", "어깨 외전 각도", "ANGLE", 160.0, "deg"),
+                new ExerciseGoal(shoulderFlexion, "MAIN", "어깨 외전 각도", "ANGLE", 155.0, "deg"),
                 // new ExerciseGoal(shoulderFlexion, "MAIN", "목표 각도 유지 시간", "TIME", 5.0, "sec"),
 
                 // SUB: 보상 동작 억제
