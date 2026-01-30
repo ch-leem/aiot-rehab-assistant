@@ -113,6 +113,7 @@ export default function App() {
   const [tryIndex, setTryIndex] = useState(0);
   const [armRaiseCount, setArmRaiseCount] = useState(0);
   const [armRaiseTotal, setArmRaiseTotal] = useState(10);
+  const [armRaiseFeedback, setArmRaiseFeedback] = useState(null);
   const [moleGameCount, setMoleGameCount] = useState(0);
   const [moleGameTotal, setMoleGameTotal] = useState(10);
   const autoAdvanceRef = useRef(false);
@@ -478,8 +479,6 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tryId: nextTryId,
-          failType: "",
-          totalScore: 0,
         }),
       });
       console.log("[API] try finish status", res.status);
@@ -599,20 +598,40 @@ export default function App() {
     if (armRaiseCount <= lastArmRaiseCountRef.current) return;
     lastArmRaiseCountRef.current = armRaiseCount;
 
-    const currentTryId = currentTryIds[tryIndex];
-    if (currentTryId) {
-      finishTry(currentTryId);
-    }
-
-    if (armRaiseCount < armRaiseTotal) {
-      if (armRaiseTimeoutRef.current) {
-        clearTimeout(armRaiseTimeoutRef.current);
+    const run = async () => {
+      const currentTryId = currentTryIds[tryIndex];
+      if (currentTryId) {
+        const result = await finishTry(currentTryId);
+        if (result && typeof result === "object") {
+          const status = String(result.resultStatus || "").toUpperCase();
+          if (status === "SUCCESS") {
+            setArmRaiseFeedback({
+              id: Date.now(),
+              message: "잘하셨어요!",
+              duration: 2000,
+            });
+          } else if (status === "FAIL") {
+            setArmRaiseFeedback({
+              id: Date.now(),
+              message: result.failName || "팔 높이를 더 올려주세요",
+              duration: 2400,
+            });
+          }
+        }
       }
-      armRaiseTimeoutRef.current = setTimeout(() => {
-        setTryIndex((prev) => prev + 1);
-        armRaiseTimeoutRef.current = null;
-      }, 2000);
-    }
+
+      if (armRaiseCount < armRaiseTotal) {
+        if (armRaiseTimeoutRef.current) {
+          clearTimeout(armRaiseTimeoutRef.current);
+        }
+        armRaiseTimeoutRef.current = setTimeout(() => {
+          setTryIndex((prev) => prev + 1);
+          armRaiseTimeoutRef.current = null;
+        }, 2000);
+      }
+    };
+
+    run();
   }, [
     screen,
     currentExerciseId,
@@ -871,6 +890,7 @@ export default function App() {
                   setArmRaiseCount(count);
                   setArmRaiseTotal(total);
                 }}
+                resultFeedback={armRaiseFeedback}
               />
             ) : currentExerciseId === 2 ? (
               <MoleGame

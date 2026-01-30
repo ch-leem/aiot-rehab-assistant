@@ -4,12 +4,36 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-export default function ArmRaiseGame({ onCountChange }) {
+export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
   const containerRef = useRef(null);
   const feedbackRef = useRef(null);
   const flashRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
+  const feedbackTimerRef = useRef(null);
+
+  const showFeedback = (message, duration = 2000) => {
+    const el = feedbackRef.current;
+    if (!el) return;
+    el.textContent = message;
+    el.style.opacity = "1";
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
+    if (duration > 0) {
+      feedbackTimerRef.current = setTimeout(() => {
+        if (feedbackRef.current) {
+          feedbackRef.current.style.opacity = "0";
+        }
+      }, duration);
+    }
+  };
+
+  useEffect(() => {
+    if (!resultFeedback || !resultFeedback.message) return;
+    showFeedback(resultFeedback.message, resultFeedback.duration ?? 2000);
+  }, [resultFeedback]);
 
   useEffect(() => {
     console.log("[ArmRaiseGame] useEffect start", containerRef.current);
@@ -464,29 +488,6 @@ export default function ArmRaiseGame({ onCountChange }) {
       }
     };
 
-    let feedbackTimers = [];
-    const clearFeedbackTimers = () => {
-      feedbackTimers.forEach((id) => clearTimeout(id));
-      feedbackTimers = [];
-    };
-
-    const showFeedback = (message, duration = 2000) => {
-      const el = feedbackRef.current;
-      if (!el) return;
-      el.textContent = message;
-      el.style.opacity = "1";
-      clearFeedbackTimers();
-      if (duration > 0) {
-        feedbackTimers.push(
-          setTimeout(() => {
-            if (feedbackRef.current) {
-              feedbackRef.current.style.opacity = "0";
-            }
-          }, duration)
-        );
-      }
-    };
-
     const triggerFlash = () => {
       const el = flashRef.current;
       if (!el) return;
@@ -651,37 +652,37 @@ export default function ArmRaiseGame({ onCountChange }) {
             attemptResolved = true;
             const waitForLower = () => {
               if (targetProgress > 0.25) {
-                feedbackTimers.push(setTimeout(waitForLower, 120));
+                setTimeout(waitForLower, 120);
                 return;
               }
-              feedbackTimers.push(
-                setTimeout(() => {
-                  canLift = true;
-                  attemptActive = false;
-                  attemptResolved = false;
-                  showNextTrySignal();
-                }, 2000)
-              );
+              setTimeout(() => {
+                canLift = true;
+                attemptActive = false;
+                attemptResolved = false;
+                showNextTrySignal();
+              }, 2000);
             };
             waitForLower();
             progress = 0;
           } else if (canLift && attemptActive && !attemptResolved && signal <= lowerThreshold) {
             attemptResolved = true;
             canLift = false;
+            if (reps < total) {
+              reps += 1;
+              notifyCount();
+            }
             showFeedback("팔 높이를 더 올려주세요", 2000);
             const waitForLower = () => {
               if (targetProgress > 0.25) {
-                feedbackTimers.push(setTimeout(waitForLower, 120));
+                setTimeout(waitForLower, 120);
                 return;
               }
-              feedbackTimers.push(
-                setTimeout(() => {
-                  canLift = true;
-                  attemptActive = false;
-                  attemptResolved = false;
-                  showNextTrySignal();
-                }, 2000)
-              );
+              setTimeout(() => {
+                canLift = true;
+                attemptActive = false;
+                attemptResolved = false;
+                showNextTrySignal();
+              }, 2000);
             };
             waitForLower();
             progress = 0;
@@ -719,7 +720,10 @@ export default function ArmRaiseGame({ onCountChange }) {
         poseStream.close();
         poseStream = null;
       }
-      clearFeedbackTimers();
+      if (feedbackTimerRef.current) {
+        clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = null;
+      }
       resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
       controls.dispose();
