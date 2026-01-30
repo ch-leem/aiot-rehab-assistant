@@ -568,7 +568,7 @@ export default function App() {
       armRaiseCompleteRef.current = true;
       setArmRaiseFeedback({
         id: Date.now(),
-        message: "고생하셨습니다. 오늘도 완료하셨습니다",
+        message: "고생하셨습니다.\n오늘도 완료하셨습니다",
         duration: 5000,
       });
       setTimeout(() => {
@@ -679,17 +679,6 @@ export default function App() {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
       prevTryIndexRef.current = tryIndex;
       return;
-    }
-    if (
-      tryIndex > 0 &&
-      tryIndex !== prevTryIndexRef.current &&
-      !armRaiseCompleteRef.current
-    ) {
-      setArmRaiseFeedback({
-        id: Date.now(),
-        message: "다음 빨래 널기 시작",
-        duration: 1200,
-      });
     }
     prevTryIndexRef.current = tryIndex;
   }, [screen, currentExerciseId, tryIndex]);
