@@ -490,10 +490,12 @@ export default function App() {
         if (typeof data?.totalScore === "number") {
           setTryScores((prev) => ({ ...prev, [nextTryId]: data.totalScore }));
         }
+        return data;
       }
     } catch {
       // ignore finish errors for now
     }
+    return null;
   };
 
   const finishSession = async () => {
