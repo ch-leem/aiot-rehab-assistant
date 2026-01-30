@@ -35,43 +35,42 @@ public class FrameAnalyzer {
         try {
             if (rawFrame != null && !rawFrame.isEmpty()) {
                 JsonNode root = objectMapper.readTree(rawFrame);
-                // 추가 로직 필요 시 작성
             }
         } catch (Exception e) {
             log.error("Latest JSON 파싱 실패: ", e);
         }
 
-        // 2. Agg 데이터를 통한 지표 계산 (평균/최대 전환 유연성 확보)
+        // 2. Agg 데이터를 통한 지표 계산 (평균, 최대)
 
-        // [MAIN] 어깨 외전 각도: 최대값 사용
+        // [MAIN] 어깨 외전 각도 [최대]
         req.setMaxShoulderFlexionAngle(getVal(agg, "max." + sidePrefix + "shoulder_flexion"));
 
-        // [MAIN] 팔꿈치 신전 상태: 평균값 사용 (Sum / Count)
+        // [MAIN] 팔꿈치 신전 상태 [평균]
         req.setAvgElbowExtensionAngle(getAverage(agg,
                 "sum." + sidePrefix + "elbow_extension",
                 "count." + sidePrefix + "elbow_extension"));
 
-        // [MAIN] 마비측 발판 압력: 최대값 사용 (Power = 압력)
+        // [MAIN] 마비측 발판 압력 [최대]
         req.setMaxPressure(getVal(agg, "max.power"));
 
-        // [SUB] 상체 앞뒤 기울기: 평균값 사용
+        // [SUB] 상체 앞뒤 기울기 [평균]
         req.setAvgTrunkForwardTilt(getAverage(agg, "sum.trunk_forward_tilt", "count.trunk_forward_tilt"));
 
-        // [SUB] 어깨 수평 불균형
+        // [SUB] 어깨 수평 불균형 [평균]
         req.setAvgShoulderLevelDiff(getAverage(agg,
                 "sum.trunk_rotation_lateral_flexion",
                 "count.trunk_rotation_lateral_flexion"));
 
-        // [SUB] 골반 수평 편차
+        // [SUB] 골반 수평 편차 [평균]
         req.setAvgPelvisLevelDiff(getAverage(agg,
                 "sum.pelvis_level",
                 "count.pelvis_level"));
 
-        // [SUB] 수행 가속도: 평균값 사용 (Strength = 가속도)
+        // [SUB] 수행 가속도 [평균]
         req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));
 
-        // [SUB] 비마비측 발목 흔들림: XYZ 편차 거리 환산
-        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonSidePrefix));
+        // [SUB] 비마비측 발목 흔들림 [평균 - 분산]
+        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonSidePrefix + "ankle_jitter"));
 
         return req;
     }
@@ -95,10 +94,13 @@ public class FrameAnalyzer {
         return count > 0 ? sum / count : 0.0;
     }
 
-    private double calculateAnkleSway(Map<Object, Object> agg, String sidePrefix) {
-        double dx = getVal(agg, "max." + sidePrefix + "ankle_x") - getVal(agg, "min." + sidePrefix + "ankle_x");
-        double dy = getVal(agg, "max." + sidePrefix + "ankle_y") - getVal(agg, "min." + sidePrefix + "ankle_y");
-        double dz = getVal(agg, "max." + sidePrefix + "ankle_z") - getVal(agg, "min." + sidePrefix + "ankle_z");
-        return Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2) + Math.pow(dz, 2));
+    private double calculateAnkleSway(Map<Object, Object> agg, String baseKey) {
+        double sumSq = getVal(agg, "sum_sq." + baseKey);
+        double count = getVal(agg, "count." + baseKey);
+
+        if (count <= 0) return 0.0;
+
+        // RMS 계산: sqrt(제곱의 합 / 개수)
+        return Math.sqrt(sumSq / count);
     }
 }
