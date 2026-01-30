@@ -97,8 +97,11 @@ public class TryService {
             }
         } else {
             t.setResult(TryResult.FAIL);
+
             String failId = mapGoalNameToFailId(worstGoalName);
-            t.setFail(failRepository.findById(failId).orElse(null));
+            Fail fail = failRepository.findById(failId).orElse(null);
+            //fail.setId(failId);
+            t.setFail(fail);
         }
 
         return toResponse(t);
@@ -192,7 +195,8 @@ public class TryService {
                 t.getId(),
                 t.getTotalScore(),
                 t.getResult() != null ? t.getResult().name() : "NONE",
-                t.getFail() != null ? t.getFail().getName() : null
+                t.getFail() != null ? t.getFail().getName() : null,
+                t.getFail() != null ? t.getFail().getId() : null
         );
     }
 
