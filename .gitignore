@@ -181,3 +181,5 @@ esp8266_mpu6050
 laundry-3d/
 
 gms.yaml
+tts_mp3/
+tts_test.py
