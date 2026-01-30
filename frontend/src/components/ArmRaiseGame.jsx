@@ -417,6 +417,7 @@ export default function ArmRaiseGame({ onCountChange }) {
     let active = 0;
     let reps = 0;
     let progress = 0;
+    let canLift = true;
     const total = clothes.length;
 
     let audioCtx = null;
@@ -509,7 +510,7 @@ export default function ArmRaiseGame({ onCountChange }) {
 
     const flexScore = (flexion) => {
       if (typeof flexion !== "number") return null;
-      return clamp((flexion - 50) / 50, 0, 1);
+      return clamp((flexion - 140) / 20, 0, 1);
     };
 
     const limbRaiseScore = (shoulder, wrist, hip) => {
@@ -517,10 +518,10 @@ export default function ArmRaiseGame({ onCountChange }) {
       const dy = shoulder.y - wrist.y;
       if (dy <= 0) return 0;
 
-      let denom = 0.35;
+      let denom = 0.45;
       if (isValidPoint(hip)) {
         const torso = Math.abs(hip.y - shoulder.y);
-        if (torso > 0) denom = torso * 0.8;
+        if (torso > 0) denom = torso * 0.9;
       }
 
       return clamp(dy / denom, 0, 1);
@@ -564,7 +565,7 @@ export default function ArmRaiseGame({ onCountChange }) {
             const frames = Array.isArray(payload?.frames) ? payload.frames : [];
             const frame = frames.length ? frames[frames.length - 1] : null;
             const score = getArmRaiseScore(frame);
-            targetProgress = Math.pow(score, 1.6);
+            targetProgress = Math.pow(score, 2.2);
             lastPoseAt = performance.now();
             if (score > 0) {
               ensureAudio();
@@ -597,8 +598,10 @@ export default function ArmRaiseGame({ onCountChange }) {
             targetProgress = 0;
           }
           const smoothing = 1 - Math.exp(-dt * 6);
-          progress += (targetProgress - progress) * smoothing;
-          progress = Math.max(0, Math.min(1, progress));
+          if (canLift) {
+            progress += (targetProgress - progress) * smoothing;
+            progress = Math.max(0, Math.min(1, progress));
+          }
 
           const target = hangPoints[active];
           const randomOffsetX = (Math.random() - 0.5) * 0.2;
@@ -616,7 +619,7 @@ export default function ArmRaiseGame({ onCountChange }) {
           c.liftAnimation(progress, from, target, t, active);
           c.started = true;
 
-          if (progress >= 0.9) {
+          if (progress >= 0.95) {
             c.enabled = true;
             c.hangSway = 0;
             c.mesh.rotation.y = Math.PI / 2;
@@ -635,6 +638,19 @@ export default function ArmRaiseGame({ onCountChange }) {
                 showFeedback("다음 빨래 널기 시작", 1200);
               }, 2000)
             );
+            canLift = false;
+            const waitForLower = () => {
+              if (targetProgress > 0.25) {
+                feedbackTimers.push(setTimeout(waitForLower, 120));
+                return;
+              }
+              feedbackTimers.push(
+                setTimeout(() => {
+                  canLift = true;
+                }, 2000)
+              );
+            };
+            waitForLower();
             progress = 0;
           }
         }
