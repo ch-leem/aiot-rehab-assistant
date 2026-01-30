@@ -112,12 +112,18 @@ public class TryService {
         double rawScore;
 
         // 1. [안정형] 기준점(Target)이 180도인 경우 (수평, 편차, 상체 앞뒤 기울기 등)
-        if (finalTarget == 180.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기")) {
-            // -180 ~ 180 사이의 불연속성을 해결하기 위해 0~360 범위로 정규화
-            double normalizedMeasured = (measured % 360 + 360) % 360;
+        if (finalTarget == 180.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기") || name.contains("가속도")) {
 
-            // 180도(수평)와의 절대 오차 계산
-            double error = Math.abs(180.0 - normalizedMeasured);
+            double error;
+            if (finalTarget == 180.0) {
+                // 180도 정규화 로직 (기존 유지)
+                double normalizedMeasured = (measured % 360 + 360) % 360;
+                error = Math.abs(180.0 - normalizedMeasured);
+            } else {
+                // 가속도 수치 지표의 오차 계산
+                // 예: 목표 가속도가 0.5인데 측정값이 0.8이면 오차는 0.3
+                error = Math.abs(finalTarget - measured);
+            }
 
             rawScore = 100.0 - (error * getPenaltyWeight(name));
         }
@@ -129,7 +135,7 @@ public class TryService {
             rawScore = round1(rate);
         }
 
-        // 3. [0 기준 감점형] (발목 흔들림, 각도)
+        // 3. [0 기준 감점형] (발목 흔들림)
         else {
             double error = Math.abs(measured); // 0도 기준
             rawScore = 100.0 - (error * getPenaltyWeight(name));
@@ -152,7 +158,7 @@ public class TryService {
         return switch (name) {
             case "골반 수평 편차", "어깨 수평 불균형" -> 2.0;
             case "상체 앞뒤 기울기" -> 5.0;
-            case "수행 가속도" -> 20.0;
+            case "수행 가속도" -> 50.0;
             case "비마비측 발목 흔들림" -> 2500.0;
             default -> 1.0;
         };
