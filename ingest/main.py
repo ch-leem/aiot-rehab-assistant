@@ -218,6 +218,7 @@ async def ingest_stream(payload: IngestPayload, request: Request):
         #pipe = r.pipeline()
 
         log.info("try=%s trunk_rotation_lateral_flexion=%s frame_idx=%s ip=%s", try_id, trlf, frame0.get("frame_idx"), client_ip)
+        
         lx = _get_by_path(frame0, "position.left.left_ankle.x")
         ly = _get_by_path(frame0, "position.left.left_ankle.y")
         lz = _get_by_path(frame0, "position.left.left_ankle.z")
@@ -289,7 +290,11 @@ async def ingest_stream(payload: IngestPayload, request: Request):
 
             # 3) sum/count는 무조건 업데이트
             for m, v in values.items():
-                pipe.hincrbyfloat(key, f"sum.{m}", v)
+                if m == "trunk_forward_tilt":
+                    pipe.hincrbyfloat(key, f"sum.{m}", abs(v))
+                else:
+                    pipe.hincrbyfloat(key, f"sum.{m}", v)
+                # pipe.hincrbyfloat(key, f"sum.{m}", v)
                 pipe.hincrby(key, f"count.{m}", 1)
 
             # 4) min/max는 비교 후 필요할 때만 set
