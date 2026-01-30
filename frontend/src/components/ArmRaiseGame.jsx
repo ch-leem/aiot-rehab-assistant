@@ -12,8 +12,11 @@ export default function ArmRaiseGame({ onCountChange }) {
   const controlsRef = useRef(null);
 
   useEffect(() => {
+    console.log("[ArmRaiseGame] useEffect start", containerRef.current);
     const container = containerRef.current;
+    
     if (!container) return undefined;
+    console.warn("[ArmRaiseGame] container is null -> effect aborted");
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -547,7 +550,10 @@ export default function ArmRaiseGame({ onCountChange }) {
 
       return scores.length ? Math.max(...scores) : 0;
     };
-
+    console.log("[SSE] condition check", {
+      poseSseUrl,
+      eventSourceType: typeof EventSource,
+    });
     if (poseSseUrl && typeof EventSource !== "undefined") {
       try {
         poseStream = new EventSource(poseSseUrl);

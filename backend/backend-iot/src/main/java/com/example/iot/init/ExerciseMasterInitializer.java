@@ -43,7 +43,7 @@ public class ExerciseMasterInitializer implements CommandLineRunner {
                 // 가속도 값은 추후 조정 필요
                 new ExerciseGoal(shoulderFlexion, "SUB", "상체 앞뒤 기울기", "ANGLE", 180.0, "deg"),
                 new ExerciseGoal(shoulderFlexion, "SUB", "어깨 수평 불균형", "ANGLE", 180.0, "deg"),
-                new ExerciseGoal(shoulderFlexion, "SUB", "수행 가속도", "ACCEL", 0.0, "m/s²")
+                new ExerciseGoal(shoulderFlexion, "SUB", "수행 가속도", "ACCEL", 0.7, "m/s²")
         ));
 
         // 2. 비대칭 체중 부하 운동 (Asymmetrical Weight Bearing)

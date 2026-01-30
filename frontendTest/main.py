@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import time
 import asyncio
@@ -12,27 +13,23 @@ def setup_logging():
     logger = logging.getLogger("signal")
     logger.setLevel(logging.INFO)
 
-    # 중복 핸들러 방지(리로드/중복 실행 시 로그 두 번 찍히는 문제 방지)
     if logger.handlers:
         return logger
 
     fmt = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
 
-    # 콘솔 로그
     sh = logging.StreamHandler()
     sh.setFormatter(fmt)
 
-    # 파일 로그 (회전)
     fh = RotatingFileHandler(
         "signal.log",
-        maxBytes=5 * 1024 * 1024,  # 5MB
-        backupCount=3
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
     )
     fh.setFormatter(fmt)
 
     logger.addHandler(sh)
     logger.addHandler(fh)
-
     return logger
 
 
@@ -49,19 +46,24 @@ INDEX_HTML = r"""(생략: 네 HTML 그대로)"""
 class Hub:
     def __init__(self):
         self.browser = None
-        self.jetson = None
+        self.jetson_webrtc = None
+        self.jetson_heartbeat = None
         self.last_jetson_seen = 0.0
         self.last_browser_seen = 0.0
 
+
 hub = Hub()
+
 
 def now():
     return time.monotonic()
+
 
 async def index(request):
     peer = request.remote
     log.info(f"HTTP GET / from {peer}")
     return web.Response(text=INDEX_HTML, content_type="text/html")
+
 
 async def send_json(ws, obj, tag=""):
     if ws is None:
@@ -74,57 +76,57 @@ async def send_json(ws, obj, tag=""):
     payload = json.dumps(obj)
     try:
         await ws.send_str(payload)
-        # 너무 시끄러우면 아래를 debug로 바꿔도 됨
         log.info(f"WS send {tag} type={obj.get('type')} bytes={len(payload)}")
     except Exception as e:
         log.exception(f"WS send failed tag={tag}: {e}")
+
+
+def jetson_online():
+    return (
+        hub.jetson_webrtc is not None and not hub.jetson_webrtc.closed
+        and hub.jetson_heartbeat is not None and not hub.jetson_heartbeat.closed
+    )
+
 
 # ------------------------
 # Monitor: heartbeat timeout
 # ------------------------
 async def monitor_task(app):
-    """
-    주기적으로 Jetson heartbeat 체크.
-    - heartbeat 안 오면 jetson에게 run/ping 요청
-    - 브라우저에게 상태 알림
-    """
-    HEARTBEAT_TIMEOUT = 10.0  # 10초 동안 heartbeat 없으면 이상
-    CHECK_INTERVAL = 2.0      # 2초마다 감시
+    HEARTBEAT_TIMEOUT = 10.0
+    CHECK_INTERVAL = 2.0
 
     log.info(f"Monitor started (timeout={HEARTBEAT_TIMEOUT}s, interval={CHECK_INTERVAL}s)")
 
     while True:
         await asyncio.sleep(CHECK_INTERVAL)
 
-        # jetson 연결 없음
-        if hub.jetson is None or hub.jetson.closed:
+        hb_ws = hub.jetson_heartbeat
+        if hb_ws is None or hb_ws.closed:
             if hub.browser and not hub.browser.closed:
                 await send_json(hub.browser, {"type": "jetson_status", "online": False}, tag="[monitor]")
-            log.info("Monitor: jetson offline (no ws)")
+            log.info("Monitor: jetson heartbeat offline (no ws)")
             continue
 
         elapsed = now() - hub.last_jetson_seen if hub.last_jetson_seen else 1e9
+        log.info(f"Monitor: last_jetson_seen={elapsed:.1f}s ago")
 
-        log.info(f"Monitor: jetson online, last_seen={elapsed:.1f}s ago")
-
-        # 연결은 있는데 heartbeat가 오래 안 옴
         if elapsed > HEARTBEAT_TIMEOUT:
-            log.warning(f"Monitor: heartbeat timeout ({elapsed:.1f}s) -> send run")
+            log.warning(f"Monitor: heartbeat timeout ({elapsed:.1f}s) -> send run to control channel")
 
-            # 1) 브라우저에게 경고
-            await send_json(hub.browser, {
-                "type": "jetson_status",
-                "online": True,
-                "warn": True,
-                "reason": f"heartbeat timeout: {elapsed:.1f}s"
-            }, tag="[monitor->browser]")
+            if hub.browser and not hub.browser.closed:
+                await send_json(hub.browser, {
+                    "type": "jetson_status",
+                    "online": True,
+                    "warn": True,
+                    "reason": f"heartbeat timeout: {elapsed:.1f}s",
+                }, tag="[monitor->browser]")
 
-            # 2) jetson에게 run 트리거
-            await send_json(hub.jetson, {
+            await send_json(hb_ws, {
                 "type": "run",
                 "reason": "heartbeat_missing",
-                "server_ts": time.time()
-            }, tag="[monitor->jetson]")
+                "server_ts": time.time(),
+            }, tag="[monitor->jetson_ctrl]")
+
 
 # ------------------------
 # WebSocket Handler
@@ -134,11 +136,10 @@ async def ws_handler(request):
     path = str(request.rel_url)
     log.info(f"WS connected from {peer} path={path}")
 
-    # aiohttp ping/pong heartbeat (연결 생존성)
     ws = web.WebSocketResponse(heartbeat=15.0)
     await ws.prepare(request)
 
-    role = None
+    role = None  # "browser", "jetson_webrtc", "jetson_heartbeat"
 
     try:
         async for m in ws:
@@ -156,95 +157,118 @@ async def ws_handler(request):
             t = msg.get("type")
             log.info(f"WS recv role={role or 'unknown'} type={t} from {peer}")
 
-            # --- 공통: last_seen 업데이트 ---
-            if role == "jetson":
+            # last_seen 업데이트
+            if role in ("jetson_webrtc", "jetson_heartbeat"):
+                # 실제 heartbeat는 jetson_heartbeat에서 오므로 그걸 기준으로 갱신하지만
+                # 연결 생존 자체는 둘 다 참고할 수 있어서 여기서도 업데이트는 해 둠
                 hub.last_jetson_seen = now()
             elif role == "browser":
                 hub.last_browser_seen = now()
 
+            # ------------------------
+            # Browser hello
+            # ------------------------
             if t == "ready":
                 role = "browser"
                 hub.browser = ws
                 hub.last_browser_seen = now()
 
                 log.info("Browser ready")
-
                 await send_json(ws, {"type": "info", "data": "browser ready"}, tag="[server->browser]")
 
-                if hub.jetson and not hub.jetson.closed:
-                    log.info("Browser ready: jetson is online -> notify both")
-                    await send_json(hub.jetson, {"type": "browser_ready"}, tag="[server->jetson]")
-                    await send_json(ws, {"type": "jetson_status", "online": True}, tag="[server->browser]")
-                else:
-                    log.info("Browser ready: jetson is offline")
-                    await send_json(ws, {"type": "jetson_status", "online": False}, tag="[server->browser]")
+                online = jetson_online()
+                await send_json(ws, {"type": "jetson_status", "online": online}, tag="[server->browser]")
 
-            elif t == "jetson_hello":
-                role = "jetson"
-                hub.jetson = ws
+                if hub.jetson_webrtc and not hub.jetson_webrtc.closed:
+                    await send_json(hub.jetson_webrtc, {"type": "browser_ready"}, tag="[server->jetson_webrtc]")
+
+                continue
+
+            # ------------------------
+            # Jetson webrtc hello
+            # ------------------------
+            if t == "jetson_hello":
+                role = "jetson_webrtc"
+                hub.jetson_webrtc = ws
                 hub.last_jetson_seen = now()
 
-                log.info("Jetson connected (jetson_hello)")
-
-                await send_json(ws, {"type": "info", "data": "jetson connected"}, tag="[server->jetson]")
+                log.info("Jetson WebRTC connected (jetson_hello)")
+                await send_json(ws, {"type": "info", "data": "jetson webrtc connected"}, tag="[server->jetson_webrtc]")
 
                 if hub.browser and not hub.browser.closed:
-                    log.info("Jetson connected: browser online -> notify both")
-                    await send_json(hub.browser, {"type": "info", "data": "jetson online"}, tag="[server->browser]")
-                    await send_json(hub.browser, {"type": "jetson_status", "online": True}, tag="[server->browser]")
-                    await send_json(ws, {"type": "browser_ready"}, tag="[server->jetson]")
+                    await send_json(hub.browser, {"type": "info", "data": "jetson webrtc online"}, tag="[server->browser]")
+                    await send_json(hub.browser, {"type": "jetson_status", "online": jetson_online()}, tag="[server->browser]")
+                    await send_json(ws, {"type": "browser_ready"}, tag="[server->jetson_webrtc]")
 
-            elif t == "heartbeat":
-                if role == "jetson":
+                continue
+
+            # ------------------------
+            # Jetson heartbeat/control hello
+            # ------------------------
+            if t == "heartbeat_hello":
+                role = "jetson_heartbeat"
+                hub.jetson_heartbeat = ws
+                hub.last_jetson_seen = now()
+
+                log.info("Jetson Heartbeat connected (heartbeat_hello)")
+                await send_json(ws, {"type": "info", "data": "jetson heartbeat connected"}, tag="[server->jetson_hb]")
+
+                if hub.browser and not hub.browser.closed:
+                    await send_json(hub.browser, {"type": "info", "data": "jetson heartbeat online"}, tag="[server->browser]")
+                    await send_json(hub.browser, {"type": "jetson_status", "online": jetson_online()}, tag="[server->browser]")
+
+                continue
+
+            # ------------------------
+            # Heartbeat message
+            # ------------------------
+            if t == "heartbeat":
+                if role == "jetson_heartbeat":
                     hub.last_jetson_seen = now()
-                    # 너무 자주면 log.debug로 낮춰도 됨
                     log.info("Jetson heartbeat received")
-                    await send_json(hub.browser, {"type": "jetson_hb", "ok": True}, tag="[jetson->browser]")
+                    if hub.browser and not hub.browser.closed:
+                        await send_json(hub.browser, {"type": "jetson_hb", "ok": True}, tag="[jetson_hb->browser]")
                 else:
-                    log.warning(f"Heartbeat received from non-jetson role={role}")
+                    log.warning(f"Heartbeat received from non-jetson_heartbeat role={role}")
+                continue
 
-            elif t == "run":
-                # 브라우저가 run 요청하면 jetson에게 전달
+            # ------------------------
+            # Run / Stop from browser -> control channel
+            # ------------------------
+            if t in ("run", "stop"):
                 if role == "browser":
-                    log.info(f"Run requested by browser: {msg}")
-
-                    if hub.jetson and not hub.jetson.closed:
-                        await send_json(hub.jetson, msg, tag="[browser->jetson]")
-                        log.info("Run forwarded to jetson")
+                    target = hub.jetson_heartbeat  # 제어는 heartbeat.py가 받는 구조 기준
+                    if target and not target.closed:
+                        await send_json(target, msg, tag="[browser->jetson_ctrl]")
+                        log.info(f"{t} forwarded to jetson control channel")
                     else:
-                        log.warning("Run requested but jetson offline")
-                        await send_json(ws, {"type": "error", "message": "jetson offline"}, tag="[server->browser]")
+                        log.warning(f"{t} requested but jetson control offline")
+                        await send_json(ws, {"type": "error", "message": "jetson control offline"}, tag="[server->browser]")
                 else:
-                    log.info(f"Run received from role={role} (ignored or handle if needed) msg={msg}")
-            
-            elif t == "stop":
-                # 브라우저가 run 요청하면 jetson에게 전달
-                if role == "browser":
-                    log.info(f"Run requested by browser: {msg}")
+                    log.info(f"{t} received from role={role} (ignored) msg={msg}")
+                continue
 
-                    if hub.jetson and not hub.jetson.closed:
-                        await send_json(hub.jetson, msg, tag="[browser->jetson]")
-                        log.info("Run forwarded to jetson")
-                    else:
-                        log.warning("Run requested but jetson offline")
-                        await send_json(ws, {"type": "error", "message": "jetson offline"}, tag="[server->browser]")
-                else:
-                    log.info(f"Run received from role={role} (ignored or handle if needed) msg={msg}")
-
-
-            elif t in ("offer", "answer", "candidate"):
-                # 시그널링 릴레이
+            # ------------------------
+            # Signaling relay: browser <-> jetson_webrtc only
+            # ------------------------
+            if t in ("offer", "answer", "candidate"):
                 log.info(f"Signal relay {t} from role={role}")
 
-                if role == "jetson" and hub.browser and not hub.browser.closed:
-                    await send_json(hub.browser, msg, tag="[jetson->browser]")
-                elif role == "browser" and hub.jetson and not hub.jetson.closed:
-                    await send_json(hub.jetson, msg, tag="[browser->jetson]")
+                if role == "jetson_webrtc":
+                    if hub.browser and not hub.browser.closed:
+                        await send_json(hub.browser, msg, tag="[jetson_webrtc->browser]")
+                    else:
+                        log.warning(f"Relay failed, no browser. type={t}")
+                elif role == "browser":
+                    if hub.jetson_webrtc and not hub.jetson_webrtc.closed:
+                        await send_json(hub.jetson_webrtc, msg, tag="[browser->jetson_webrtc]")
+                    else:
+                        log.warning(f"Relay failed, no jetson_webrtc. type={t}")
                 else:
-                    log.warning(f"Relay failed (no peer). type={t} from role={role}")
+                    log.warning(f"Relay ignored, role={role}, type={t}")
+                continue
 
-            else:
-                log.info(f"Unhandled message type={t} role={role} msg_keys={list(msg.keys())}")
+            log.info(f"Unhandled message type={t} role={role} msg_keys={list(msg.keys())}")
 
     except asyncio.CancelledError:
         log.warning(f"WS handler cancelled role={role} peer={peer}")
@@ -254,15 +278,23 @@ async def ws_handler(request):
     finally:
         log.info(f"WS closed role={role} peer={peer}")
 
-        # 연결 종료 처리
         if role == "browser" and hub.browser is ws:
             hub.browser = None
             log.info("Hub: browser cleared")
-        if role == "jetson" and hub.jetson is ws:
-            hub.jetson = None
-            log.info("Hub: jetson cleared")
+
+        if role == "jetson_webrtc" and hub.jetson_webrtc is ws:
+            hub.jetson_webrtc = None
+            log.info("Hub: jetson_webrtc cleared")
+
+        if role == "jetson_heartbeat" and hub.jetson_heartbeat is ws:
+            hub.jetson_heartbeat = None
+            log.info("Hub: jetson_heartbeat cleared")
+
+        if hub.browser and not hub.browser.closed:
+            await send_json(hub.browser, {"type": "jetson_status", "online": jetson_online()}, tag="[server->browser]")
 
     return ws
+
 
 # ------------------------
 # App bootstrap
@@ -270,6 +302,7 @@ async def ws_handler(request):
 async def on_startup(app):
     log.info("App startup")
     app["monitor_task"] = asyncio.create_task(monitor_task(app))
+
 
 async def on_cleanup(app):
     log.info("App cleanup")
@@ -280,6 +313,7 @@ async def on_cleanup(app):
             await t
         except Exception:
             pass
+
 
 def main():
     app = web.Application()
@@ -292,5 +326,7 @@ def main():
     log.info("Starting server on 0.0.0.0:8080")
     web.run_app(app, host="0.0.0.0", port=8080)
 
+
 if __name__ == "__main__":
     main()
+
