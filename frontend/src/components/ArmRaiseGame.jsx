@@ -647,7 +647,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
               notifyCount();
             }
             triggerFlash();
-            showFeedback("잘했어요!", 2000);
             canLift = false;
             attemptResolved = true;
             const waitForLower = () => {
