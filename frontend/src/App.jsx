@@ -16,6 +16,7 @@ import PatientCheck from "./components/PatientCheck";
 import Login from "./components/Login";
 import TherapistUI from "./components/TherapistUI";
 import ArmRaiseGame from "./components/ArmRaiseGame";
+import MoleGame from "./components/MoleGame";
 
 const SCREEN = {
   LOGIN: "login",
@@ -112,7 +113,10 @@ export default function App() {
   const [tryIndex, setTryIndex] = useState(0);
   const [armRaiseCount, setArmRaiseCount] = useState(0);
   const [armRaiseTotal, setArmRaiseTotal] = useState(10);
+  const [moleGameCount, setMoleGameCount] = useState(0);
+  const [moleGameTotal, setMoleGameTotal] = useState(10);
   const autoAdvanceRef = useRef(false);
+  const moleAutoAdvanceRef = useRef(false);
   const armRaiseTimeoutRef = useRef(null);
   const lastArmRaiseCountRef = useRef(0);
   const [activeTryId, setActiveTryId] = useState(null);
@@ -256,8 +260,17 @@ export default function App() {
       "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
   };
   const sessionCount =
-    currentExerciseId === 1 ? armRaiseCount : Math.min(tryIndex + 1, totalTries);
-  const sessionTotal = currentExerciseId === 1 ? armRaiseTotal : totalTries;
+    currentExerciseId === 1
+      ? armRaiseCount
+      : currentExerciseId === 2
+        ? moleGameCount
+        : Math.min(tryIndex + 1, totalTries);
+  const sessionTotal =
+    currentExerciseId === 1
+      ? armRaiseTotal
+      : currentExerciseId === 2
+        ? moleGameTotal
+        : totalTries;
 
 
   const startSequence = async () => {
@@ -555,6 +568,18 @@ export default function App() {
   }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
 
   useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
+      moleAutoAdvanceRef.current = false;
+      return;
+    }
+    if (!moleGameTotal) return;
+    if (moleGameCount >= moleGameTotal && !moleAutoAdvanceRef.current) {
+      moleAutoAdvanceRef.current = true;
+      goToNextStep({ forceComplete: true, skipTryFinish: true });
+    }
+  }, [screen, currentExerciseId, moleGameCount, moleGameTotal, goToNextStep]);
+
+  useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
     const timeout = setTimeout(() => {
       startSession();
@@ -586,7 +611,7 @@ export default function App() {
       armRaiseTimeoutRef.current = setTimeout(() => {
         setTryIndex((prev) => prev + 1);
         armRaiseTimeoutRef.current = null;
-      }, 4000);
+      }, 2000);
     }
   }, [
     screen,
@@ -845,6 +870,13 @@ export default function App() {
                 onCountChange={(count, total) => {
                   setArmRaiseCount(count);
                   setArmRaiseTotal(total);
+                }}
+              />
+            ) : currentExerciseId === 2 ? (
+              <MoleGame
+                onCountChange={(count, total) => {
+                  setMoleGameCount(count);
+                  setMoleGameTotal(total);
                 }}
               />
             ) : (

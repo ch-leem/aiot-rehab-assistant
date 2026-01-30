@@ -6,6 +6,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export default function ArmRaiseGame({ onCountChange }) {
   const containerRef = useRef(null);
+  const feedbackRef = useRef(null);
+  const flashRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
 
@@ -411,7 +413,6 @@ export default function ArmRaiseGame({ onCountChange }) {
 
     let active = 0;
     let reps = 0;
-    let wasRaised = false;
     let progress = 0;
     const total = clothes.length;
 
@@ -457,6 +458,38 @@ export default function ArmRaiseGame({ onCountChange }) {
       }
     };
 
+    let feedbackTimers = [];
+    const clearFeedbackTimers = () => {
+      feedbackTimers.forEach((id) => clearTimeout(id));
+      feedbackTimers = [];
+    };
+
+    const showFeedback = (message, duration = 2000) => {
+      const el = feedbackRef.current;
+      if (!el) return;
+      el.textContent = message;
+      el.style.opacity = "1";
+      clearFeedbackTimers();
+      if (duration > 0) {
+        feedbackTimers.push(
+          setTimeout(() => {
+            if (feedbackRef.current) {
+              feedbackRef.current.style.opacity = "0";
+            }
+          }, duration)
+        );
+      }
+    };
+
+    const triggerFlash = () => {
+      const el = flashRef.current;
+      if (!el) return;
+      el.classList.remove("is-active");
+      // force reflow to restart animation
+      void el.offsetWidth;
+      el.classList.add("is-active");
+    };
+
     const poseSseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
     let poseStream = null;
     let targetProgress = 0;
@@ -473,7 +506,7 @@ export default function ArmRaiseGame({ onCountChange }) {
 
     const flexScore = (flexion) => {
       if (typeof flexion !== "number") return null;
-      return clamp((flexion - 30) / 60, 0, 1);
+      return clamp((flexion - 50) / 50, 0, 1);
     };
 
     const limbRaiseScore = (shoulder, wrist, hip) => {
@@ -481,7 +514,7 @@ export default function ArmRaiseGame({ onCountChange }) {
       const dy = shoulder.y - wrist.y;
       if (dy <= 0) return 0;
 
-      let denom = 0.3;
+      let denom = 0.35;
       if (isValidPoint(hip)) {
         const torso = Math.abs(hip.y - shoulder.y);
         if (torso > 0) denom = torso * 0.8;
@@ -525,7 +558,7 @@ export default function ArmRaiseGame({ onCountChange }) {
             const frames = Array.isArray(payload?.frames) ? payload.frames : [];
             const frame = frames.length ? frames[frames.length - 1] : null;
             const score = getArmRaiseScore(frame);
-            targetProgress = score;
+            targetProgress = Math.pow(score, 1.6);
             lastPoseAt = performance.now();
             if (score > 0) {
               ensureAudio();
@@ -561,22 +594,6 @@ export default function ArmRaiseGame({ onCountChange }) {
           progress += (targetProgress - progress) * smoothing;
           progress = Math.max(0, Math.min(1, progress));
 
-          const raiseThreshold = 0.6;
-          const lowerThreshold = 0.35;
-          const signal = targetProgress;
-
-          if (!wasRaised && signal >= raiseThreshold) {
-            wasRaised = true;
-          }
-
-          if (wasRaised && signal <= lowerThreshold) {
-            wasRaised = false;
-            if (reps < total) {
-              reps += 1;
-              notifyCount();
-            }
-          }
-
           const target = hangPoints[active];
           const randomOffsetX = (Math.random() - 0.5) * 0.2;
           const randomOffsetZ = (Math.random() - 0.5) * 0.15;
@@ -601,6 +618,17 @@ export default function ArmRaiseGame({ onCountChange }) {
             c.mesh.scale.set(1, 1, 1);
             playHangSfx();
             active += 1;
+            if (reps < total) {
+              reps += 1;
+              notifyCount();
+            }
+            triggerFlash();
+            showFeedback("잘했어요! 천천히 팔을 내려주세요.", 2000);
+            feedbackTimers.push(
+              setTimeout(() => {
+                showFeedback("다음 빨래 널기 시작", 1200);
+              }, 2000)
+            );
             progress = 0;
           }
         }
@@ -636,6 +664,7 @@ export default function ArmRaiseGame({ onCountChange }) {
         poseStream.close();
         poseStream = null;
       }
+      clearFeedbackTimers();
       resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
       controls.dispose();
@@ -653,6 +682,8 @@ export default function ArmRaiseGame({ onCountChange }) {
   return (
     <div className="arm-raise-wrapper">
       <div ref={containerRef} className="arm-raise-container" />
+      <div ref={flashRef} className="arm-raise-flash" />
+      <div className="arm-raise-feedback" ref={feedbackRef} />
     </div>
   );
 }

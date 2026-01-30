@@ -1266,6 +1266,57 @@
   line-height: 1.4;
 }
 
+.arm-raise-feedback {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  padding: 12px 16px;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.arm-raise-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 60%,
+    rgba(255, 244, 200, 0.75),
+    rgba(255, 244, 200, 0.25) 45%,
+    rgba(255, 244, 200, 0) 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.arm-raise-flash.is-active {
+  animation: arm-raise-flash 0.6s ease-out;
+}
+
+@keyframes arm-raise-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  40% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
 .arm-raise-hint {
   position: absolute;
   right: 22px;
