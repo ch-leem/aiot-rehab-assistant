@@ -111,36 +111,42 @@ public class TryService {
         String name = goal.getName();
         double rawScore;
 
-        // 1. [안정형] 기준점(Target)이 180도인 경우 (수평, 편차, 상체 앞뒤 기울기 등)
-        if (finalTarget == 180.0 || name.contains("수평") || name.contains("편차") || name.contains("기울기") || name.contains("가속도")) {
+        rawScore = switch (name) {
 
-            double error;
-            if (finalTarget == 180.0) {
-                // 180도 정규화 로직 (기존 유지)
+            // [안정형/유지형] 기준값(Target)과의 편차를 측정 (180도 보정 포함)
+            case "상체 앞뒤 기울기", "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태" -> {
                 double normalizedMeasured = (measured % 360 + 360) % 360;
-                error = Math.abs(180.0 - normalizedMeasured);
-            } else {
-                // 가속도 수치 지표의 오차 계산
-                // 예: 목표 가속도가 0.5인데 측정값이 0.8이면 오차는 0.3
-                error = Math.abs(finalTarget - measured);
+                double error = Math.abs(180.0 - normalizedMeasured);
+                yield 100.0 - (error * getPenaltyWeight(name));
             }
 
-            rawScore = 100.0 - (error * getPenaltyWeight(name));
-        }
+            // [기준유지형] 특정 수치(가속도 등)를 일정하게 유지해야 하는 경우
+            case "수행 가속도" -> {
+                double error = Math.abs(finalTarget - measured);
+                yield 100.0 - (error * getPenaltyWeight(name));
+            }
 
-        // 2. [달성형] 0보다 큰 특정 목표치를 넘어야 하는 경우 (압력, 각도 등)
-        else if (finalTarget > 0) {
-            if (measured <= 0) return 0.0;
-            double rate = (measured / finalTarget) * 100;
-            rawScore = round1(rate);
-        }
+            // [감점형] 0(정지/안정)이 목표인 경우 (발목 흔들림 등)
+            case "비마비측 발목 흔들림" -> {
+                double error = Math.abs(measured); // RMS 값
+                yield 100.0 - (error * getPenaltyWeight(name));
+            }
 
-        // 3. [0 기준 감점형] (발목 흔들림)
-        else {
-            double error = Math.abs(measured); // 0도 기준
-            rawScore = 100.0 - (error * getPenaltyWeight(name));
-        }
+            // [달성형] 목표치를 넘어야 하는 경우 (압력, 각도 등)
+            case "어깨 외전 각도", "마비측 발판 압력" -> {
+                if (finalTarget <= 0 || measured <= 0) yield 0.0;
+                double rate = (measured / finalTarget) * 100;
+                yield round1(rate);
+            }
 
+            // 그 외 기본 처리 (0 기준 감점)
+            default -> {
+                double error = Math.abs(measured);
+                yield 100.0 - (error * getPenaltyWeight(name));
+            }
+        };
+
+        // 2. 최종 점수 범위 제한 (0~100)
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
