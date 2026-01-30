@@ -128,6 +128,33 @@ export default function App() {
   const [recentGoals, setRecentGoals] = useState([]);
   const [tryScores, setTryScores] = useState({});
 
+  const audioRef = useRef(null);
+
+  const playFailAudio = useCallback((failId) => {
+    const AUDIO_MAP = {
+      F_SH_FLEX: "/audio/F_SH_FLEX_팔을_더_들어주세요.mp3",
+      F_EL_EXT: "/audio/F_EL_EXT_팔을_편_상태로_운동해주세요.mp3",
+      F_TR_TILT: "/audio/F_TR_TILT_허리를_펴주세요.mp3",
+      F_SH_HOR: "/audio/F_SH_HOR_어깨를_맞춰주세요.mp3",
+      F_ACCEL: "/audio/F_ACCEL_팔을_천천히_들어주세요.mp3",
+      F_PR_LOAD: "/audio/F_PR_LOAD_발에_힘을_더_주세요.mp3",
+      F_PL_HOR: "/audio/F_PL_HOR_골반을_맞춰주세요.mp3",
+      F_ANK_STB: "/audio/F_ANK_STB_반대쪽_발에_발목을_고정해주세요.mp3",
+      F_ELSE: "/audio/F_ELSE_예외_발생_예외_발생.mp3",
+      SUCCESS: "/audio/T_잘하셨어요.mp3"
+    };
+
+    const src = AUDIO_MAP[failId] || AUDIO_MAP.F_ELSE;
+
+    try {
+      if (!audioRef.current) audioRef.current = new Audio();
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.src = src;
+      audioRef.current.play().catch(() => {});
+    } catch {}
+  }, []);
+
   const stageLabel = useMemo(() => {
     switch (screen) {
       case SCREEN.EXERCISE_RESULT:
@@ -619,6 +646,9 @@ export default function App() {
         if (result && typeof result === "object") {
           const status = String(result.resultStatus || "").toUpperCase();
           if (status === "SUCCESS") {
+
+            playFailAudio("SUCCESS");
+
             setArmRaiseFeedback({
               id: Date.now(),
               message: "잘하셨어요!",
@@ -626,9 +656,13 @@ export default function App() {
             });
             nextDelayMs = 2000;
           } else if (status === "FAIL") {
+            const failId = result.failId || "F_ELSE";
+
+            playFailAudio(failId);
+
             setArmRaiseFeedback({
               id: Date.now(),
-              message: result.failName || "팔 높이를 더 올려주세요",
+              message: result.failName || "예외 발생 예외 발생",
               duration: 2400,
             });
             nextDelayMs = 2400;
@@ -656,6 +690,7 @@ export default function App() {
     currentTryIds,
     tryIndex,
     finishTry,
+    playFailAudio,
   ]);
 
   useEffect(() => {
