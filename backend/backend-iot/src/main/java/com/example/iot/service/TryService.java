@@ -110,7 +110,7 @@ public class TryService {
                 .orElse(0.0);
 
         // 2. 내부 DB 결과 판정 (정밀 점수 기준)
-        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, totalAverage);
+        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage);
         if (dbJudge.isFailed()) {
             setTryFailure(t, dbJudge.getFailGoalName());
         } else {
@@ -120,7 +120,7 @@ public class TryService {
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
-        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, totalAverage);
+        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage);
 
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
         return toResponse(t,
@@ -133,10 +133,16 @@ public class TryService {
      * 공통 판정 로직: MAIN -> 가속도 -> SUB 순서
      * scoresMap이 null이면 DB용(70점), 존재하면 프론트용(100점) 기준으로 작동
      */
-    private JudgeResult determineJudge(TryGoalResult main, TryGoalResult accel, List<TryGoalResult> subs, Map<String, Integer> scoresMap, double calculatedTotal) {
-        // 1. MAIN 우선 판정
-        if (main != null && isFailedItem(main, scoresMap)) {
-            return new JudgeResult(true, main.getExerciseGoal().getName(), calculatedTotal);
+    private JudgeResult determineJudge(TryGoalResult main, TryGoalResult accel, List<TryGoalResult> subs,
+                                       Map<String, Integer> scoresMap, Map<String, Integer> branchScores,
+                                       double calculatedTotal) {
+        // 1. MAIN 우선 판정: 성공 여부는 무조건 threshold(branchScores) 기준으로 판정!
+        if (main != null) {
+            String name = main.getExerciseGoal().getName();
+            // DB용 판정이든 프론트용 판정이든 MAIN은 threshold 미달(100점 미만) 시 실패 처리
+            if (branchScores.get(name) < 100) {
+                return new JudgeResult(true, name, calculatedTotal);
+            }
         }
         // 2. 가속도 우선 판정
         if (accel != null && isFailedItem(accel, scoresMap)) {
