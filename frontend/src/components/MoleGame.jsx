@@ -4,306 +4,427 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import "./MoleGame.css";
 
-export default function MoleGame({ onCountChange, patientWeight = 70 }) {
+export default function MoleGame({
+  onCountChange,
+  sensorPower = null,
+  requiredPower = 0.8,
+}) {
   const containerRef = useRef(null);
   const [gameState, setGameState] = useState("ready");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const gameStateRef = useRef("ready");
+  const moleRef = useRef(null);
+  const hammerRef = useRef(null);
+  const onCountChangeRef = useRef(onCountChange);
+  const initializedRef = useRef(false);
+  const loadStartRef = useRef(0);
+  const loadingDelayRef = useRef(null);
+  const assetsReadyRef = useRef(false);
+  const assetsTimeoutRef = useRef(null);
 
-  const setGameStateSafe = (next) => {
-    gameStateRef.current = next;
-    setGameState(next);
+  onCountChangeRef.current = onCountChange;
+
+  const handleRetry = () => {
+    setLoadError(false);
+    setLoading(true);
+    initializedRef.current = false;
+    setRetryKey((prev) => prev + 1);
   };
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return undefined;
+    // 1. 초기화 방어막: StrictMode 등에서 두 번 실행되는 것 방지
+    if (!containerRef.current || initializedRef.current) return;
+    initializedRef.current = true;
+    setLoading(true);
+    setLoadError(false);
+    loadStartRef.current = performance.now();
+    assetsReadyRef.current = false;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    const getSize = () => {
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
-      return [w, Math.max(360, h)];
-    };
-    const [initW, initH] = getSize();
-    renderer.setSize(initW, initH);
+    const container = containerRef.current;
+    
+    // 2. 렌더러 생성 및 설정
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(container.clientWidth, container.clientHeight || 500);
     renderer.shadowMap.enabled = true;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    const camera = new THREE.PerspectiveCamera(60, initW / initH, 0.1, 1000);
-    camera.position.set(0, 15, 25);
-    camera.lookAt(0, 0, 0);
-
+    // 3. 카메라 및 컨트롤 고정 (사용자 요청 좌표)
+    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / (container.clientHeight || 500), 1, 30000);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+
+    camera.position.set(12.542357828590571, 7.304516962830691, 13.29922596992769);
+    controls.target.set(-2.3569183892997163, 5.445169949849723, 4.009778652053535);
+    controls.enableRotate = false;
     controls.enablePan = false;
-    controls.enableRotate = true;
-    controls.enableZoom = true;
-    controls.minDistance = 15;
-    controls.maxDistance = 40;
-    controls.target.set(0, 0, 0);
+    controls.enableZoom = false;
     controls.update();
 
+    // 4. 조명 설정
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(10, 20, 10);
-    sun.castShadow = true;
-    sun.shadow.camera.left = -30;
-    sun.shadow.camera.right = 30;
-    sun.shadow.camera.top = 30;
-    sun.shadow.camera.bottom = -30;
+    sun.position.set(200, 2000, 200); // 좌표가 크므로 조명도 높게
     scene.add(sun);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-    let currentRound = 0;
-    const totalRounds = 10;
-    let moleUpTime = 0;
-    const moleDisplayDuration = 5;
-    let currentMole = null;
-    let hammer = null;
-    let isHammerAnimating = false;
-
-    let currentPower = 0;
-    let requiredPower = patientWeight * 0.8;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
     const loader = new GLTFLoader();
-    let moleScene = null;
-    const moles = [];
-
-    loader.load(
-      "/mole_game.glb",
-      (gltf) => {
-        moleScene = gltf.scene;
-        scene.add(moleScene);
-
-        moleScene.traverse((obj) => {
-          if (obj.isMesh) {
-            obj.castShadow = true;
-            obj.receiveShadow = true;
-          }
-        });
-
-        moleScene.traverse((obj) => {
-          if (obj.name && obj.name.startsWith("Body")) {
-            moles.push(obj);
-            obj.visible = false;
-          }
-        });
-
-        const hammerGeo = new THREE.CylinderGeometry(0.5, 0.5, 3, 8);
-        const hammerMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-        hammer = new THREE.Mesh(hammerGeo, hammerMat);
-        hammer.position.set(0, 10, 0);
-        hammer.rotation.z = Math.PI / 4;
-        hammer.visible = false;
-        scene.add(hammer);
-
-        startNextRound();
-      },
-      undefined,
-      (err) => {
-        console.error("GLB load failed", err);
+    const loadingTimeout = setTimeout(() => {
+      const elapsed = performance.now() - loadStartRef.current;
+      const delay = Math.max(0, 3000 - elapsed);
+      if (loadingDelayRef.current) {
+        clearTimeout(loadingDelayRef.current);
       }
-    );
+      loadingDelayRef.current = setTimeout(() => {
+        setLoadError(true);
+        setLoading(false);
+      }, delay);
+    }, 10000);
 
-    const startNextRound = () => {
-      if (currentRound >= totalRounds) {
-        setGameStateSafe("completed");
-        if (typeof onCountChange === "function") {
-          onCountChange(totalRounds, totalRounds);
+    // 게임 변수
+    let currentRound = 0;
+    const totalRounds = 10;
+    const popDuration = 0.5;
+    const baseShowDuration = 5.0;
+    const firstShowDuration = 30.0;
+    let moleTimer = 0;
+    let showTimer = 0;
+    let phase = "idle";
+    let hitTriggered = false;
+    let tryResolved = false;
+    let holdStart = 0;
+    let holding = false;
+
+    // 5. 모델 로딩 (안정적인 Traverse 로직)
+    loader.load("/mole7.glb", (gltf) => {
+      clearTimeout(loadingTimeout);
+      const root = gltf.scene;
+      scene.add(root);
+
+      let moleRoot = null;
+      let hammerRoot = null;
+
+      root.traverse((obj) => {
+        if (obj.isMesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
         }
-        return;
+        // 정확한 최상위 이름 매칭
+        if (obj.name === "Mole") moleRoot = obj;
+        if (obj.name === "Hammer") hammerRoot = obj;
+        if (!hammerRoot && obj.name === "Cilindro.007_molesAtlas_0") {
+          hammerRoot = obj.parent?.parent ?? obj.parent ?? obj;
+        }
+      });
+
+      if (!moleRoot) {
+        root.traverse((obj) => {
+          if (!moleRoot && obj.name && obj.name.startsWith("Mole")) {
+            moleRoot = obj;
+          }
+        });
       }
+
+      if (moleRoot) {
+        moleRoot.userData.originalY = moleRoot.position.y;
+        moleRoot.userData.hiddenY = moleRoot.position.y - 1200; 
+        moleRoot.position.y = moleRoot.userData.hiddenY;
+        moleRef.current = moleRoot;
+      } else {
+        console.error("[MoleGame] Mole root not found");
+      }
+
+      if (hammerRoot) {
+        hammerRoot.userData.originalY = hammerRoot.position.y;
+        hammerRoot.userData.hiddenY = hammerRoot.position.y + 800; 
+        // ✅ 요청하신 대로 망치가 더 깊게(-450) 내려가도록 수정
+        hammerRoot.userData.hitY = hammerRoot.position.y - 250;    
+        hammerRoot.position.y = hammerRoot.userData.hiddenY;
+        hammerRoot.visible = false;
+        hammerRef.current = hammerRoot;
+      } else {
+        console.error("[MoleGame] Hammer root not found");
+      }
+
+      gameStateRef.current = "playing";
+      setGameState("playing");
+      beginTry();
+      assetsReadyRef.current = Boolean(moleRef.current && hammerRef.current);
+      if (assetsTimeoutRef.current) {
+        clearTimeout(assetsTimeoutRef.current);
+      }
+      assetsTimeoutRef.current = setTimeout(() => {
+        if (!assetsReadyRef.current) {
+          setLoadError(true);
+          setLoading(false);
+        }
+      }, 6000);
+      const elapsed = performance.now() - loadStartRef.current;
+      const delay = Math.max(0, 3000 - elapsed);
+      if (loadingDelayRef.current) {
+        clearTimeout(loadingDelayRef.current);
+      }
+      loadingDelayRef.current = setTimeout(() => {
+        if (assetsReadyRef.current) {
+          setLoading(false);
+          setLoadError(false);
+        }
+      }, delay);
+    }, undefined, (error) => {
+      clearTimeout(loadingTimeout);
+      console.error("모델 로딩 실패:", error);
+      const elapsed = performance.now() - loadStartRef.current;
+      const delay = Math.max(0, 3000 - elapsed);
+      if (loadingDelayRef.current) {
+        clearTimeout(loadingDelayRef.current);
+      }
+      loadingDelayRef.current = setTimeout(() => {
+        setLoadError(true);
+        setLoading(false);
+      }, delay);
+    });
+
+    const beginTry = () => {
+      moleTimer = 0;
+      showTimer = 0;
+      phase = "popUp";
+      hitTriggered = false;
+      tryResolved = false;
+      console.log(`[MoleGame] try start ${currentRound + 1}/${totalRounds}`);
+    };
+
+    // 6. 타격 함수
+    const hitMole = () => {
+      const mole = moleRef.current;
+      const hammer = hammerRef.current;
+      if (!mole || !hammer || tryResolved) return;
+      tryResolved = true;
 
       currentRound += 1;
-      setGameStateSafe("playing");
+      if (onCountChangeRef.current) onCountChangeRef.current(currentRound, totalRounds);
+      console.log(`[MoleGame] try success ${currentRound}/${totalRounds}`);
 
-      if (moles.length > 0) {
-        const randomIndex = Math.floor(Math.random() * moles.length);
-        currentMole = moles[randomIndex];
-        currentMole.visible = true;
+      const createHitEffect = (pos) => {
+        const particleCount = 8;
+        const particles = [];
+        const geometry = new THREE.SphereGeometry(12, 10, 10);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xffd700,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+        });
 
-        if (!currentMole.userData.originalY) {
-          currentMole.userData.originalY = currentMole.position.y;
-          currentMole.userData.hiddenY = currentMole.position.y - 2;
+        for (let i = 0; i < particleCount; i += 1) {
+          const p = new THREE.Mesh(geometry, material);
+          p.position.copy(pos);
+          p.position.y += 150;
+          p.frustumCulled = false;
+          p.renderOrder = 10;
+          p.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 50,
+            Math.random() * 50 + 20,
+            (Math.random() - 0.5) * 50
+          );
+          scene.add(p);
+          particles.push(p);
         }
 
-        currentMole.position.y = currentMole.userData.hiddenY;
-      }
+        const animateParticles = () => {
+          let alive = false;
+          particles.forEach((p) => {
+            p.position.add(p.userData.velocity);
+            p.userData.velocity.y -= 2;
+            p.scale.multiplyScalar(0.95);
+            if (p.scale.x > 0.1) {
+              alive = true;
+            } else {
+              p.visible = false;
+            }
+          });
 
-      moleUpTime = 0;
+          if (alive) {
+            requestAnimationFrame(animateParticles);
+          } else {
+            particles.forEach((p) => scene.remove(p));
+          }
+        };
 
-      if (typeof onCountChange === "function") {
-        onCountChange(currentRound - 1, totalRounds);
-      }
-    };
+        animateParticles();
+      };
 
-    const hitMole = () => {
-      if (!currentMole || isHammerAnimating) return;
+      hammer.visible = true;
+      const hStartTime = performance.now();
+      
+      const animateHammer = (now) => {
+        const elapsed = now - hStartTime;
+        const progress = Math.min(1, elapsed / 250);
+        hammer.position.y = THREE.MathUtils.lerp(hammer.userData.hiddenY, hammer.userData.hitY, progress * progress);
 
-      isHammerAnimating = true;
-      if (hammer && currentMole) {
-        hammer.visible = true;
-        hammer.position.set(
-          currentMole.position.x,
-          currentMole.position.y + 3,
-          currentMole.position.z
-        );
+        if (progress < 1) {
+          requestAnimationFrame(animateHammer);
+        } else {
+          createHitEffect(mole.position);
+          const mStartTime = performance.now();
+          const startY = mole.position.y;
+          const targetY = mole.userData.hiddenY;
 
-        playHitSound();
-      }
+          const animateMoleDown = (mNow) => {
+            const mElapsed = mNow - mStartTime;
+            const mProgress = Math.min(1, mElapsed / 300);
+            mole.position.y = THREE.MathUtils.lerp(startY, targetY, mProgress);
+            if (mProgress < 1) requestAnimationFrame(animateMoleDown);
+          };
+          requestAnimationFrame(animateMoleDown);
+        }
+      };
+      requestAnimationFrame(animateHammer);
 
       setTimeout(() => {
-        if (currentMole) {
-          currentMole.visible = false;
+        if (hammerRef.current) {
+          hammerRef.current.visible = false;
+          hammerRef.current.position.y = hammerRef.current.userData.hiddenY;
         }
-        if (hammer) {
-          hammer.visible = false;
+        if (currentRound >= totalRounds) {
+          gameStateRef.current = "completed";
+          setGameState("completed");
+        } else {
+          beginTry();
         }
-        isHammerAnimating = false;
-        startNextRound();
-      }, 500);
+      }, 1500);
     };
 
-    let audioCtx = null;
-    const playHitSound = () => {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state !== "running") return;
-
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.3, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.15);
+    // 7. 키보드 이벤트
+    const onKeyDown = (e) => { 
+      if (e.code === "KeyW" && !holding && gameStateRef.current === "playing") { 
+        holding = true; holdStart = performance.now(); 
+      } 
     };
+    const onKeyUp = (e) => { if (e.code === "KeyW") { holding = false; holdStart = 0; } };
 
-    const sseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
-    let sseStream = null;
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
 
-    if (typeof EventSource !== "undefined") {
-      try {
-        sseStream = new EventSource(sseUrl);
-        sseStream.onmessage = (ev) => {
-          try {
-            const payload = JSON.parse(ev.data);
-            const frames = Array.isArray(payload?.frames) ? payload.frames : [];
-            const frame = frames.length ? frames[frames.length - 1] : null;
-
-            if (frame && frame.sensor && typeof frame.sensor.power === "number") {
-              currentPower = frame.sensor.power;
-              requiredPower = patientWeight * 0.8;
-
-              if (currentPower >= requiredPower && currentMole && !isHammerAnimating) {
-                hitMole();
-              }
-            }
-          } catch (err) {
-            console.error("SSE parse error:", err);
-          }
-        };
-
-        sseStream.onerror = () => {
-          console.warn("SSE connection error");
-        };
-      } catch (err) {
-        console.error("SSE setup error:", err);
-      }
-    }
-
-    const clock = new THREE.Clock();
-    let rafId = 0;
-
+    // 8. 메인 애니메이션 루프
+    let rafId;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
-      const dt = Math.min(0.033, clock.getDelta());
+      const dt = 0.016;
 
-      if (gameStateRef.current === "playing" && currentMole) {
-        moleUpTime += dt;
-
-        if (moleUpTime < 0.5) {
-          const progress = moleUpTime / 0.5;
-          const eased = 1 - Math.pow(1 - progress, 3);
-          currentMole.position.y = THREE.MathUtils.lerp(
-            currentMole.userData.hiddenY,
-            currentMole.userData.originalY,
-            eased
-          );
-        }
-
-        if (moleUpTime >= moleDisplayDuration) {
-          if (currentMole) {
-            currentMole.visible = false;
+      if (gameStateRef.current === "playing" && moleRef.current) {
+        moleTimer += dt;
+        if (phase === "popUp") {
+          const p = Math.min(1, moleTimer / popDuration);
+          moleRef.current.position.y = THREE.MathUtils.lerp(moleRef.current.userData.hiddenY, moleRef.current.userData.originalY, p);
+          if (p >= 1) { phase = "show"; showTimer = 0; }
+        } 
+        else if (phase === "show") {
+          showTimer += dt;
+          const isFirstTry = currentRound === 0;
+          const maxShowDuration = isFirstTry ? firstShowDuration : baseShowDuration;
+          if (showTimer >= maxShowDuration && !hitTriggered && !tryResolved) { 
+            hitTriggered = true;
+            tryResolved = true;
+            const startY = moleRef.current.position.y;
+            const targetY = moleRef.current.userData.hiddenY;
+            const mStartTime = performance.now();
+            const failAnim = (mNow) => {
+              const mp = Math.min(1, (mNow - mStartTime) / 400);
+              moleRef.current.position.y = THREE.MathUtils.lerp(startY, targetY, mp);
+              if (mp < 1) requestAnimationFrame(failAnim);
+              else {
+                currentRound += 1;
+                if (onCountChangeRef.current) onCountChangeRef.current(currentRound, totalRounds);
+                console.log(`[MoleGame] try fail ${currentRound}/${totalRounds}`);
+                if (currentRound >= totalRounds) {
+                  gameStateRef.current = "completed";
+                  setGameState("completed");
+                } else {
+                  beginTry();
+                }
+              }
+            };
+            requestAnimationFrame(failAnim);
           }
-          startNextRound();
+          if (holding && !hitTriggered && !tryResolved && (performance.now() - holdStart >= 1000)) { 
+            hitTriggered = true; 
+            hitMole(); 
+          }
+          if (
+            !hitTriggered &&
+            !tryResolved &&
+            sensorPower != null &&
+            sensorPower >= requiredPower
+          ) {
+            hitTriggered = true;
+            hitMole();
+          }
         }
       }
-
-      if (isHammerAnimating && hammer) {
-        hammer.rotation.z += dt * 10;
-        hammer.position.y -= dt * 15;
-      }
-
-      controls.update();
       renderer.render(scene, camera);
     };
-
     animate();
 
-    const resize = () => {
-      const [w, h] = getSize();
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
-
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(container);
-
+    // 9. 클린업 (중요!)
     return () => {
-      if (sseStream) {
-        sseStream.close();
+      clearTimeout(loadingTimeout);
+      if (loadingDelayRef.current) {
+        clearTimeout(loadingDelayRef.current);
+        loadingDelayRef.current = null;
       }
-      resizeObserver.disconnect();
+      if (assetsTimeoutRef.current) {
+        clearTimeout(assetsTimeoutRef.current);
+        assetsTimeoutRef.current = null;
+      }
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
       cancelAnimationFrame(rafId);
-      controls.dispose();
+      initializedRef.current = false;
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
       renderer.dispose();
       scene.clear();
-      if (audioCtx && audioCtx.state !== "closed") {
-        audioCtx.close();
-      }
-      if (renderer.domElement.parentElement) {
-        renderer.domElement.parentElement.removeChild(renderer.domElement);
-      }
     };
-  }, [patientWeight, onCountChange]);
+  }, [retryKey]);
 
   return (
-    <div className="mole-game-wrapper">
-      <div ref={containerRef} className="mole-game-container" />
-      {gameState === "completed" && (
-        <div className="game-complete-overlay">
-          <h2>운동 완료! 🎉</h2>
-          <p>10회 모두 완료하셨습니다.</p>
+    <div
+      className="mole-game-wrapper"
+      style={{ width: "100%", height: "100%", position: "relative" }}
+    >
+      <div
+        ref={containerRef}
+        className="mole-game-container"
+        style={{ width: "100%", height: "100%" }}
+      />
+      {loading && (
+        <div className="loading-overlay">
+          <div className="mole-hole">
+            <div className="digging-mole" />
+          </div>
+          <p className="loading-text">열심히 굴 파는 중...</p>
         </div>
       )}
+      {loadError && (
+        <div className="loading-overlay">
+          <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
+            ⚠️ 굴 파기에 실패했습니다.
+          </p>
+          <button
+            onClick={handleRetry}
+            className="retry-btn"
+            style={{ marginTop: "10px" }}
+            type="button"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
+      {gameState === "completed" && null}
     </div>
   );
 }
