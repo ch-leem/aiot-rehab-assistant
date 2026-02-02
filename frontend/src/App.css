@@ -886,6 +886,120 @@
   color: #5b667a;
 }
 
+.session-mini-charts {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f7f9fc;
+  border: 1px solid rgba(140, 150, 165, 0.25);
+  display: grid;
+  gap: 8px;
+}
+
+.session-kpi {
+  display: flex;
+  gap: 14px;
+  font-weight: 700;
+  color: #2f3b50;
+  font-size: 0.95rem;
+}
+
+.session-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.session-fails {
+  color: #7a2d2d;
+  font-size: 0.9rem;
+}
+
+.session-trend {
+  position: relative;
+  height: 200px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(140, 150, 165, 0.25);
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.session-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1;
+  padding: 2px 0;
+  min-width: 24px;
+  text-align: left;
+}
+
+.session-line {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.session-line-stroke {
+  fill: none;
+  stroke: #3b6bb0;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  shape-rendering: geometricPrecision;
+  vector-effect: non-scaling-stroke;
+}
+
+.session-line-area {
+  stroke: none;
+}
+
+
+.session-timeline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.session-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.session-legend .session-dot {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.session-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.session-dot.success {
+  background: #22c55e;
+}
+
+.session-dot.fail {
+  background: #ef4444;
+}
+
+.session-empty {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
 .exercise-list-items {
   margin: 0;
   padding-left: 18px;

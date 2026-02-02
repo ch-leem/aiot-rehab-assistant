@@ -12,6 +12,7 @@ const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL)
 const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
 
 const mockReports = import.meta.glob("../mocks/*.json", { eager: true });
+const mockSessions = import.meta.glob("../mocks/sessions/*.json", { eager: true });
 
 const getMockReportById = (sequenceId, patientId) => {
   if (!sequenceId || !patientId) return null;
@@ -34,6 +35,12 @@ const getLatestMockReportForPatient = (patientId) => {
   return entries[0];
 };
 
+const getMockSessionById = (sessionId) => {
+  if (!sessionId) return null;
+  const key = `../mocks/sessions/${sessionId}.json`;
+  return mockSessions[key]?.default ?? null;
+};
+
 const fetchSequenceReport = async (sequenceId, patientId) => {
   if (!sequenceId || !patientId) return null;
   const res = await fetch(
@@ -44,8 +51,6 @@ const fetchSequenceReport = async (sequenceId, patientId) => {
   const payload = await res.json();
   return payload?.data ?? null;
 };
-
-
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -116,7 +121,7 @@ const getTrendSymbol = (trend) => {
     case "DECLINING":
       return "▼";
     case "STABLE":
-      return "—";
+      return "＝";
     default:
       return "•";
   }
@@ -125,11 +130,11 @@ const getTrendSymbol = (trend) => {
 const getSummaryTagDescription = (tag) => {
   switch (tag) {
     case "STABLE":
-      return "주요/보조 관절 모두 안정적으로 수행합니다.";
+      return "주요/보조 관절 모두 일관적으로 수행되었습니다.";
     case "VARIABLE":
-      return "주요 과제는 가능하나 보조 과제에서 변동이 있습니다.";
+      return "주요 과제는 가능하나 안정성 변동이 관찰됩니다.";
     case "UNSTABLE":
-      return "수행에 반복적 문제가 있습니다.";
+      return "수행 자체 또는 안전성에 반복적 문제가 있습니다.";
     default:
       return "-";
   }
@@ -140,7 +145,7 @@ const getTrendDescription = (trend) => {
     case "IMPROVING":
       return "세션 진행에 따라 수행이 개선됩니다.";
     case "STABLE":
-      return "세션 내 큰 변화 없이 유지됩니다.";
+      return "세션 내 큰 변화 없이 안정적으로 유지됩니다.";
     case "DECLINING":
       return "세션 후반으로 갈수록 수행이 저하됩니다.";
     default:
@@ -160,6 +165,8 @@ export default function TherapistUI() {
   const [errorMessage, setErrorMessage] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [sessionDetails, setSessionDetails] = useState({});
+  const [sessionLoading, setSessionLoading] = useState({});
   const [reportData, setReportData] = useState({
     profile: null,
     sequences: [],
@@ -185,7 +192,7 @@ export default function TherapistUI() {
       if (USE_MOCK) {
         const data = {
           therapistId: Number(trimmedId) || 1,
-          therapistName: "테라피스트",
+          therapistName: "플러스",
           patients: [
             {
               patientId: 103,
@@ -196,14 +203,14 @@ export default function TherapistUI() {
             },
             {
               patientId: 105,
-              name: "정이온",
+              name: "정이원",
               gender: "FEMALE",
               age: 45,
               diseaseName: "척수 손상",
             },
             {
               patientId: 120,
-              name: "김민수",
+              name: "김미수",
               gender: "MALE",
               age: 62,
               diseaseName: "퇴행성 관절염",
@@ -234,6 +241,28 @@ export default function TherapistUI() {
       setErrorMessage("의료인 번호를 확인해주세요.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadSessionDetail = async (sessionId) => {
+    if (!sessionId || sessionLoading[sessionId] || sessionDetails[sessionId]) return;
+    setSessionLoading((prev) => ({ ...prev, [sessionId]: true }));
+    try {
+      if (USE_MOCK) {
+        const mock = getMockSessionById(sessionId);
+        setSessionDetails((prev) => ({ ...prev, [sessionId]: mock?.data ?? null }));
+        return;
+      }
+      const res = await fetch(`${API_IOT_BASE_URL}/api/patients/sessions/${sessionId}`, {
+        method: "GET",
+      });
+      if (!res.ok) throw new Error("세션 상세를 불러오지 못했습니다.");
+      const payload = await res.json();
+      setSessionDetails((prev) => ({ ...prev, [sessionId]: payload?.data ?? null }));
+    } catch (err) {
+      setSessionDetails((prev) => ({ ...prev, [sessionId]: null }));
+    } finally {
+      setSessionLoading((prev) => ({ ...prev, [sessionId]: false }));
     }
   };
 
@@ -395,7 +424,7 @@ export default function TherapistUI() {
                 <input
                   className="therapist-search-input"
                   type="text"
-                  placeholder="환자 번호 또는 이름을 입력하세요"
+                  placeholder="환자 번호 또는 이름을 입력하세요."
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                 />
@@ -451,14 +480,16 @@ export default function TherapistUI() {
                       <div className="report-card-body">
                         {reportData.profile ? (
                           <>
-                            {reportData.profile.name ?? reportData.reportInput?.patientName ?? "-"} 
-                            (ID {reportData.profile.patient_id}) | {" "}
+                            {reportData.profile.name ?? reportData.reportInput?.patientName ?? "-"}{" "}
+                            (ID {reportData.profile.patient_id}) |{" "}
                             {reportData.profile.gender === "MALE" ? "M" : "F"} |{" "}
                             {calcAge(reportData.profile.birth_date) ?? "-"}세
                             <br />
-                            질환: {reportData.profile.disease_name} | 단계:{" "}
-                            {reportData.reportInput?.rehabPhase ?? reportData.profile.rehab_phase ?? "-"} | 대상 측면: {" "}
-                            {reportData.reportInput?.side ?? "-"}
+                            질환: {reportData.profile.disease_name} | 재활 단계:{" "}
+                            {reportData.reportInput?.rehabPhase ??
+                              reportData.profile.rehab_phase ??
+                              "-"}{" "}
+                            | 대상측: {reportData.reportInput?.side ?? "-"}
                           </>
                         ) : (
                           "환자 정보를 불러오지 못했습니다."
@@ -472,14 +503,11 @@ export default function TherapistUI() {
                           <div className="summary-meta summary-meta-inline">
                             <span>Seq #{reportData.reportInput.sequenceId}</span> |{" "}
                             <span>
-                              세션 개수:{" "}
+                              운동 개수:{" "}
                               {reportData.reportInput.overallSummary?.totalExercises ?? "-"}
                             </span>{" "}
                             |{" "}
-                            <span>
-                              기록일:{" "}
-                              {formatDateTime(reportData.reportInput.date)}
-                            </span>
+                            <span>기록일 {formatDateTime(reportData.reportInput.date)}</span>
                           </div>
                         )}
                       </div>
@@ -539,7 +567,13 @@ export default function TherapistUI() {
                                   <button
                                     type="button"
                                     className={`exercise-header${isOpen ? " open" : ""}`}
-                                    onClick={() => setExpandedExercise(isOpen ? null : key)}
+                                    onClick={() => {
+                                      const nextOpen = isOpen ? null : key;
+                                      setExpandedExercise(nextOpen);
+                                      if (!isOpen && exercise.sessionId) {
+                                        loadSessionDetail(exercise.sessionId);
+                                      }
+                                    }}
                                     aria-expanded={isOpen}
                                   >
                                     <div className="exercise-title">
@@ -548,7 +582,8 @@ export default function TherapistUI() {
                                         {exercise.summaryTag ?? "-"}
                                       </span>
                                       <span className={getTrendClass(exercise.withinSessionTrend)}>
-                                        {getTrendSymbol(exercise.withinSessionTrend)} {exercise.withinSessionTrend ?? "-"}
+                                        {getTrendSymbol(exercise.withinSessionTrend)}{" "}
+                                        {exercise.withinSessionTrend ?? "-"}
                                       </span>
                                     </div>
                                     <div className="exercise-meta">
@@ -558,7 +593,7 @@ export default function TherapistUI() {
                                       <span className="meta-pill-compact">
                                         평균 점수 {formatNumber(exercise.performance?.averageScore)}
                                       </span>
-                                      <span className="exercise-toggle">{isOpen ? "접기" : "보기"}</span>
+                                      <span className="exercise-toggle">{isOpen ? "닫기" : "보기"}</span>
                                     </div>
                                   </button>
                                   {isOpen && (
@@ -566,6 +601,147 @@ export default function TherapistUI() {
                                       <div className="exercise-note">
                                         {exercise.sessionNote ?? "-"}
                                       </div>
+                                      <div className="session-mini-charts">
+                                        {(() => {
+                                          const sessionId = exercise.sessionId;
+                                          const session = sessionId ? sessionDetails[sessionId] : null;
+                                          const tries = session?.tries ?? [];
+                                          const total = session?.total_tries ?? tries.length;
+                                          const success =
+                                            session?.success_tries ??
+                                            tries.filter((t) => t.result === "SUCCESS").length;
+                                          const successRate = total
+                                            ? Math.round((success / total) * 100)
+                                            : 0;
+                                          const sensorValues = tries
+                                            .map((t) => Number(t.goal_sensor))
+                                            .filter((v) => Number.isFinite(v));
+                                          const maxVal = sensorValues.length
+                                            ? Math.max(...sensorValues)
+                                            : 0;
+                                          const failReasons = tries
+                                            .filter((t) => t.result === "FAIL" && t.fail_name)
+                                            .reduce((acc, t) => {
+                                              acc[t.fail_name] = (acc[t.fail_name] || 0) + 1;
+                                              return acc;
+                                            }, {});
+                                          const topFails = Object.entries(failReasons)
+                                            .sort((a, b) => b[1] - a[1])
+                                            .slice(0, 2);
+
+                                          if (!sessionId) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 상세 데이터가 없습니다.
+                                              </div>
+                                            );
+                                          }
+                                          if (sessionLoading[sessionId]) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 데이터를 불러오는 중입니다.
+                                              </div>
+                                            );
+                                          }
+                                          if (!session) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 상세 데이터가 없습니다.
+                                              </div>
+                                            );
+                                          }
+
+                                          return (
+                                            <>
+                                              <div className="session-section-title">세션 개요</div>
+                                              <div className="session-kpi">
+                                                <span>
+                                                  성공 {success}/{total}
+                                                </span>
+                                                <span>성공률 {successRate}%</span>
+                                              </div>
+                                              {topFails.length > 0 && (
+                                                <div className="session-fails">
+                                                  실패 사유:{" "}
+                                                  {topFails
+                                                    .map(([name, count]) => `${name} (${count})`)
+                                                    .join(", ")}
+                                                </div>
+                                              )}
+                                              {sensorValues.length > 0 && (
+                                                <>
+                                                  <div className="session-trend">
+                                                    <div className="session-scale">
+                                                      <span>100</span>
+                                                      <span>50</span>
+                                                      <span>0</span>
+                                                    </div>
+                                                    {(() => {
+                                                      const points = sensorValues.map((val, i) => {
+                                                        const x =
+                                                          sensorValues.length === 1
+                                                            ? 50
+                                                            : (i / (sensorValues.length - 1)) * 100;
+                                                        const y = 100 - (maxVal ? (val / maxVal) * 100 : 0);
+                                                        return { x, y };
+                                                      });
+                                                      const pointsStr = points
+                                                        .map((p) => `${p.x},${p.y}`)
+                                                        .join(" ");
+
+                                                      return (
+                                                        <svg
+                                                          className="session-line"
+                                                          viewBox="0 0 100 100"
+                                                          preserveAspectRatio="none"
+                                                        >
+                                                          <polyline
+                                                            className="session-line-stroke"
+                                                            points={pointsStr}
+                                                          />
+                                                        </svg>
+                                                      );
+                                                    })()}
+                                                  </div>
+                                                </>
+                                              )}
+                                              {tries.length > 0 && (
+                                                <>
+                                                  <div className="session-section-title">
+                                                    Try 결과 흐름
+                                                  </div>
+                                                  <div className="session-timeline">
+                                                    {tries.map((t, i) => (
+                                                      <span
+                                                        key={`result-${i}`}
+                                                        className={`session-dot ${
+                                                          t.result === "SUCCESS" ? "success" : "fail"
+                                                        }`}
+                                                        title={
+                                                          t.result === "FAIL"
+                                                            ? t.fail_name ?? "FAIL"
+                                                            : "SUCCESS"
+                                                        }
+                                                      />
+                                                    ))}
+                                                  </div>
+                                                  <div className="session-legend">
+                                                    <span>
+                                                      <span className="session-dot success" />
+                                                      성공
+                                                    </span>
+                                                    <span>
+                                                      <span className="session-dot fail" />
+                                                      실패
+                                                    </span>
+                                                  </div>
+                                                </>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+
                                       <div className="exercise-tags-explain">
                                         <div className="exercise-tag-row">
                                           <span className="exercise-tag-label">세션 요약:</span>
@@ -594,7 +770,9 @@ export default function TherapistUI() {
                                           ))}
                                         </ul>
                                       ) : (
-                                        <div className="exercise-muted">주요 관찰 내용이 없습니다.</div>
+                                        <div className="exercise-muted">
+                                          주요 관찰 내용이 없습니다.
+                                        </div>
                                       )}
                                       <div className="exercise-compare">
                                         <strong>이전 세션과 비교: </strong>
@@ -605,16 +783,17 @@ export default function TherapistUI() {
                                                 exercise.comparisonToPrevious.trend
                                               )}
                                             >
-                                              {getTrendSymbol(
-                                                exercise.comparisonToPrevious.trend
-                                              )} {exercise.comparisonToPrevious.trend ?? "-"}
+                                              {getTrendSymbol(exercise.comparisonToPrevious.trend)}{" "}
+                                              {exercise.comparisonToPrevious.trend ?? "-"}
                                             </span>
                                             <span className="exercise-compare-text">
                                               {exercise.comparisonToPrevious.trendDescription ?? "-"}
                                             </span>
                                           </>
                                         ) : (
-                                          <span className="tag tag--muted">이전 세션과 비교 데이터가 없습니다.</span>
+                                          <span className="tag tag--muted">
+                                            이전 세션과 비교 데이터가 없습니다.
+                                          </span>
                                         )}
                                       </div>
                                     </div>
@@ -641,12 +820,13 @@ export default function TherapistUI() {
                             </div>
                           ))
                         ) : (
-                          <div className="therapist-empty">최근 시퀀스가 없습니다.</div>
+                          <div className="therapist-empty">최근 시퀀스 기록이 없습니다.</div>
                         )}
                       </div>
                     </div>
                   </>
-                )}{!reportLoading && !reportError && !selectedPatient && (
+                )}
+                {!reportLoading && !reportError && !selectedPatient && (
                   <div className="therapist-empty">
                     환자를 선택하면 리포트가 표시됩니다.
                   </div>
