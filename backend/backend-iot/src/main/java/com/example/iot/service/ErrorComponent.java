@@ -6,7 +6,8 @@ public class ErrorComponent {
             double target, //target 목표가 되는 값 180
             double threshold, //threshold 값 이 정도는 넘어야 한다. 150
             long cnt, //몇 번 했는지
-            double sum //전체 값
+            double sum, //전체 값,
+            boolean isJitter // jitter일 경우 true 입력
     ) {
         // 방어 로직
         if (cnt <= 0) return 0;
@@ -23,6 +24,9 @@ public class ErrorComponent {
         //error 평균
         double meanE =  (sum - (threshold * cnt)) / (double) cnt ; // mean(E)
         //점수
+        if(isJitter) {
+            perDegreeScore *= 20;
+        }
         double score = 100.0 +  meanE * perDegreeScore;
 
         // 점수 범위 제한
