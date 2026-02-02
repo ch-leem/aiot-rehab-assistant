@@ -78,7 +78,7 @@ public class TryService {
         for (ExerciseGoal goal : goals) {
             String name = goal.getName();
             double measuredValue = evalRequest.getValueByGoalName(name);
-            double finalTarget = getFinalTargetValue(goal, patient);
+            double finalTarget = getFinalValue(goal, patient, goal.getTargetValue());
 
             // [A] DB용 정밀 점수
             double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
