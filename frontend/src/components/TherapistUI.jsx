@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import MainLayout from "./MainLayout";
 import GooeyText from "./GooeyText";
+import sequenceReportMock from "../mocks/sequenceReport.json";
 
 const VIEW = {
   LOGIN: "login",
@@ -36,6 +37,81 @@ const calcAge = (birthDate) => {
   return age;
 };
 
+const formatPercent = (value) => {
+  if (typeof value !== "number") return "-";
+  return `${Math.round(value)}%`;
+};
+
+const formatNumber = (value, digits = 0) => {
+  if (typeof value !== "number") return "-";
+  return value.toFixed(digits);
+};
+
+const getSummaryTagClass = (tag) => {
+  switch (tag) {
+    case "STABLE":
+      return "badge badge--stable";
+    case "VARIABLE":
+      return "badge badge--variable";
+    case "UNSTABLE":
+      return "badge badge--unstable";
+    default:
+      return "badge";
+  }
+};
+
+const getTrendClass = (trend) => {
+  switch (trend) {
+    case "IMPROVING":
+      return "badge badge--trend badge--improving";
+    case "DECLINING":
+      return "badge badge--trend badge--declining";
+    case "STABLE":
+      return "badge badge--trend badge--steady";
+    default:
+      return "badge badge--trend";
+  }
+};
+
+const getTrendSymbol = (trend) => {
+  switch (trend) {
+    case "IMPROVING":
+      return "▲";
+    case "DECLINING":
+      return "▼";
+    case "STABLE":
+      return "—";
+    default:
+      return "•";
+  }
+};
+
+const getSummaryTagDescription = (tag) => {
+  switch (tag) {
+    case "STABLE":
+      return "주요/보조 관절 모두 일관됩니다.";
+    case "VARIABLE":
+      return "주요 과제는 가능하나 안정성 변동이 있습니다.";
+    case "UNSTABLE":
+      return "수행 또는 안전성에 반복적 문제가 있습니다.";
+    default:
+      return "-";
+  }
+};
+
+const getTrendDescription = (trend) => {
+  switch (trend) {
+    case "IMPROVING":
+      return "세션 진행에 따라 수행이 개선됩니다.";
+    case "STABLE":
+      return "세션 내 큰 변화 없이 유지됩니다.";
+    case "DECLINING":
+      return "세션 후반으로 갈수록 수행이 저하됩니다.";
+    default:
+      return "-";
+  }
+};
+
 export default function TherapistUI() {
   const [view, setView] = useState(VIEW.LOGIN);
   const [therapistId, setTherapistId] = useState("");
@@ -43,6 +119,7 @@ export default function TherapistUI() {
   const [patients, setPatients] = useState([]);
   const [searchValue, setSearchValue] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [expandedExercise, setExpandedExercise] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
@@ -50,9 +127,7 @@ export default function TherapistUI() {
   const [reportData, setReportData] = useState({
     profile: null,
     sequences: [],
-    sequenceSummary: null,
-    reportSummary: null,
-    exercises: [],
+    reportInput: null,
   });
 
   const visiblePatients = useMemo(() => {
@@ -78,18 +153,18 @@ export default function TherapistUI() {
           therapistName: "김닥터",
           patients: [
             {
-              patientId: 101,
-              name: "홍길동",
+              patientId: 103,
+              name: "박재활",
               gender: "MALE",
-              age: 30,
+              age: 41,
               diseaseName: "뇌졸중",
             },
             {
               patientId: 105,
-              name: "홍길순",
+              name: "정이온",
               gender: "FEMALE",
               age: 45,
-              diseaseName: "파킨슨",
+              diseaseName: "신경 손상",
             },
             {
               patientId: 120,
@@ -131,6 +206,7 @@ export default function TherapistUI() {
     if (!patient) return;
     setReportLoading(true);
     setReportError("");
+    setExpandedExercise(null);
     try {
       const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
       if (useMock) {
@@ -144,63 +220,29 @@ export default function TherapistUI() {
             rehab_phase: "MIDDLE",
             created_at: "2026-01-15T10:00:00",
           },
+          reportInput: sequenceReportMock,
           sequences: [
             {
-              sequence_id: 101,
-              started_at: "2026-01-20T14:30:00",
-              ended_at: "2026-01-20T15:10:00",
-              feedback: "전반적으로 가동 범위가 향상됨",
+              sequence_id: 401,
+              started_at: "2026-01-30T14:00:00",
+              ended_at: "2026-01-30T14:40:00",
+              feedback: "후반부 안정성 붕괴 패턴이 반복 관찰됨.",
             },
             {
-              sequence_id: 105,
-              started_at: "2026-01-22T09:00:00",
-              ended_at: "2026-01-22T09:45:00",
-              feedback: "통증 완화 확인",
-            },
-          ],
-          sequenceSummary: {
-            sequence_id: 101,
-            started_at: "2026-01-20T14:30:00",
-            ended_at: "2026-01-20T15:10:00",
-            feedback: "가동 범위 향상. 보상 동작이 줄고 안정성이 높아졌습니다.",
-            summary: {
-              total_trials: 50,
-              success_trials: 42,
-              avg_angle: 115.5,
-              in_target_rate: 84.0,
-              compensation_total: 5,
-              stability_level: "STABLE",
-            },
-          },
-          reportSummary: {
-            totalTrials: 50,
-            successTrials: 42,
-            avgAngle: 115.5,
-            inTargetRate: 84.0,
-            stabilityLevel: "STABLE",
-          },
-          exercises: [
-            {
-              exercise_id: 5,
-              exercise_name: "팔꿈치 굴곡 운동",
-              description: "앉은 자세에서 팔꿈치를 천천히 굽히는 운동입니다.",
-              precautions: "어깨가 위로 들리지 않도록 주의하세요.",
-              side: "RIGHT",
-              goal_vision: "140",
-              goal_sensor: "135",
+              sequence_id: 398,
+              started_at: "2026-01-27T10:00:00",
+              ended_at: "2026-01-27T10:35:00",
+              feedback: "상체 기울기 변동 증가 확인.",
             },
           ],
         });
         return;
       }
 
-      const [profileRes, sequencesRes, reportRes, exercisesRes] = await Promise.all([
+      const [profileRes, sequencesRes, reportRes] = await Promise.all([
         fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
         fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
         fetch(`${API_IOT_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
-          method: "GET",
-        }),
-        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/exercises`, {
           method: "GET",
         }),
       ]);
@@ -210,33 +252,13 @@ export default function TherapistUI() {
       const profilePayload = await profileRes.json();
       const sequencesPayload = sequencesRes.ok ? await sequencesRes.json() : { data: [] };
       const reportPayload = reportRes.ok ? await reportRes.json() : { data: null };
-      const exercisesPayload = exercisesRes.ok ? await exercisesRes.json() : { data: [] };
 
       const sequences = Array.isArray(sequencesPayload?.data) ? sequencesPayload.data : [];
-      const latestSequence = sequences
-        .slice()
-        .sort(
-          (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-        )[0];
-
-      let sequenceSummary = null;
-      if (latestSequence?.sequence_id) {
-        const summaryRes = await fetch(
-          `${API_IOT_BASE_URL}/api/patients/sequences/${latestSequence.sequence_id}`,
-          { method: "GET" }
-        );
-        if (summaryRes.ok) {
-          const summaryPayload = await summaryRes.json();
-          sequenceSummary = summaryPayload?.data ?? null;
-        }
-      }
 
       setReportData({
         profile: profilePayload?.data ?? null,
         sequences,
-        sequenceSummary,
-        reportSummary: reportPayload?.data ?? null,
-        exercises: Array.isArray(exercisesPayload?.data) ? exercisesPayload.data : [],
+        reportInput: reportPayload?.data ?? null,
       });
     } catch (err) {
       setReportError("리포트를 불러오는 데 실패했습니다.");
@@ -309,9 +331,7 @@ export default function TherapistUI() {
                   setReportData({
                     profile: null,
                     sequences: [],
-                    sequenceSummary: null,
-                    reportSummary: null,
-                    exercises: [],
+                    reportInput: null,
                   });
                   setReportError("");
                 }}
@@ -379,16 +399,18 @@ export default function TherapistUI() {
                 {!reportLoading && !reportError && selectedPatient && (
                   <>
                     <div className="report-card">
-                      <div className="report-card-title">환자 요약</div>
+                      <div className="report-card-title">환자 정보</div>
                       <div className="report-card-body">
                         {reportData.profile ? (
                           <>
-                            환자 번호 {reportData.profile.patient_id} /{" "}
-                            {reportData.profile.gender === "MALE" ? "남" : "여"} /{" "}
+                            {reportData.profile.name ?? reportData.reportInput?.patientName ?? "-"} 
+                            (ID {reportData.profile.patient_id}) | {" "}
+                            {reportData.profile.gender === "MALE" ? "M" : "F"} |{" "}
                             {calcAge(reportData.profile.birth_date) ?? "-"}세
                             <br />
-                            병명: {reportData.profile.disease_name} / 단계:{" "}
-                            {reportData.profile.rehab_phase}
+                            질환: {reportData.profile.disease_name} | 단계:{" "}
+                            {reportData.reportInput?.rehabPhase ?? reportData.profile.rehab_phase ?? "-"} | 대상 측면: {" "}
+                            {reportData.reportInput?.side ?? "-"}
                           </>
                         ) : (
                           "환자 정보를 불러오지 못했습니다."
@@ -396,46 +418,170 @@ export default function TherapistUI() {
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">종합 리포트</div>
-                      <div className="report-card-body">
-                        {reportData.reportSummary ? (
-                          <>
-                            총 시도 {reportData.reportSummary.totalTrials}회 · 성공{" "}
-                            {reportData.reportSummary.successTrials}회
-                            <br />
-                            평균 각도 {reportData.reportSummary.avgAngle}° · 목표 진입률{" "}
-                            {reportData.reportSummary.inTargetRate}% · 안정성{" "}
-                            {reportData.reportSummary.stabilityLevel}
-                          </>
-                        ) : (
-                          "종합 리포트를 불러오지 못했습니다."
+                      <div className="report-card-title-row">
+                        <div className="report-card-title">시퀀스 요약</div>
+                        {reportData.reportInput && (
+                          <div className="summary-meta summary-meta-inline">
+                            <span>Seq #{reportData.reportInput.sequenceId}</span> |{" "}
+                            <span>
+                              세션 개수:{" "}
+                              {reportData.reportInput.overallSummary?.totalExercises ?? "-"}
+                            </span>{" "}
+                            |{" "}
+                            <span>
+                              기록일:{" "}
+                              {formatDateTime(reportData.reportInput.date)}
+                            </span>
+                          </div>
                         )}
                       </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">오늘 시퀀스 요약</div>
                       <div className="report-card-body">
-                        {reportData.sequenceSummary ? (
+                        {reportData.reportInput ? (
                           <>
-                            총 시도 {reportData.sequenceSummary.summary?.total_trials ?? "-"}회 · 성공{" "}
-                            {reportData.sequenceSummary.summary?.success_trials ?? "-"}회
-                            <br />
-                            평균 각도 {reportData.sequenceSummary.summary?.avg_angle ?? "-"}° · 목표 진입률{" "}
-                            {reportData.sequenceSummary.summary?.in_target_rate ?? "-"}%
-                            <br />
-                            보상 동작 {reportData.sequenceSummary.summary?.compensation_total ?? "-"}회 · 안정성{" "}
-                            {reportData.sequenceSummary.summary?.stability_level ?? "-"}
-                            <div className="report-note">
-                              {reportData.sequenceSummary.feedback}
+                            <div className="summary-headline">
+                              {reportData.reportInput.overallSummary?.title ?? "-"}
+                            </div>
+                            <div className="summary-body">
+                              {reportData.reportInput.overallSummary?.overallAssessment ?? "-"}
                             </div>
                           </>
                         ) : (
-                          "시퀀스 요약을 불러오지 못했습니다."
+                          "시퀀스 요약 정보가 없습니다."
                         )}
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">최근 시퀀스 기록</div>
+                      <div className="report-card-title">주요 위험 신호</div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.riskSignals?.length ? (
+                          <ul className="report-bullets report-bullets--risk">
+                            {reportData.reportInput.riskSignals.map((item, index) => (
+                              <li key={`risk-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="report-empty">위험 신호가 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">다음 재활 집중 포인트</div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.nextFocus?.length ? (
+                          <ul className="report-bullets report-bullets--focus">
+                            {reportData.reportInput.nextFocus.map((item, index) => (
+                              <li key={`focus-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="report-empty">집중 포인트가 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">세션 상세 정보</div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.exerciseSummaries?.length ? (
+                          <div className="exercise-list">
+                            {reportData.reportInput.exerciseSummaries.map((exercise, index) => {
+                              const key = `${exercise.exerciseName ?? "exercise"}-${index}`;
+                              const isOpen = expandedExercise === key;
+                              return (
+                                <div key={key} className="exercise-card">
+                                  <button
+                                    type="button"
+                                    className={`exercise-header${isOpen ? " open" : ""}`}
+                                    onClick={() => setExpandedExercise(isOpen ? null : key)}
+                                    aria-expanded={isOpen}
+                                  >
+                                    <div className="exercise-title">
+                                      <span>{exercise.exerciseName ?? "-"}</span>
+                                      <span className={getSummaryTagClass(exercise.summaryTag)}>
+                                        {exercise.summaryTag ?? "-"}
+                                      </span>
+                                      <span className={getTrendClass(exercise.withinSessionTrend)}>
+                                        {getTrendSymbol(exercise.withinSessionTrend)} {exercise.withinSessionTrend ?? "-"}
+                                      </span>
+                                    </div>
+                                    <div className="exercise-meta">
+                                      <span className="meta-pill-compact">
+                                        성공 비율 {formatPercent(exercise.performance?.successRate)}
+                                      </span>
+                                      <span className="meta-pill-compact">
+                                        평균 점수 {formatNumber(exercise.performance?.averageScore)}
+                                      </span>
+                                      <span className="exercise-toggle">{isOpen ? "접기" : "보기"}</span>
+                                    </div>
+                                  </button>
+                                  {isOpen && (
+                                    <div className="exercise-body">
+                                      <div className="exercise-note">
+                                        {exercise.sessionNote ?? "-"}
+                                      </div>
+                                      <div className="exercise-tags-explain">
+                                        <div className="exercise-tag-row">
+                                          <span className="exercise-tag-label">세션 요약:</span>
+                                          <span className={getSummaryTagClass(exercise.summaryTag)}>
+                                            {exercise.summaryTag ?? "-"}
+                                          </span>
+                                          <span className="exercise-tag-desc">
+                                            {getSummaryTagDescription(exercise.summaryTag)}
+                                          </span>
+                                        </div>
+                                        <div className="exercise-tag-row">
+                                          <span className="exercise-tag-label">세션 경향:</span>
+                                          <span className={getTrendClass(exercise.withinSessionTrend)}>
+                                            {getTrendSymbol(exercise.withinSessionTrend)}{" "}
+                                            {exercise.withinSessionTrend ?? "-"}
+                                          </span>
+                                          <span className="exercise-tag-desc">
+                                            {getTrendDescription(exercise.withinSessionTrend)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {exercise.keyObservations?.length ? (
+                                        <ul className="exercise-list-items">
+                                          {exercise.keyObservations.map((note, noteIndex) => (
+                                            <li key={`${key}-note-${noteIndex}`}>{note}</li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <div className="exercise-muted">주요 관찰 내용이 없습니다.</div>
+                                      )}
+                                      <div className="exercise-compare">
+                                        <strong>이전 세션과 비교: </strong>
+                                        {exercise.comparisonToPrevious?.used ? (
+                                          <>
+                                            <span
+                                              className={getTrendClass(
+                                                exercise.comparisonToPrevious.trend
+                                              )}
+                                            >
+                                              {getTrendSymbol(
+                                                exercise.comparisonToPrevious.trend
+                                              )} {exercise.comparisonToPrevious.trend ?? "-"}
+                                            </span>
+                                            <span className="exercise-compare-text">
+                                              {exercise.comparisonToPrevious.trendDescription ?? "-"}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span className="tag tag--muted">이전 세션과 비교 데이터가 없습니다.</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          "운동 요약 정보가 없습니다."
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">최근 시퀀스</div>
                       <div className="report-list">
                         {reportData.sequences.length > 0 ? (
                           reportData.sequences.slice(0, 5).map((item) => (
@@ -447,30 +593,12 @@ export default function TherapistUI() {
                             </div>
                           ))
                         ) : (
-                          <div className="therapist-empty">최근 기록이 없습니다.</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">처방 운동</div>
-                      <div className="report-list">
-                        {reportData.exercises.length > 0 ? (
-                          reportData.exercises.map((exercise) => (
-                            <div key={exercise.mapping_id ?? exercise.exercise_id} className="report-list-row">
-                              <span>{exercise.exercise_name}</span>
-                              <span>
-                                {exercise.side} · 목표 {exercise.goal_vision}/{exercise.goal_sensor}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="therapist-empty">처방 운동이 없습니다.</div>
+                          <div className="therapist-empty">최근 시퀀스가 없습니다.</div>
                         )}
                       </div>
                     </div>
                   </>
-                )}
-                {!reportLoading && !reportError && !selectedPatient && (
+                )}{!reportLoading && !reportError && !selectedPatient && (
                   <div className="therapist-empty">
                     환자를 선택하면 리포트가 표시됩니다.
                   </div>
