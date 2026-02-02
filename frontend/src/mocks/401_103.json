@@ -13,6 +13,7 @@
   "exerciseSummaries": [
     {
       "exerciseName": "어깨 굴곡 운동 (상체)",
+      "sessionId": 501,
       "performance": {
         "successRate": 66.7,
         "averageScore": 78.3
@@ -33,6 +34,7 @@
     },
     {
       "exerciseName": "비대칭 체중 부하 운동 (하체)",
+      "sessionId": 502,
       "performance": {
         "successRate": 66.7,
         "averageScore": 71.6

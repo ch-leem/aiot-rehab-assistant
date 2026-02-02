@@ -1,0 +1,40 @@
+﻿{
+  "success": true,
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "session_id": 501,
+    "exercise_name": "어깨 굴곡 운동 (상체)",
+    "goal": "가동 범위 120도 달성",
+    "total_tries": 3,
+    "success_tries": 2,
+    "tries": [
+      {
+        "try_id": 1001,
+        "result": "SUCCESS",
+        "fail_name": null,
+        "goal_vision": "120.0",
+        "goal_sensor": "118.5",
+        "started_at": "2026-01-30T14:05:10",
+        "ended_at": "2026-01-30T14:05:25"
+      },
+      {
+        "try_id": 1002,
+        "result": "SUCCESS",
+        "fail_name": null,
+        "goal_vision": "120.0",
+        "goal_sensor": "121.2",
+        "started_at": "2026-01-30T14:06:00",
+        "ended_at": "2026-01-30T14:06:15"
+      },
+      {
+        "try_id": 1003,
+        "result": "FAIL",
+        "fail_name": "상체 기울기 과다",
+        "goal_vision": "120.0",
+        "goal_sensor": "105.2",
+        "started_at": "2026-01-30T14:06:40",
+        "ended_at": "2026-01-30T14:06:55"
+      }
+    ]
+  }
+}
