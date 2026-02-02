@@ -3,10 +3,10 @@ package com.example.iot.service;
 public class ErrorComponent {
 
     public static int errorScoreFromAbsErrorAgg(
-            double target,
-            double threshold,
-            long cnt,
-            double sum
+            double target, //target 목표가 되는 값 180
+            double threshold, //threshold 값 이 정도는 넘어야 한다. 150
+            long cnt, //몇 번 했는지
+            double sum //전체 값
     ) {
         // 방어 로직
         if (cnt <= 0) return 0;
