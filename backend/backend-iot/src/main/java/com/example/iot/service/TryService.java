@@ -6,14 +6,14 @@ import com.example.iot.dto.request.TryEvaluationRequest;
 import com.example.iot.dto.response.TryFinishResponse;
 import com.example.iot.dto.response.TryStartResponse;
 import com.example.iot.repository.*;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -26,7 +26,7 @@ public class TryService {
     private final FailRepository failRepository;
     private final ExerciseGoalRepository exerciseGoalRepository;
     private final ExercisePatientMappingRepository mappingRepository;
-    private final FrameAnalyzer frameAnalyzer; // 분석기 주입
+    private final FrameAnalyzer frameAnalyzer;
 
     @Transactional
     public TryStartResponse startTry(Long tryId) {
@@ -50,7 +50,6 @@ public class TryService {
             throw new IllegalStateException("이미 종료된 운동 시도입니다.");
         }
 
-        // 1. 환자 및 운동 정보 파악 (측측 side 결정)
         Session session = t.getSession();
         Exercise exercise = session.getExercise();
         Patient patient = session.getSequence().getPatient();
@@ -60,30 +59,42 @@ public class TryService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Mapping 정보가 없습니다."));
 
-        String side = mapping.getSide().name(); // "LEFT" or "RIGHT"
-
-        // 2. 분석기를 통해 통계 데이터를 DTO로 변환 (agg 데이터 전달)
+        String side = mapping.getSide().name();
         TryEvaluationRequest evalRequest = frameAnalyzer.analyzeSummary(rawFrame, agg, side);
-
-        // 3. 목표별 점수 산출 및 저장
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
 
         TryGoalResult mainResult = null;
         TryGoalResult accelResult = null;
-        java.util.List<TryGoalResult> otherSubResults = new java.util.ArrayList<>();
+        List<TryGoalResult> otherSubResults = new ArrayList<>();
+        Map<String, Integer> branchScores = new HashMap<>();
 
+        // 1. 모든 지표 점수 계산 및 수집
+        List<TryGoalResult> allResults = new ArrayList<>(); // 전체 평균 계산용
         for (ExerciseGoal goal : goals) {
-            double measuredValue = evalRequest.getValueByGoalName(goal.getName());
+            String name = goal.getName();
+            double measuredValue = evalRequest.getValueByGoalName(name);
             double finalTarget = getFinalTargetValue(goal, patient);
+
+            // [A] DB용 정밀 점수
             double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
-
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
-            t.addGoalResult(result); // DB 저장을 위해 리스트에 추가
+            t.addGoalResult(result);
+            allResults.add(result);
 
-            // 판정을 위한 분류
+            // [B] 프론트 판정용 분기 점수 (ErrorComponent 활용)
+            int branchScore = ErrorComponent.errorScoreFromAbsErrorAgg(
+                    finalTarget,
+                    goal.getThreshold(),
+                    evalRequest.getCountByGoalName(name),
+                    evalRequest.getSumByGoalName(name),
+                    "비마비측 발목 흔들림".equals(name)
+            );
+            branchScores.put(name, branchScore);
+
+            // 분류 (우선순위 판정을 위함)
             if ("MAIN".equals(goal.getGoalType())) {
                 mainResult = result;
-            } else if ("수행 가속도".equals(goal.getName())) {
+            } else if ("수행 가속도".equals(name)) {
                 accelResult = result;
             } else {
                 otherSubResults.add(result);
@@ -92,121 +103,99 @@ public class TryService {
 
         t.setEndedAt(LocalDateTime.now());
 
-        // 4. 순차적 성공/실패 판정 (Step-by-Step Gate)
-        boolean isFailed = false;
+        // 전체 평균 계산 (MAIN, 가속도, SUB 모두 포함) - 성공/실패 여부와 관계없음
+        double totalAverage = allResults.stream()
+                .mapToDouble(TryGoalResult::getAchievementRate)
+                .average()
+                .orElse(0.0);
 
-        // [관문 1] MAIN 목표 확인
-        if (mainResult != null && mainResult.getAchievementRate() < SUCCESS_THRESHOLD_PERCENT) {
-            setTryFailure(t, mainResult.getExerciseGoal().getName());
-            isFailed = true;
+        // 2. 내부 DB 결과 판정 (정밀 점수 기준)
+        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, totalAverage);
+        if (dbJudge.isFailed()) {
+            setTryFailure(t, dbJudge.getFailGoalName());
+        } else {
+            t.setResult(TryResult.SUCCESS);
+            if (session != null) session.setSuccessTries(session.getSuccessTries() + 1);
+        }
+        t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
+
+        // 3. 프론트엔드 응답 판정 (분기 점수 기준)
+        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, totalAverage);
+
+        // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
+        return toResponse(t,
+                frontJudge.isFailed() ? "FAIL" : "SUCCESS",
+                frontJudge.getFailGoalName(),
+                frontJudge.isFailed() ? mapGoalNameToFailId(frontJudge.getFailGoalName()) : null);
+    }
+
+    /**
+     * 공통 판정 로직: MAIN -> 가속도 -> SUB 순서
+     * scoresMap이 null이면 DB용(70점), 존재하면 프론트용(100점) 기준으로 작동
+     */
+    private JudgeResult determineJudge(TryGoalResult main, TryGoalResult accel, List<TryGoalResult> subs, Map<String, Integer> scoresMap, double calculatedTotal) {
+        // 1. MAIN 우선 판정
+        if (main != null && isFailedItem(main, scoresMap)) {
+            return new JudgeResult(true, main.getExerciseGoal().getName(), calculatedTotal);
+        }
+        // 2. 가속도 우선 판정
+        if (accel != null && isFailedItem(accel, scoresMap)) {
+            return new JudgeResult(true, accel.getExerciseGoal().getName(), calculatedTotal);
+        }
+        // 3. SUB 판정 및 최저점 탐색
+        TryGoalResult worstSub = subs.stream()
+                .filter(s -> isFailedItem(s, scoresMap))
+                .min(Comparator.comparingDouble(s -> getScoreValue(s, scoresMap)))
+                .orElse(null);
+
+        if (worstSub != null) {
+            return new JudgeResult(true, worstSub.getExerciseGoal().getName(), calculatedTotal);
         }
 
-        // [관문 2] 가속도 항목 확인 (MAIN 통과 시에만)
-        if (!isFailed && accelResult != null && accelResult.getAchievementRate() < SUCCESS_THRESHOLD_PERCENT) {
-            setTryFailure(t, accelResult.getExerciseGoal().getName());
-            isFailed = true;
-        }
+        // 실패가 없으면 성공
+        return new JudgeResult(false, null, calculatedTotal);
+    }
 
-        // [관문 3] 나머지 SUB 목표 평균 확인 (앞선 관문 통과 시에만)
-        if (!isFailed) {
-            double otherSubAvg = otherSubResults.stream()
-                    .mapToDouble(TryGoalResult::getAchievementRate)
-                    .average()
-                    .orElse(100.0);
+    private boolean isFailedItem(TryGoalResult item, Map<String, Integer> scoresMap) {
+        if (scoresMap == null) return item.getAchievementRate() < SUCCESS_THRESHOLD_PERCENT;
+        return scoresMap.get(item.getExerciseGoal().getName()) < 100;
+    }
 
-            t.setTotalScore(otherSubAvg); // 최종 점수로 활용
-
-            if (otherSubAvg < SUCCESS_THRESHOLD_PERCENT) {
-                // 평균 미달 시 그 중 최저 점수인 항목을 실패 사유로 제출
-                String worstSubName = otherSubResults.stream()
-                        .min(java.util.Comparator.comparing(TryGoalResult::getAchievementRate))
-                        .map(r -> r.getExerciseGoal().getName())
-                        .orElse("기타");
-                setTryFailure(t, worstSubName);
-            } else {
-                // 모든 관문 통과
-                t.setResult(TryResult.SUCCESS);
-                session.setSuccessTries(session.getSuccessTries() + 1);
-            }
-        }
-
-        return toResponse(t);
+    private double getScoreValue(TryGoalResult item, Map<String, Integer> scoresMap) {
+        if (scoresMap == null) return item.getAchievementRate();
+        return scoresMap.get(item.getExerciseGoal().getName());
     }
 
     private void setTryFailure(Try t, String failGoalName) {
         t.setResult(TryResult.FAIL);
         String failId = mapGoalNameToFailId(failGoalName);
-        Fail fail = failRepository.findById(failId).orElse(null);
-        t.setFail(fail);
+        failRepository.findById(failId).ifPresent(t::setFail);
     }
 
-    /**
-     * 개별 목표 달성률 계산
-     */
     private double calculateAchievement(ExerciseGoal goal, double measured, double finalTarget) {
         String name = goal.getName();
-        double rawScore;
-
-        // DB에서 넘어온 finalTarget(목표값)을 기준으로 계산합니다.
-        rawScore = switch (name) {
-
+        double rawScore = switch (name) {
             case "상체 앞뒤 기울기" -> {
                 double error = Math.abs(finalTarget - measured);
-                double score;
-                if (error <= 5) {
-                    score = 100.0 - (error * 5);
-                } else {
-                    double penalty = Math.pow(error, 2) * getPenaltyWeight(name);
-                    score = 100.0 - penalty;
-                }
-                yield Math.max(60.0, score);
+                yield (error <= 5) ? 100.0 - (error * 5) : Math.max(60.0, 100.0 - (Math.pow(error, 2) * getPenaltyWeight(name)));
             }
-
-            case "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태" -> {
-                double error = Math.abs(finalTarget - measured);
-                yield 100.0 - (error * getPenaltyWeight(name));
-            }
-
-
+            case "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태", "비마비측 발목 흔들림" ->
+                    100.0 - (Math.abs(finalTarget - measured) * getPenaltyWeight(name));
             case "수행 가속도" -> {
-                double ratio = measured / finalTarget; // DB의 targetValue가 기준 속도가 됨
-                double tol = 0.10;
-                double diff = Math.abs(ratio - 1.0);
-
-                if (diff <= tol) yield 100.0;
-                double over = diff - tol;
-                yield 100.0 - (120.0 * over * over);
+                double diff = Math.abs((measured / finalTarget) - 1.0);
+                yield (diff <= 0.10) ? 100.0 : 100.0 - (120.0 * Math.pow(diff - 0.10, 2));
             }
-
-            case "비마비측 발목 흔들림" -> {
-                // 흔들림은 0에 가까울수록 좋으므로 targetValue가 보통 0입니다.
-                double error = Math.abs(finalTarget - measured);
-                yield 100.0 - (error * getPenaltyWeight(name));
-            }
-
-            case "어깨 외전 각도", "마비측 발판 압력" -> {
-                if (finalTarget <= 0 || measured <= 0) yield 0.0;
-                double rate = (measured / finalTarget) * 100;
-                yield round1(rate);
-            }
-
-            default -> {
-                double error = Math.abs(finalTarget - measured);
-                yield 100.0 - (error * getPenaltyWeight(name));
-            }
+            case "어깨 외전 각도", "마비측 발판 압력" -> (finalTarget <= 0) ? 0.0 : (measured / finalTarget) * 100;
+            default -> 100.0 - Math.abs(finalTarget - measured);
         };
-
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
     private double getFinalTargetValue(ExerciseGoal goal, Patient patient) {
-        if ("마비측 발판 압력".equals(goal.getName())) {
-            if (patient.getWeight() != null) {
-                return patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
-            }
-            return 50.0; // 기본값
+        if ("마비측 발판 압력".equals(goal.getName()) && patient.getWeight() != null) {
+            return patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
         }
-        return goal.getTargetValue(); // 압력이 아니면 DB에 설정된 값(180 등) 반환
+        return goal.getTargetValue();
     }
 
     private double getPenaltyWeight(String name) {
@@ -219,14 +208,8 @@ public class TryService {
         };
     }
 
-    private TryFinishResponse toResponse(Try t) {
-        return new TryFinishResponse(
-                t.getId(),
-                t.getTotalScore(),
-                t.getResult() != null ? t.getResult().name() : "NONE",
-                t.getFail() != null ? t.getFail().getName() : null,
-                t.getFail() != null ? t.getFail().getId() : null
-        );
+    private TryFinishResponse toResponse(Try t, String status, String failName, String failId) {
+        return new TryFinishResponse(t.getId(), t.getTotalScore(), status, failName, failId);
     }
 
     private String mapGoalNameToFailId(String goalName) {
@@ -243,7 +226,12 @@ public class TryService {
         };
     }
 
-    private static double round1(double v) {
-        return Math.round(v * 10.0) / 10.0;
+    // 내부 판정 결과 캡슐화 객체
+    @Getter
+    @RequiredArgsConstructor
+    private static class JudgeResult {
+        private final boolean failed;
+        private final String failGoalName;
+        private final double totalScore;
     }
 }
