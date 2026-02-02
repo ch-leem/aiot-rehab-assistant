@@ -29,7 +29,7 @@ public class FrameAnalyzer {
         }
 
         String sidePrefix = side.equalsIgnoreCase("LEFT") ? "l_" : "r_";
-        String nonSidePrefix = side.equalsIgnoreCase("LEFT") ? "r_" : "l_"; // 비마비측 (발목 흔들림용)
+        String nonSidePrefix = side.equalsIgnoreCase("LEFT") ? "r_" : "l_"; // 비마비측
 
         // 1. Latest 데이터 처리 (필요시 사용)
         try {
@@ -40,37 +40,46 @@ public class FrameAnalyzer {
             log.error("Latest JSON 파싱 실패: ", e);
         }
 
-        // 2. Agg 데이터를 통한 지표 계산 (평균, 최대)
+        // 2. Agg 데이터를 통한 지표 계산 및 원천 데이터(sum, count) 보관
 
-        // [MAIN] 어깨 외전 각도 [최대]
-        req.setMaxShoulderFlexionAngle(getVal(agg, "max." + sidePrefix + "shoulder_flexion"));
+        // [MAIN] 어깨 외전 각도 (Max)
+        String shKey = sidePrefix + "shoulder_flexion";
+        req.setMaxShoulderFlexionAngle(getVal(agg, "max." + shKey));
+        req.addStats("어깨 외전 각도", getVal(agg, "sum." + shKey), getCount(agg, "count." + shKey));
 
-        // [MAIN] 팔꿈치 신전 상태 [평균]
-        req.setAvgElbowExtensionAngle(getAverage(agg,
-                "sum." + sidePrefix + "elbow_extension",
-                "count." + sidePrefix + "elbow_extension"));
-
-        // [MAIN] 마비측 발판 압력 [최대]
+        // [MAIN] 마비측 발판 압력 (Max)
         req.setMaxPressure(getVal(agg, "max.power"));
+        req.addStats("마비측 발판 압력", getVal(agg, "sum.power"), getCount(agg, "count.power"));
 
-        // [SUB] 상체 앞뒤 기울기 [평균]
+        // [SUB] 팔꿈치 신전 상태 (Avg)
+        String elKey = sidePrefix + "elbow_extension";
+        req.setAvgElbowExtensionAngle(getAverage(agg, "sum." + elKey, "count." + elKey));
+        req.addStats("팔꿈치 신전 상태", getVal(agg, "sum." + elKey), getCount(agg, "count." + elKey));
+
+        // [SUB] 상체 앞뒤 기울기 (Avg)
         req.setAvgTrunkForwardTilt(getAverage(agg, "sum.trunk_forward_tilt", "count.trunk_forward_tilt"));
+        req.addStats("상체 앞뒤 기울기", getVal(agg, "sum.trunk_forward_tilt"), getCount(agg, "count.trunk_forward_tilt"));
 
-        // [SUB] 어깨 수평 불균형 [평균]
-        req.setAvgShoulderLevelDiff(getAverage(agg,
-                "sum.trunk_rotation_lateral_flexion",
-                "count.trunk_rotation_lateral_flexion"));
+        // [SUB] 어깨 수평 불균형 (Avg)
+        String shRotKey = "trunk_rotation_lateral_flexion";
+        req.setAvgShoulderLevelDiff(getAverage(agg, "sum." + shRotKey, "count." + shRotKey));
+        req.addStats("어깨 수평 불균형", getVal(agg, "sum." + shRotKey), getCount(agg, "count." + shRotKey));
 
-        // [SUB] 골반 수평 편차 [평균]
-        req.setAvgPelvisLevelDiff(getAverage(agg,
-                "sum.pelvis_level",
-                "count.pelvis_level"));
+        // [SUB] 골반 수평 편차 (Avg)
+        String pelKey = "pelvis_level";
+        req.setAvgPelvisLevelDiff(getAverage(agg, "sum." + pelKey, "count." + pelKey));
+        req.addStats("골반 수평 편차", getVal(agg, "sum." + pelKey), getCount(agg, "count." + pelKey));
 
-        // [SUB] 수행 가속도 [평균]
-        req.setAvgMovementAcceleration(getAverage(agg, "sum.strength", "count.strength"));
+        // [SUB] 수행 가속도 (Avg)
+        String accKey = "strength";
+        req.setAvgMovementAcceleration(getAverage(agg, "sum." + accKey, "count." + accKey));
+        req.addStats("수행 가속도", getVal(agg, "sum." + accKey), getCount(agg, "count." + accKey));
 
-        // [SUB] 비마비측 발목 흔들림 [평균 - 분산]
-        req.setAnkleSwayDistance(calculateAnkleSway(agg, nonSidePrefix + "ankle_jitter"));
+        // [SUB] 비마비측 발목 흔들림 (Ankle Sway)
+        // 흔들림의 경우 ErrorComponent에서 사용할 sumE 계산을 위해 원천 count와 sum_sq를 매핑
+        String swayKey = nonSidePrefix + "ankle_jitter";
+        req.setAnkleSwayDistance(calculateAnkleSway(agg, swayKey));
+        req.addStats("비마비측 발목 흔들림", getVal(agg, "sum_sq." + swayKey), getCount(agg, "count." + swayKey));
 
         return req;
     }
@@ -88,19 +97,21 @@ public class FrameAnalyzer {
         }
     }
 
+    private long getCount(Map<Object, Object> agg, String key) {
+        return (long) getVal(agg, key);
+    }
+
     private double getAverage(Map<Object, Object> agg, String sumKey, String countKey) {
         double sum = getVal(agg, sumKey);
         double count = getVal(agg, countKey);
         return count > 0 ? sum / count : 0.0;
     }
 
+    // RMS로 계산
     private double calculateAnkleSway(Map<Object, Object> agg, String baseKey) {
         double sumSq = getVal(agg, "sum_sq." + baseKey);
         double count = getVal(agg, "count." + baseKey);
-
         if (count <= 0) return 0.0;
-
-        // RMS 계산: sqrt(제곱의 합 / 개수)
         return Math.sqrt(sumSq / count);
     }
 }
