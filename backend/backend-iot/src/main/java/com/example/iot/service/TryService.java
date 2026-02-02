@@ -68,43 +68,76 @@ public class TryService {
         // 3. 목표별 점수 산출 및 저장
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
 
-        double minScore = 101.0;      // 비교를 위해 만점보다 높은 값으로 초기화
-        String worstGoalName = "";    // 가장 점수가 낮은 목표의 이름을 저장
+        TryGoalResult mainResult = null;
+        TryGoalResult accelResult = null;
+        java.util.List<TryGoalResult> otherSubResults = new java.util.ArrayList<>();
 
         for (ExerciseGoal goal : goals) {
             double measuredValue = evalRequest.getValueByGoalName(goal.getName());
-
             double finalTarget = getFinalTargetValue(goal, patient);
-
             double achievementRate = calculateAchievement(goal, measuredValue, finalTarget);
 
-            if (achievementRate < minScore) {
-                minScore = achievementRate;
-                worstGoalName = goal.getName();
-            }
-
             TryGoalResult result = new TryGoalResult(t, goal, measuredValue, achievementRate);
-            t.addGoalResult(result);
+            t.addGoalResult(result); // DB 저장을 위해 리스트에 추가
+
+            // 판정을 위한 분류
+            if ("MAIN".equals(goal.getGoalType())) {
+                mainResult = result;
+            } else if ("수행 가속도".equals(goal.getName())) {
+                accelResult = result;
+            } else {
+                otherSubResults.add(result);
+            }
         }
 
-        // 4. 최종 결과 확정 및 성공 여부 판정
         t.setEndedAt(LocalDateTime.now());
 
-        if (t.getTotalScore() >= SUCCESS_THRESHOLD_PERCENT) {
-            t.setResult(TryResult.SUCCESS);
-            if (session != null) {
+        // 4. 순차적 성공/실패 판정 (Step-by-Step Gate)
+        boolean isFailed = false;
+
+        // [관문 1] MAIN 목표 확인
+        if (mainResult != null && mainResult.getAchievementRate() < SUCCESS_THRESHOLD_PERCENT) {
+            setTryFailure(t, mainResult.getExerciseGoal().getName());
+            isFailed = true;
+        }
+
+        // [관문 2] 가속도 항목 확인 (MAIN 통과 시에만)
+        if (!isFailed && accelResult != null && accelResult.getAchievementRate() < SUCCESS_THRESHOLD_PERCENT) {
+            setTryFailure(t, accelResult.getExerciseGoal().getName());
+            isFailed = true;
+        }
+
+        // [관문 3] 나머지 SUB 목표 평균 확인 (앞선 관문 통과 시에만)
+        if (!isFailed) {
+            double otherSubAvg = otherSubResults.stream()
+                    .mapToDouble(TryGoalResult::getAchievementRate)
+                    .average()
+                    .orElse(100.0);
+
+            t.setTotalScore(otherSubAvg); // 최종 점수로 활용
+
+            if (otherSubAvg < SUCCESS_THRESHOLD_PERCENT) {
+                // 평균 미달 시 그 중 최저 점수인 항목을 실패 사유로 제출
+                String worstSubName = otherSubResults.stream()
+                        .min(java.util.Comparator.comparing(TryGoalResult::getAchievementRate))
+                        .map(r -> r.getExerciseGoal().getName())
+                        .orElse("기타");
+                setTryFailure(t, worstSubName);
+            } else {
+                // 모든 관문 통과
+                t.setResult(TryResult.SUCCESS);
                 session.setSuccessTries(session.getSuccessTries() + 1);
             }
-        } else {
-            t.setResult(TryResult.FAIL);
-
-            String failId = mapGoalNameToFailId(worstGoalName);
-            Fail fail = failRepository.findById(failId).orElse(null);
-            //fail.setId(failId);
-            t.setFail(fail);
         }
 
         return toResponse(t);
+    }
+
+    private void setTryFailure(Try t, String failGoalName) {
+        t.setResult(TryResult.FAIL);
+        String failId = mapGoalNameToFailId(failGoalName);
+        Fail fail = failRepository.findById(failId).orElse(null);
+        t.setFail(fail);
     }
 
     /**
@@ -114,75 +147,55 @@ public class TryService {
         String name = goal.getName();
         double rawScore;
 
+        // DB에서 넘어온 finalTarget(목표값)을 기준으로 계산합니다.
         rawScore = switch (name) {
 
-            // [안정형/유지형] 기준값(Target)과의 편차를 측정 (180도 보정 포함)
             case "상체 앞뒤 기울기" -> {
-                double normalizedMeasured = (measured % 360 + 360) % 360;
-                double error = Math.abs(180.0 - normalizedMeasured);
-
-                // 오차가 작은 경우에는 선형적으로 점수를 깎고, 큰 경우에는 급격히 감소
-                double penalty = Math.pow(error, 2) * getPenaltyWeight(name);  // error 제곱을 곱해 급격한 감점 방지
-                double score = 100.0 - penalty;
-
-                // error가 작을 때는 100점에서 조금씩 점수를 빼는 방식
+                double error = Math.abs(finalTarget - measured);
+                double score;
                 if (error <= 5) {
-                    score = 100.0 - (error * 5);  // error가 5도 이내일 때는 점수 차이를 부드럽게
+                    score = 100.0 - (error * 5);
+                } else {
+                    double penalty = Math.pow(error, 2) * getPenaltyWeight(name);
+                    score = 100.0 - penalty;
                 }
-
-                // 60점 이상 유지
                 yield Math.max(60.0, score);
             }
+
             case "어깨 수평 불균형", "골반 수평 편차", "팔꿈치 신전 상태" -> {
-                double normalizedMeasured = (measured % 360 + 360) % 360;
-                double error = Math.abs(180.0 - normalizedMeasured);
+                double error = Math.abs(finalTarget - measured);
                 yield 100.0 - (error * getPenaltyWeight(name));
             }
 
-            // [기준유지형] 특정 수치(가속도 등)를 일정하게 유지해야 하는 경우
-            case "수행 가속도" -> {
-                // measured: 실제 가속도/속도/파워 값 (frameAnalyzer에서 만든 값)
-                // finalTarget: 목표 (예: 목표 가속도)
-                double ratio = measured / finalTarget; // 1.0이면 딱 목표
 
-                // 1) 허용 구간(10% 이내는 그냥 성공으로 봄)
-                double tol = 0.10; // 10%
+            case "수행 가속도" -> {
+                double ratio = measured / finalTarget; // DB의 targetValue가 기준 속도가 됨
+                double tol = 0.10;
                 double diff = Math.abs(ratio - 1.0);
 
-                if (diff <= tol) {
-                    yield 100.0;
-                }
-
-                // 2) 허용 구간 밖부터는 "완만→급격" 감점 (제곱)
-                double over = diff - tol; // 허용 구간을 얼마나 넘었는지
-                // scale은 너가 민감도 조절하는 노브(값이 클수록 더 빨리 깎임)
-                double scale = 120.0; // 시작값(너 운동 데이터 보고 80~200에서 튜닝)
-                double penalty = scale * over * over;  // 제곱 벌점
-
-                yield 100.0 - penalty;
+                if (diff <= tol) yield 100.0;
+                double over = diff - tol;
+                yield 100.0 - (120.0 * over * over);
             }
 
-            // [감점형] 0(정지/안정)이 목표인 경우 (발목 흔들림 등)
             case "비마비측 발목 흔들림" -> {
-                double error = Math.abs(measured); // RMS 값
+                // 흔들림은 0에 가까울수록 좋으므로 targetValue가 보통 0입니다.
+                double error = Math.abs(finalTarget - measured);
                 yield 100.0 - (error * getPenaltyWeight(name));
             }
 
-            // [달성형] 목표치를 넘어야 하는 경우 (압력, 각도 등)
             case "어깨 외전 각도", "마비측 발판 압력" -> {
                 if (finalTarget <= 0 || measured <= 0) yield 0.0;
                 double rate = (measured / finalTarget) * 100;
                 yield round1(rate);
             }
 
-            // 그 외 기본 처리 (0 기준 감점)
             default -> {
-                double error = Math.abs(measured);
+                double error = Math.abs(finalTarget - measured);
                 yield 100.0 - (error * getPenaltyWeight(name));
             }
         };
 
-        // 2. 최종 점수 범위 제한 (0~100)
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
