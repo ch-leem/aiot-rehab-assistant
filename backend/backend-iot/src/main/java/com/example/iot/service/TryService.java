@@ -172,7 +172,7 @@ public class TryService {
         // 2. 가속도 우선 판정
         if (accel != null) {
             String name = accel.getExerciseGoal().getName();
-            if (maxAccel >= 100.0 || isFailedItem(accel, scoresMap)) {
+            if (maxAccel >= 100.0) {
                 return new JudgeResult(true, name, calculatedTotal);
             }
         }
