@@ -121,7 +121,7 @@ public class TryService {
         double maxAccel = evalRequest.getMaxMovementAcceleration();
 
         // 2. 내부 DB 결과 판정 (정밀 점수 기준)
-        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage, maxAccel);
+        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage, maxAccel, patient);
         if (dbJudge.isFailed()) {
             setTryFailure(t, dbJudge.getFailGoalName());
         } else {
@@ -131,7 +131,7 @@ public class TryService {
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
-        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel);
+        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel, patient);
 
         // [로그 출력] 판정 직후 한 번에 출력
         log.info("==================== [TRY DEBUG LOG] ID: {} ====================", t.getId());
@@ -155,12 +155,17 @@ public class TryService {
      */
     private JudgeResult determineJudge(TryGoalResult main, TryGoalResult accel, List<TryGoalResult> subs,
                                        Map<String, Integer> scoresMap, Map<String, Integer> branchScores,
-                                       double calculatedTotal, double maxAccel) {
-        // 1. MAIN 우선 판정: 성공 여부는 무조건 threshold(branchScores) 기준으로 판정!
+                                       double calculatedTotal, double maxAccel, Patient patient) { // patient 추가
+        // 1. MAIN 우선 판정
         if (main != null) {
             String name = main.getExerciseGoal().getName();
-            // DB용 판정이든 프론트용 판정이든 MAIN은 threshold 미달(100점 미만) 시 실패 처리
-            if (main.getMeasuredValue() < main.getExerciseGoal().getThreshold()) {
+            double measuredMax = main.getMeasuredValue();
+
+            // [수정] 체중이 반영된 실제 물리 문턱값 계산
+            double finalThreshold = getFinalValue(main.getExerciseGoal(), patient, main.getExerciseGoal().getThreshold());
+
+            if (measuredMax < finalThreshold) {
+                log.info("[Judge] MAIN 미달: {} (측정: {}, 문턱치: {})", name, measuredMax, finalThreshold);
                 return new JudgeResult(true, name, calculatedTotal);
             }
         }
@@ -220,11 +225,12 @@ public class TryService {
         return Math.max(0.0, Math.min(100.0, rawScore));
     }
 
-    private double getFinalTargetValue(ExerciseGoal goal, Patient patient) {
+    private double getFinalValue(ExerciseGoal goal, Patient patient, double rawValue) {
         if ("마비측 발판 압력".equals(goal.getName()) && patient.getWeight() != null) {
-            return patient.getWeight().doubleValue() * (goal.getTargetValue() / 100.0);
+            // 비율(%) 단위를 체중에 곱해 실제 무게(kg)로 변환
+            return patient.getWeight().doubleValue() * (rawValue / 100.0);
         }
-        return goal.getTargetValue();
+        return rawValue; // 그 외(각도 등)는 그대로 반환
     }
 
     private double getPenaltyWeight(String name) {
