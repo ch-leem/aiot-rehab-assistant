@@ -24,6 +24,8 @@ public class TryEvaluationRequest {
     private Double avgMovementAcceleration;   // 수행 가속도 (Avg)
     private Double ankleSwayDistance;         // 비마비측 발목 흔들림
 
+    private Double maxMovementAcceleration;
+
     // 기타 (확장성을 위해 남겨둠)
     private Double avgTrunkLateralTilt;
 
@@ -61,6 +63,10 @@ public class TryEvaluationRequest {
             case "비마비측 발목 흔들림" -> nvl(ankleSwayDistance);
             default -> 0.0;
         };
+    }
+
+    public double getMaxMovementAcceleration() {
+        return nvl(maxMovementAcceleration);
     }
 
     private double nvl(Double value) {

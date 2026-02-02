@@ -109,8 +109,10 @@ public class TryService {
                 .average()
                 .orElse(0.0);
 
+        double maxAccel = evalRequest.getMaxMovementAcceleration();
+
         // 2. 내부 DB 결과 판정 (정밀 점수 기준)
-        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage);
+        JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage, maxAccel);
         if (dbJudge.isFailed()) {
             setTryFailure(t, dbJudge.getFailGoalName());
         } else {
@@ -120,7 +122,7 @@ public class TryService {
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
-        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage);
+        JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel);
 
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
         return toResponse(t,
@@ -135,7 +137,7 @@ public class TryService {
      */
     private JudgeResult determineJudge(TryGoalResult main, TryGoalResult accel, List<TryGoalResult> subs,
                                        Map<String, Integer> scoresMap, Map<String, Integer> branchScores,
-                                       double calculatedTotal) {
+                                       double calculatedTotal, double maxAccel) {
         // 1. MAIN 우선 판정: 성공 여부는 무조건 threshold(branchScores) 기준으로 판정!
         if (main != null) {
             String name = main.getExerciseGoal().getName();
@@ -145,8 +147,11 @@ public class TryService {
             }
         }
         // 2. 가속도 우선 판정
-        if (accel != null && isFailedItem(accel, scoresMap)) {
-            return new JudgeResult(true, accel.getExerciseGoal().getName(), calculatedTotal);
+        if (accel != null) {
+            String name = accel.getExerciseGoal().getName();
+            if (maxAccel >= 100.0 || isFailedItem(accel, scoresMap)) {
+                return new JudgeResult(true, name, calculatedTotal);
+            }
         }
         // 3. SUB 판정 및 최저점 탐색
         TryGoalResult worstSub = subs.stream()

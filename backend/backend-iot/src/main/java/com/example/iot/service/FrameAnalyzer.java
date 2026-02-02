@@ -72,7 +72,8 @@ public class FrameAnalyzer {
 
         // [SUB] 수행 가속도 (Avg)
         String accKey = "strength";
-        req.setAvgMovementAcceleration(getAverage(agg, "sum." + accKey, "count." + accKey));
+        req.setAvgMovementAcceleration(getAverage(agg, "sum." + accKey, "count." + accKey)); // DB 저장/점수용
+        req.setMaxMovementAcceleration(getVal(agg, "max." + accKey)); // [추가] 순수 판정용 (100 체크)
         req.addStats("수행 가속도", getVal(agg, "sum." + accKey), getCount(agg, "count." + accKey));
 
         // [SUB] 비마비측 발목 흔들림 (Ankle Sway)
