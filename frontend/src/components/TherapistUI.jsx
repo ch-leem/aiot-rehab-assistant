@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import MainLayout from "./MainLayout";
 import GooeyText from "./GooeyText";
-import sequenceReportMock from "../mocks/sequenceReport.json";
 
 const VIEW = {
   LOGIN: "login",
@@ -10,6 +9,43 @@ const VIEW = {
 
 const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
+const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+
+const mockReports = import.meta.glob("../mocks/*.json", { eager: true });
+
+const getMockReportById = (sequenceId, patientId) => {
+  if (!sequenceId || !patientId) return null;
+  const key = `../mocks/${sequenceId}_${patientId}.json`;
+  return mockReports[key]?.default ?? null;
+};
+
+const getLatestMockReportForPatient = (patientId) => {
+  if (!patientId) return null;
+  const entries = Object.entries(mockReports)
+    .filter(([path]) => path.endsWith(`_${patientId}.json`))
+    .map(([path, module]) => {
+      const file = path.split("/").pop() ?? "";
+      const seq = Number(file.split("_")[0]);
+      return Number.isNaN(seq) ? null : { sequenceId: seq, report: module?.default ?? null };
+    })
+    .filter(Boolean);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b.sequenceId - a.sequenceId);
+  return entries[0];
+};
+
+const fetchSequenceReport = async (sequenceId, patientId) => {
+  if (!sequenceId || !patientId) return null;
+  const res = await fetch(
+    `${API_IOT_BASE_URL}/api/patients/sequences/${sequenceId}`,
+    { method: "GET" }
+  );
+  if (!res.ok) throw new Error("시퀀스 리포트를 불러오지 못했습니다.");
+  const payload = await res.json();
+  return payload?.data ?? null;
+};
+
+
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -89,11 +125,11 @@ const getTrendSymbol = (trend) => {
 const getSummaryTagDescription = (tag) => {
   switch (tag) {
     case "STABLE":
-      return "주요/보조 관절 모두 일관됩니다.";
+      return "주요/보조 관절 모두 안정적으로 수행합니다.";
     case "VARIABLE":
-      return "주요 과제는 가능하나 안정성 변동이 있습니다.";
+      return "주요 과제는 가능하나 보조 과제에서 변동이 있습니다.";
     case "UNSTABLE":
-      return "수행 또는 안전성에 반복적 문제가 있습니다.";
+      return "수행에 반복적 문제가 있습니다.";
     default:
       return "-";
   }
@@ -146,17 +182,16 @@ export default function TherapistUI() {
     setIsLoading(true);
     setErrorMessage("");
     try {
-      const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
-      if (useMock) {
+      if (USE_MOCK) {
         const data = {
           therapistId: Number(trimmedId) || 1,
-          therapistName: "김닥터",
+          therapistName: "테라피스트",
           patients: [
             {
               patientId: 103,
               name: "박재활",
               gender: "MALE",
-              age: 41,
+              age: 37,
               diseaseName: "뇌졸중",
             },
             {
@@ -164,7 +199,7 @@ export default function TherapistUI() {
               name: "정이온",
               gender: "FEMALE",
               age: 45,
-              diseaseName: "신경 손상",
+              diseaseName: "척수 손상",
             },
             {
               patientId: 120,
@@ -208,8 +243,23 @@ export default function TherapistUI() {
     setReportError("");
     setExpandedExercise(null);
     try {
-      const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
-      if (useMock) {
+      if (USE_MOCK) {
+        const latestMock = getLatestMockReportForPatient(patient.patientId);
+        const mockSequenceId = latestMock?.sequenceId ?? null;
+        const mockReport = mockSequenceId
+          ? getMockReportById(mockSequenceId, patient.patientId)
+          : null;
+        const mockSequences = mockSequenceId
+          ? [
+              {
+                sequence_id: mockSequenceId,
+                started_at: mockReport?.date ?? null,
+                ended_at: mockReport?.date ?? null,
+                feedback: "",
+              },
+            ]
+          : [];
+
         setReportData({
           profile: {
             patient_id: patient.patientId,
@@ -217,31 +267,20 @@ export default function TherapistUI() {
             birth_date: "1988-05-20",
             gender: patient.gender,
             disease_name: patient.diseaseName,
-            rehab_phase: "MIDDLE",
+            rehab_phase: patient.rehabPhase ?? "MIDDLE",
             created_at: "2026-01-15T10:00:00",
           },
-          reportInput: sequenceReportMock,
-          sequences: [
-            {
-              sequence_id: 401,
-              started_at: "2026-01-30T14:00:00",
-              ended_at: "2026-01-30T14:40:00",
-              feedback: "후반부 안정성 붕괴 패턴이 반복 관찰됨.",
-            },
-            {
-              sequence_id: 398,
-              started_at: "2026-01-27T10:00:00",
-              ended_at: "2026-01-27T10:35:00",
-              feedback: "상체 기울기 변동 증가 확인.",
-            },
-          ],
+          sequences: mockSequences,
+          reportInput: mockReport,
         });
         return;
       }
 
       const [profileRes, sequencesRes, reportRes] = await Promise.all([
         fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
-        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
+        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, {
+          method: "GET",
+        }),
         fetch(`${API_IOT_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
           method: "GET",
         }),
@@ -252,16 +291,25 @@ export default function TherapistUI() {
       const profilePayload = await profileRes.json();
       const sequencesPayload = sequencesRes.ok ? await sequencesRes.json() : { data: [] };
       const reportPayload = reportRes.ok ? await reportRes.json() : { data: null };
-
       const sequences = Array.isArray(sequencesPayload?.data) ? sequencesPayload.data : [];
+
+      const latestSequence = sequences
+        .slice()
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
+
+      const reportInput =
+        reportPayload?.data ??
+        (latestSequence?.sequence_id
+          ? await fetchSequenceReport(latestSequence.sequence_id, patient.patientId)
+          : null);
 
       setReportData({
         profile: profilePayload?.data ?? null,
         sequences,
-        reportInput: reportPayload?.data ?? null,
+        reportInput,
       });
     } catch (err) {
-      setReportError("리포트를 불러오는 데 실패했습니다.");
+      setReportError("리포트를 불러오지 못했습니다.");
     } finally {
       setReportLoading(false);
     }
