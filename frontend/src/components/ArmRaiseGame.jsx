@@ -514,7 +514,7 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
 
     const flexScore = (flexion) => {
       if (typeof flexion !== "number") return null;
-      return clamp((flexion - 140) / 20, 0, 1);
+      return clamp((flexion - 120) / 20, 0, 1);
     };
 
     const limbRaiseScore = (shoulder, wrist, hip) => {
