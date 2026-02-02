@@ -63,6 +63,11 @@ public class TryService {
         TryEvaluationRequest evalRequest = frameAnalyzer.analyzeSummary(rawFrame, agg, side);
         List<ExerciseGoal> goals = exerciseGoalRepository.findByExercise(exercise);
 
+        // [로그용] StringBuilder 초기화
+        StringBuilder debugLog = new StringBuilder();
+        debugLog.append(String.format("\n%-18s | %-10s | %-12s | %-10s\n", "지표명", "실측치", "성취도(DB)", "분기점수(FE)"));
+        debugLog.append("------------------------------------------------------------------\n");
+
         TryGoalResult mainResult = null;
         TryGoalResult accelResult = null;
         List<TryGoalResult> otherSubResults = new ArrayList<>();
@@ -90,6 +95,10 @@ public class TryService {
                     "비마비측 발목 흔들림".equals(name)
             );
             branchScores.put(name, branchScore);
+
+            // 로그 메시지 바로 추가
+            debugLog.append(String.format("%-18s | %-10.2f | %-12.2f | %-10d\n",
+                    name, measuredValue, achievementRate, branchScore));
 
             // 분류 (우선순위 판정을 위함)
             if ("MAIN".equals(goal.getGoalType())) {
@@ -123,6 +132,15 @@ public class TryService {
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
         JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel);
+
+        // [로그 출력] 판정 직후 한 번에 출력
+        log.info("==================== [TRY DEBUG LOG] ID: {} ====================", t.getId());
+        log.info("운동명: {} | 마비측: {} | 가속도 Max(판정용): {}", exercise.getName(), side, maxAccel);
+        log.info(debugLog.toString());
+        log.info("전체 평균 점수: {} 점", String.format("%.2f", totalAverage));
+        log.info("최종 판정 [FE]: {}", frontJudge.isFailed() ? "FAIL (사유: " + frontJudge.getFailGoalName() + ")" : "SUCCESS");
+        log.info("최종 판정 [DB]: {}", dbJudge.isFailed() ? "FAIL (사유: " + dbJudge.getFailGoalName() + ")" : "SUCCESS");
+        log.info("================================================================");
 
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
         return toResponse(t,
