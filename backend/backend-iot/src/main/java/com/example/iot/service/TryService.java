@@ -160,7 +160,7 @@ public class TryService {
         if (main != null) {
             String name = main.getExerciseGoal().getName();
             // DB용 판정이든 프론트용 판정이든 MAIN은 threshold 미달(100점 미만) 시 실패 처리
-            if (branchScores.get(name) < 100) {
+            if (main.getMeasuredValue() < main.getExerciseGoal().getThreshold()) {
                 return new JudgeResult(true, name, calculatedTotal);
             }
         }
