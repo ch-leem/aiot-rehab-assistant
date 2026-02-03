@@ -159,34 +159,48 @@ public class TryService {
         // 1. MAIN 우선 판정
         if (main != null) {
             String name = main.getExerciseGoal().getName();
-            double measuredMax = main.getMeasuredValue();
-
-            // [수정] 체중이 반영된 실제 물리 문턱값 계산
+            // 체중이 반영된 실제 물리 문턱값 계산
             double finalThreshold = getFinalValue(main.getExerciseGoal(), patient, main.getExerciseGoal().getThreshold());
-
-            if (measuredMax < finalThreshold) {
-                log.info("[Judge] MAIN 미달: {} (측정: {}, 문턱치: {})", name, measuredMax, finalThreshold);
+            if (main.getMeasuredValue() < finalThreshold) {
+                log.info("[Judge] MAIN 미달: {} (측정: {}, 문턱치: {})", name, main.getMeasuredValue(), finalThreshold);
                 return new JudgeResult(true, name, calculatedTotal);
             }
         }
+
         // 2. 가속도 우선 판정
         if (accel != null) {
-            String name = accel.getExerciseGoal().getName();
             if (maxAccel >= 100.0) {
-                return new JudgeResult(true, name, calculatedTotal);
+                return new JudgeResult(true, accel.getExerciseGoal().getName(), calculatedTotal);
             }
         }
         // 3. SUB 판정 및 최저점 탐색
-        TryGoalResult worstSub = subs.stream()
-                .filter(s -> isFailedItem(s, scoresMap))
-                .min(Comparator.comparingDouble(s -> getScoreValue(s, scoresMap)))
-                .orElse(null);
+        if (!subs.isEmpty()) {
+            if (scoresMap == null) {
+                // [DB 판정] 평균 사용
+                double subAverage = subs.stream()
+                        .mapToDouble(TryGoalResult::getAchievementRate)
+                        .average().orElse(100.0);
 
-        if (worstSub != null) {
-            return new JudgeResult(true, worstSub.getExerciseGoal().getName(), calculatedTotal);
+                if (subAverage < SUCCESS_THRESHOLD_PERCENT) { // 70점 기준
+                    // 평균 미달 시 가장 낮은 점수 항목을 사유로 제출
+                    TryGoalResult worst = subs.stream()
+                            .min(Comparator.comparingDouble(TryGoalResult::getAchievementRate))
+                            .orElse(subs.get(0));
+                    return new JudgeResult(true, worst.getExerciseGoal().getName(), calculatedTotal);
+                }
+            } else {
+                // [FE 판정] 100점 미만 하나라도 있으면 실패
+                TryGoalResult worstSub = subs.stream()
+                        .filter(s -> isFailedItem(s, scoresMap)) // 원본의 filter 방식 유지
+                        .min(Comparator.comparingDouble(s -> getScoreValue(s, scoresMap)))
+                        .orElse(null);
+
+                if (worstSub != null) {
+                    return new JudgeResult(true, worstSub.getExerciseGoal().getName(), calculatedTotal);
+                }
+            }
         }
 
-        // 실패가 없으면 성공
         return new JudgeResult(false, null, calculatedTotal);
     }
 
