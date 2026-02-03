@@ -46,7 +46,7 @@ public class SequenceService {
         return SequenceDetailResponse.builder()
                 .sequenceId(sequence.getId())
                 .feedback(sequence.getFeedback())
-                .summaries(summaries.stream() // 리스트 형태로 변경 권장
+                .summaries(summaries.stream()
                         .map(this::mapToSummaryInfo)
                         .collect(Collectors.toList()))
                 .sessions(sessions.stream()
