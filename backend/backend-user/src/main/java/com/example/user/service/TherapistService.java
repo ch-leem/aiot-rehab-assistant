@@ -6,7 +6,7 @@ import com.example.iot.domain.SessionSummary;
 import com.example.iot.domain.Therapist;
 import com.example.iot.domain.constant.PatientTherapistMappingStatus;
 import com.example.iot.repository.PatientRepository;
-import com.example.iot.repository.PatientTherapistMappingRepository; // 추가
+import com.example.iot.repository.PatientTherapistMappingRepository;
 import com.example.iot.repository.SessionSummaryRepository;
 import com.example.iot.repository.TherapistRepository;
 import com.example.user.dto.PatientReportResponse;
@@ -38,7 +38,7 @@ public class TherapistService {
         Therapist therapist = therapistRepository.findById(therapistId)
                 .orElseThrow(() -> new IllegalArgumentException("치료사를 찾을 수 없습니다."));
 
-        // 2. 매핑 테이블을 통해 환자 목록 조회 (문제가 되었던 부분 수정)
+        // 2. 매핑 테이블을 통해 환자 목록 조회
         List<PatientTherapistMapping> mappings;
         if (searchName != null && !searchName.trim().isEmpty()) {
             mappings = mappingRepository.findAllByTherapistIdAndPatientName(
@@ -64,21 +64,17 @@ public class TherapistService {
      * 특정 환자의 리포트 상세 데이터 조회
      */
     public PatientReportResponse getPatientReport(Long patientId) {
-        // 특정 환자 1명을 찾을 때는 기존 patientRepository를 써도 무방합니다.
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new IllegalArgumentException("환자를 찾을 수 없습니다."));
 
-        SessionSummary summary = summaryRepository.findFirstBySequence_Patient_IdOrderByIdDesc(patientId)
+        SessionSummary summary = summaryRepository.findLatestByPatientId(patientId)
                 .orElse(null);
 
         return PatientReportResponse.builder()
                 .patientId(patient.getId())
                 .patientName(patient.getName())
-                .totalTrials(summary != null ? summary.getTotalTrials() : 0L)
-                .successTrials(summary != null ? summary.getSuccessTrials() : 0L)
-                .avgAngle(summary != null ? summary.getAvgAngle() : 0.0)
-                .inTargetRate(summary != null ? summary.getInTargetRate() : 0.0)
-                .stabilityLevel(summary != null ? summary.getStabilityLevel() : "데이터 없음")
+                .inTargetRate(summary != null ? summary.getSuccessRate() : 0.0)
+                .stabilityLevel(summary != null ? summary.getSummaryTag() : "데이터 없음")
                 .build();
     }
 
