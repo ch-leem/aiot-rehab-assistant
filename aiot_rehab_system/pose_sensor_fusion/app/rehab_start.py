@@ -384,7 +384,7 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
 
                 cv2.putText(
                     disp,
-                    f"FPS {fps_ema:.1f} conf {conf_th} imu_age {imu_age_out:.0f}ms",
+                    f"FPS {fps_ema:.1f}",
                     (10, disp.shape[0] - 15),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
