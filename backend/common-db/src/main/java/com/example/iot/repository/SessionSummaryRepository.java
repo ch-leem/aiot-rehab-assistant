@@ -12,7 +12,13 @@ import java.util.Optional;
 @Repository
 public interface SessionSummaryRepository extends JpaRepository<SessionSummary, Long> {
 
-    List<SessionSummary> findAllBySequenceId(Long sequenceId);
+    @Query("""
+        select ss from SessionSummary ss 
+        join fetch ss.session s 
+        join fetch s.exercise 
+        where ss.sequence.id = :sequenceId
+    """)
+    List<SessionSummary> findAllBySequenceId(@Param("sequenceId") Long sequenceId);
 
     Optional<SessionSummary> findBySequenceIdAndSession_Exercise_Id(Long sequenceId, Long exerciseId);
 
