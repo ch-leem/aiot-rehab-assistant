@@ -802,6 +802,7 @@ export default function App() {
     sse.onmessage = (ev) => {
       try {
         const payload = JSON.parse(ev.data);
+        console.log("[SSE] lower-body payload", payload);
         const frames = Array.isArray(payload?.frames) ? payload.frames : [];
         const frame = frames.length ? frames[frames.length - 1] : null;
         const power = frame?.sensor?.power;
