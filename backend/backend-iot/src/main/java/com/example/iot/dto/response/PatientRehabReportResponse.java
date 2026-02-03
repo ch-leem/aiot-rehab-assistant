@@ -24,6 +24,7 @@ public record PatientRehabReportResponse(
     ) {}
 
     public record ExerciseSummary(
+            Long sessionId,
             String exerciseName,
             Performance performance,
             String summaryTag,         // STABLE | VARIABLE | UNSTABLE

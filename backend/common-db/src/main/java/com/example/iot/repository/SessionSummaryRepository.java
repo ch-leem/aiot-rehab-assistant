@@ -14,7 +14,7 @@ public interface SessionSummaryRepository extends JpaRepository<SessionSummary, 
 
     List<SessionSummary> findAllBySequenceId(Long sequenceId);
 
-    Optional<SessionSummary> findBySequenceIdAndExerciseId(Long sequenceId, Long exerciseId);
+    Optional<SessionSummary> findBySequenceIdAndSession_Exercise_Id(Long sequenceId, Long exerciseId);
 
     /**
      * 특정 환자의 가장 최근 세션 요약을 가져오는 쿼리 (에러 해결용)

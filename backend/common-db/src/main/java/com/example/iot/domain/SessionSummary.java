@@ -19,8 +19,9 @@ public class SessionSummary {
     @JoinColumn(name = "sequence_id", nullable = false)
     private Sequence sequence;
 
-    @Column(nullable = false)
-    private Long exerciseId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_id", nullable = false)
+    private Session session;
 
     private Double successRate;
     private Double averageScore;

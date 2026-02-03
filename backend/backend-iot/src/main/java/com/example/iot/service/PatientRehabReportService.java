@@ -60,7 +60,13 @@ public class PatientRehabReportService {
                 .map(session -> {
                     // 세션별 이전 기록 문맥 조립
                     PatientRehabReportRequest.PreviousSessionContext prevContext = lastSequence
-                            .flatMap(lastSeq -> sessionSummaryRepository.findBySequenceIdAndExerciseId(lastSeq.getId(), session.getExercise().getId()))
+                            .flatMap(lastSeq ->
+                                    // 수정된 레포지토리 메서드 명 호출 (ExerciseId 기반 조회)
+                                    sessionSummaryRepository.findBySequenceIdAndSession_Exercise_Id(
+                                            lastSeq.getId(),
+                                            session.getExercise().getId()
+                                    )
+                            )
                             .map(summary -> new PatientRehabReportRequest.PreviousSessionContext(
                                     summary.getSequence().getEndedAt(),
                                     summary.getAverageScore(),
@@ -118,9 +124,9 @@ public class PatientRehabReportService {
     @Transactional
     public void saveLlmReportResponse(PatientRehabReportResponse response) {
         Sequence sequence = sequenceRepository.findById(response.sequenceId())
-                .orElseThrow(() -> new IllegalArgumentException("시퀀스를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("시퀀스를 찾을 수 없습니다. ID: " + response.sequenceId()));
 
-        // 메인 리포트 테이블 저장
+        // 1. 메인 리포트 테이블 저장
         PatientRehabReport report = PatientRehabReport.builder()
                 .sequence(sequence)
                 .overallTitle(response.overallSummary().title())
@@ -129,18 +135,17 @@ public class PatientRehabReportService {
                 .build();
         patientRehabReportRepository.save(report);
 
-        // 세션별 요약 테이블 저장 (다음 세션의 Context로 활용됨)
+        // 2. 세션별 요약 테이블 저장 (DTO에 추가된 sessionId 활용)
         List<SessionSummary> summaries = response.exerciseSummaries().stream()
                 .map(es -> {
-                    Long exerciseId = sessionRepository.findBySequenceIdWithExercise(sequence.getId()).stream()
-                            .filter(s -> s.getExercise().getName().equals(es.exerciseName()))
-                            .map(s -> s.getExercise().getId())
-                            .findFirst()
-                            .orElse(0L);
+                    // LLM으로부터 받은 sessionId가 유효한지 검증하고 연관된 Exercise ID 추출
+                    // 만약 SessionSummary가 Session 엔티티 자체를 참조한다면 s.getId() 대신 s를 사용하세요.
+                    Session session = sessionRepository.findById(es.sessionId())
+                            .orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다. ID: " + es.sessionId()));
 
                     return SessionSummary.builder()
                             .sequence(sequence)
-                            .exerciseId(exerciseId)
+                            .session(session)
                             .successRate(es.performance().successRate())
                             .averageScore(es.performance().averageScore())
                             .summaryTag(es.summaryTag())

@@ -52,6 +52,7 @@ public class GmsClient {
             
             Rules:
             - Base all content strictly on the input data.
+            - Ensure the 'sessionId' in 'exerciseSummaries' matches the correct session from the input data.
             - Use observable patterns at sequence and session levels.
             - Emphasize task execution quality, stability, and safety.
             - Avoid diagnoses, prescriptions, or treatment decisions.
@@ -80,6 +81,7 @@ public class GmsClient {
             
               "exerciseSummaries": [
                 {
+                  "sessionId": number,
                   "exerciseName": string,
                   "performance": {
                     "successRate": number,
