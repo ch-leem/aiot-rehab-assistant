@@ -76,7 +76,7 @@ public class RecentGoalsService {
             Long exId = s.getExercise().getId();
             Exercise exercise = exerciseService.getExercise(exId);
             String exName = exercise.getName();
-            int sucess = s.getSuccessTries();
+            int sucess = Integer.parseInt(s.getGoal());
             int total = s.getTotalTries();
 
             String goal = "";
