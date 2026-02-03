@@ -34,7 +34,6 @@ export default function MoleGame({
   };
 
   useEffect(() => {
-    // 1. 초기화 방어막: StrictMode 등에서 두 번 실행되는 것 방지
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
     setLoading(true);
@@ -44,7 +43,6 @@ export default function MoleGame({
 
     const container = containerRef.current;
     
-    // 2. 렌더러 생성 및 설정
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight || 500);
@@ -54,7 +52,6 @@ export default function MoleGame({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    // 3. 카메라 및 컨트롤 고정 (사용자 요청 좌표)
     const camera = new THREE.PerspectiveCamera(60, container.clientWidth / (container.clientHeight || 500), 1, 30000);
     const controls = new OrbitControls(camera, renderer.domElement);
 
@@ -62,12 +59,11 @@ export default function MoleGame({
     controls.target.set(-2.3569183892997163, 5.445169949849723, 4.009778652053535);
     controls.enableRotate = false;
     controls.enablePan = false;
-    controls.enableZoom = false;
+    controls.enableZoom = true;
     controls.update();
 
-    // 4. 조명 설정
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(200, 2000, 200); // 좌표가 크므로 조명도 높게
+    sun.position.set(200, 2000, 200);
     scene.add(sun);
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
@@ -84,21 +80,17 @@ export default function MoleGame({
       }, delay);
     }, 10000);
 
-    // 게임 변수
     let currentRound = 0;
     const totalRounds = 10;
-    const popDuration = 0.5;
     const baseShowDuration = 5.0;
     const firstShowDuration = 30.0;
-    let moleTimer = 0;
     let showTimer = 0;
-    let phase = "idle";
+    let phase = "show";  // ✅ 처음부터 show!
     let hitTriggered = false;
     let tryResolved = false;
     let holdStart = 0;
     let holding = false;
 
-    // 5. 모델 로딩 (안정적인 Traverse 로직)
     loader.load("/mole7.glb", (gltf) => {
       clearTimeout(loadingTimeout);
       const root = gltf.scene;
@@ -107,13 +99,37 @@ export default function MoleGame({
       let moleRoot = null;
       let hammerRoot = null;
 
+      const hasRenderableMeshes = (target) => {
+        if (!target) return false;
+        let meshCount = 0;
+        target.traverse((obj) => {
+          if (obj.isMesh) meshCount += 1;
+        });
+        if (meshCount === 0) return false;
+        const bounds = new THREE.Box3().setFromObject(target);
+        const size = bounds.getSize(new THREE.Vector3());
+        return Number.isFinite(size.x) && Number.isFinite(size.y) && Number.isFinite(size.z) && (size.x + size.y + size.z) > 0;
+      };
+
       root.traverse((obj) => {
         if (obj.isMesh) {
           obj.castShadow = true;
           obj.receiveShadow = true;
         }
-        // 정확한 최상위 이름 매칭
-        if (obj.name === "Mole") moleRoot = obj;
+        
+        // ✅ Mole을 찾되, 그룹 전체를 찾음!
+        if (obj.name === "Mole") {
+          // Mole이 메시인지 그룹인지 확인
+          if (obj.type === "Group" || obj.children.length > 0) {
+            console.log(`[MoleGame] 🐹 Mole 그룹 발견`);
+            moleRoot = obj;
+          } else {
+            console.log(`[MoleGame] 🐹 Mole 메시 발견 (부모 찾기)`);
+            // 메시라면 부모를 Mole로
+            moleRoot = obj.parent && obj.parent.name === "Mole" ? obj.parent : obj;
+          }
+        }
+        
         if (obj.name === "Hammer") hammerRoot = obj;
         if (!hammerRoot && obj.name === "Cilindro.007_molesAtlas_0") {
           hammerRoot = obj.parent?.parent ?? obj.parent ?? obj;
@@ -130,9 +146,10 @@ export default function MoleGame({
 
       if (moleRoot) {
         moleRoot.userData.originalY = moleRoot.position.y;
-        moleRoot.userData.hiddenY = moleRoot.position.y - 1200; 
-        moleRoot.position.y = moleRoot.userData.hiddenY;
+        moleRoot.userData.hiddenY = moleRoot.position.y - 1200;
+        // ✅ 처음에는 나와있는 상태! (position.y 변경 안 함!)
         moleRef.current = moleRoot;
+        console.log(`[MoleGame] 🐹 두더지 Y=${moleRoot.position.y.toFixed(2)} (나와있음)`);
       } else {
         console.error("[MoleGame] Mole root not found");
       }
@@ -140,11 +157,11 @@ export default function MoleGame({
       if (hammerRoot) {
         hammerRoot.userData.originalY = hammerRoot.position.y;
         hammerRoot.userData.hiddenY = hammerRoot.position.y + 800; 
-        // ✅ 요청하신 대로 망치가 더 깊게(-450) 내려가도록 수정
         hammerRoot.userData.hitY = hammerRoot.position.y - 250;    
         hammerRoot.position.y = hammerRoot.userData.hiddenY;
         hammerRoot.visible = false;
         hammerRef.current = hammerRoot;
+        console.log(`[MoleGame] 🔨 망치 준비 완료`);
       } else {
         console.error("[MoleGame] Hammer root not found");
       }
@@ -152,7 +169,14 @@ export default function MoleGame({
       gameStateRef.current = "playing";
       setGameState("playing");
       beginTry();
-      assetsReadyRef.current = Boolean(moleRef.current && hammerRef.current);
+      
+      assetsReadyRef.current = Boolean(
+        moleRef.current &&
+        hammerRef.current &&
+        hasRenderableMeshes(moleRef.current) &&
+        hasRenderableMeshes(hammerRef.current)
+      );
+      
       if (assetsTimeoutRef.current) {
         clearTimeout(assetsTimeoutRef.current);
       }
@@ -162,6 +186,7 @@ export default function MoleGame({
           setLoading(false);
         }
       }, 6000);
+      
       const elapsed = performance.now() - loadStartRef.current;
       const delay = Math.max(0, 3000 - elapsed);
       if (loadingDelayRef.current) {
@@ -188,15 +213,13 @@ export default function MoleGame({
     });
 
     const beginTry = () => {
-      moleTimer = 0;
       showTimer = 0;
-      phase = "popUp";
+      phase = "show";  // ✅ 바로 show 상태! (이미 나와있음)
       hitTriggered = false;
       tryResolved = false;
-      console.log(`[MoleGame] try start ${currentRound + 1}/${totalRounds}`);
+      console.log(`[MoleGame] 시작 ${currentRound + 1}/${totalRounds} - 두더지 대기 중`);
     };
 
-    // 6. 타격 함수
     const hitMole = () => {
       const mole = moleRef.current;
       const hammer = hammerRef.current;
@@ -205,12 +228,15 @@ export default function MoleGame({
 
       currentRound += 1;
       if (onCountChangeRef.current) onCountChangeRef.current(currentRound, totalRounds);
-      console.log(`[MoleGame] try success ${currentRound}/${totalRounds}`);
+      console.log(`[MoleGame] ✅ 성공 ${currentRound}/${totalRounds}`);
 
-      const createHitEffect = (pos) => {
+      const createHitEffect = (moleObj, scale = 1) => {
+        console.log(`[이펙트] 두더지 로컬 위치: [${moleObj.position.x.toFixed(2)}, ${moleObj.position.y.toFixed(2)}, ${moleObj.position.z.toFixed(2)}]`);
+        
         const particleCount = 8;
         const particles = [];
-        const geometry = new THREE.SphereGeometry(12, 10, 10);
+        const size = 20 * scale;
+        const geometry = new THREE.SphereGeometry(size, 10, 10);
         const material = new THREE.MeshBasicMaterial({
           color: 0xffd700,
           transparent: true,
@@ -218,18 +244,33 @@ export default function MoleGame({
           blending: THREE.AdditiveBlending,
         });
 
+        // ✅ 두더지의 부모 또는 씬
+        const parentObj = moleObj.parent || scene;
+
         for (let i = 0; i < particleCount; i += 1) {
           const p = new THREE.Mesh(geometry, material);
-          p.position.copy(pos);
-          p.position.y += 150;
+          
+          // ✅ 두더지와 같은 좌표계 사용!
+          p.position.set(
+            moleObj.position.x,
+            moleObj.position.y + 100 * scale,  // 머리 위
+            moleObj.position.z
+          );
+          
+          if (i === 0) {
+            console.log(`[이펙트] 파티클 0 위치: [${p.position.x.toFixed(2)}, ${p.position.y.toFixed(2)}, ${p.position.z.toFixed(2)}]`);
+          }
+          
           p.frustumCulled = false;
           p.renderOrder = 10;
           p.userData.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 50,
-            Math.random() * 50 + 20,
-            (Math.random() - 0.5) * 50
+            (Math.random() - 0.5) * 50 * scale,
+            (Math.random() * 50 + 20) * scale,
+            (Math.random() - 0.5) * 50 * scale
           );
-          scene.add(p);
+          
+          // ✅ 두더지와 같은 부모에 추가!
+          parentObj.add(p);
           particles.push(p);
         }
 
@@ -249,13 +290,19 @@ export default function MoleGame({
           if (alive) {
             requestAnimationFrame(animateParticles);
           } else {
-            particles.forEach((p) => scene.remove(p));
+            // ✅ 각 파티클을 그 부모에서 제거
+            particles.forEach((p) => {
+              if (p.parent) {
+                p.parent.remove(p);
+              }
+            });
           }
         };
 
         animateParticles();
       };
 
+      // ✅ 1. 망치 떨어지기
       hammer.visible = true;
       const hStartTime = performance.now();
       
@@ -267,7 +314,17 @@ export default function MoleGame({
         if (progress < 1) {
           requestAnimationFrame(animateHammer);
         } else {
-          createHitEffect(mole.position);
+          console.log(`[MoleGame] 💥 망치 충돌!`);
+          
+          // ✅ 두더지 스케일
+          const worldScale = new THREE.Vector3();
+          mole.getWorldScale(worldScale);
+          const effectScale = Math.max(worldScale.x, worldScale.y, worldScale.z) || 1;
+          
+          // ✅ 두더지 객체 전달!
+          createHitEffect(mole, effectScale);
+          
+          // ✅ 2. 두더지 내려가기 (망치 맞은 후!)
           const mStartTime = performance.now();
           const startY = mole.position.y;
           const targetY = mole.userData.hiddenY;
@@ -276,18 +333,31 @@ export default function MoleGame({
             const mElapsed = mNow - mStartTime;
             const mProgress = Math.min(1, mElapsed / 300);
             mole.position.y = THREE.MathUtils.lerp(startY, targetY, mProgress);
-            if (mProgress < 1) requestAnimationFrame(animateMoleDown);
+            
+            if (mProgress < 1) {
+              requestAnimationFrame(animateMoleDown);
+            } else {
+              console.log(`[MoleGame] 📉 두더지 내려감 완료`);
+            }
           };
           requestAnimationFrame(animateMoleDown);
         }
       };
       requestAnimationFrame(animateHammer);
 
+      // ✅ 3. 1.5초 후 다음 라운드 (두더지 다시 올리기)
       setTimeout(() => {
         if (hammerRef.current) {
           hammerRef.current.visible = false;
           hammerRef.current.position.y = hammerRef.current.userData.hiddenY;
         }
+        
+        // ✅ 두더지 다시 올리기!
+        if (moleRef.current) {
+          moleRef.current.position.y = moleRef.current.userData.originalY;
+          console.log(`[MoleGame] 🐹 두더지 다시 올라옴`);
+        }
+        
         if (currentRound >= totalRounds) {
           gameStateRef.current = "completed";
           setGameState("completed");
@@ -297,7 +367,6 @@ export default function MoleGame({
       }, 1500);
     };
 
-    // 7. 키보드 이벤트
     const onKeyDown = (e) => { 
       if (e.code === "KeyW" && !holding && gameStateRef.current === "playing") { 
         holding = true; holdStart = performance.now(); 
@@ -308,51 +377,62 @@ export default function MoleGame({
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
-    // 8. 메인 애니메이션 루프
     let rafId;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
       const dt = 0.016;
 
       if (gameStateRef.current === "playing" && moleRef.current) {
-        moleTimer += dt;
-        if (phase === "popUp") {
-          const p = Math.min(1, moleTimer / popDuration);
-          moleRef.current.position.y = THREE.MathUtils.lerp(moleRef.current.userData.hiddenY, moleRef.current.userData.originalY, p);
-          if (p >= 1) { phase = "show"; showTimer = 0; }
-        } 
-        else if (phase === "show") {
+        if (phase === "show") {
           showTimer += dt;
           const isFirstTry = currentRound === 0;
           const maxShowDuration = isFirstTry ? firstShowDuration : baseShowDuration;
+          
+          // ✅ 시간 초과 실패
           if (showTimer >= maxShowDuration && !hitTriggered && !tryResolved) { 
             hitTriggered = true;
             tryResolved = true;
+            console.log(`[MoleGame] ❌ 시간 초과`);
+            
             const startY = moleRef.current.position.y;
             const targetY = moleRef.current.userData.hiddenY;
             const mStartTime = performance.now();
+            
             const failAnim = (mNow) => {
               const mp = Math.min(1, (mNow - mStartTime) / 400);
               moleRef.current.position.y = THREE.MathUtils.lerp(startY, targetY, mp);
-              if (mp < 1) requestAnimationFrame(failAnim);
-              else {
-                currentRound += 1;
-                if (onCountChangeRef.current) onCountChangeRef.current(currentRound, totalRounds);
-                console.log(`[MoleGame] try fail ${currentRound}/${totalRounds}`);
-                if (currentRound >= totalRounds) {
-                  gameStateRef.current = "completed";
-                  setGameState("completed");
-                } else {
-                  beginTry();
-                }
+              
+              if (mp < 1) {
+                requestAnimationFrame(failAnim);
+              } else {
+                // 두더지 다시 올리기
+                setTimeout(() => {
+                  if (moleRef.current) {
+                    moleRef.current.position.y = moleRef.current.userData.originalY;
+                  }
+                  
+                  currentRound += 1;
+                  if (onCountChangeRef.current) onCountChangeRef.current(currentRound, totalRounds);
+                  
+                  if (currentRound >= totalRounds) {
+                    gameStateRef.current = "completed";
+                    setGameState("completed");
+                  } else {
+                    beginTry();
+                  }
+                }, 500);
               }
             };
             requestAnimationFrame(failAnim);
           }
+          
+          // ✅ W 키 성공
           if (holding && !hitTriggered && !tryResolved && (performance.now() - holdStart >= 1000)) { 
             hitTriggered = true; 
             hitMole(); 
           }
+          
+          // ✅ 센서 성공
           if (
             !hitTriggered &&
             !tryResolved &&
@@ -368,7 +448,6 @@ export default function MoleGame({
     };
     animate();
 
-    // 9. 클린업 (중요!)
     return () => {
       clearTimeout(loadingTimeout);
       if (loadingDelayRef.current) {
