@@ -25,7 +25,7 @@ public class Session {
     @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
-    private String goal = "0";
+    private String goal;
 
     @Column(name = "total_tries")
     private int totalTries = 0; // 전체 시도 횟수

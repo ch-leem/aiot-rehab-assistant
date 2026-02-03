@@ -106,7 +106,6 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const stageTotal = 5;
   const [postureChecked, setPostureChecked] = useState(false);
-  const [guideEnded, setGuideEnded] = useState(false);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [setIndex, setSetIndex] = useState(1);
   const [exerciseDetails, setExerciseDetails] = useState({});
@@ -117,36 +116,23 @@ export default function App() {
   const [armRaiseCount, setArmRaiseCount] = useState(0);
   const [armRaiseTotal, setArmRaiseTotal] = useState(10);
   const [armRaiseFeedback, setArmRaiseFeedback] = useState(null);
-  const [lowerBodyFeedback, setLowerBodyFeedback] = useState(null);
   const [moleGameCount, setMoleGameCount] = useState(0);
   const [moleGameTotal, setMoleGameTotal] = useState(10);
   const [holdingPower, setHoldingPower] = useState(0);
   const [exerciseCompleteFeedback, setExerciseCompleteFeedback] = useState(null);
   const [sensorPower, setSensorPower] = useState(null);
-  const [countdownStep, setCountdownStep] = useState(null);
-  const [moleTrySignal, setMoleTrySignal] = useState(0);
-  const patientWeight = 50;
-  const requiredPower = patientWeight * 0.6;
+  const patientWeight = 70;
+  const requiredPower = patientWeight * 0.75;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
   const molePreloadRef = useRef(false);
   const exerciseCompleteTimerRef = useRef(null);
-  const countdownTimerRef = useRef(null);
-  const countdownActiveRef = useRef(false);
-  const lastCountdownTryRef = useRef(null);
-  const countdownTokenRef = useRef(0);
-  const sessionStartSentRef = useRef(null);
-  const startedTryRef = useRef(null);
-  const lastStartedTryIndexRef = useRef(-1);
   const armRaiseTimeoutRef = useRef(null);
-  const moleTryTimeoutRef = useRef(null);
   const lastArmRaiseCountRef = useRef(0);
   const armRaiseCompleteRef = useRef(false);
   const prevTryIndexRef = useRef(0);
   const armRaiseCompleteTimerRef = useRef(null);
-  const lowerBodyFeedbackTimerRef = useRef(null);
   const allowSessionExitRef = useRef(false);
-  const lastMoleCountRef = useRef(0);
   const [activeTryId, setActiveTryId] = useState(null);
   const [compareItems, setCompareItems] = useState([]);
   const [sequenceAverages, setSequenceAverages] = useState([]);
@@ -166,11 +152,7 @@ export default function App() {
       F_PL_HOR: "/audio/F_PL_HOR_골반을_맞춰주세요.mp3",
       F_ANK_STB: "/audio/F_ANK_STB_반대쪽_발에_발목을_고정해주세요.mp3",
       F_ELSE: "/audio/F_ELSE_예외_발생_예외_발생.mp3",
-      SUCCESS: "/audio/T_잘하셨어요.mp3",
-      3: "/audio/3_삼.mp3",
-      2: "/audio/2_이.mp3",
-      1: "/audio/1_일.mp3",
-      시작: "/audio/시작_시작.mp3"
+      SUCCESS: "/audio/T_잘하셨어요.mp3"
     };
 
     const src = AUDIO_MAP[failId] || AUDIO_MAP.F_ELSE;
@@ -336,7 +318,6 @@ export default function App() {
     }
     try {
       if (useMock) {
-        console.log("[FLOW] sequence start");
         setSequenceId(1);
         setSequenceSessions(
           todayExerciseIds.map((exerciseId, index) => ({
@@ -348,7 +329,6 @@ export default function App() {
         moveToExerciseIntro();
         return;
       }
-      console.log("[FLOW] sequence start");
       console.log("[API] sequence POST", {
         url: `${API_USER_BASE_URL}/api/sequence/${trimmedPatientId}`,
         body: { triesPerSession: 10 },
@@ -421,18 +401,11 @@ export default function App() {
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO) return;
     setPostureChecked(false);
-    setGuideEnded(false);
-    return undefined;
-  }, [screen, exerciseIndex]);
-
-  useEffect(() => {
-    if (screen !== SCREEN.EXERCISE_INTRO || !guideEnded) return;
-    setPostureChecked(true);
     const timeout = setTimeout(() => {
-      enterSession();
-    }, 200);
+      setPostureChecked(true);
+    }, 6000);
     return () => clearTimeout(timeout);
-  }, [screen, guideEnded]);
+  }, [screen, exerciseIndex]);
 
   useEffect(() => {
     if (!currentExerciseId) return;
@@ -497,47 +470,21 @@ export default function App() {
     };
   }, [requiredPower]);
 
-  const preloadMoleModel = useCallback(() => {
-    if (molePreloadRef.current) return;
-    molePreloadRef.current = true;
-    try {
-      THREE.Cache.enabled = true;
-      const loader = new GLTFLoader();
-      loader.load(
-        "/mole7.glb",
-        () => {
-          molePreloadRef.current = true;
-        },
-        undefined,
-        () => {
-          molePreloadRef.current = false;
-        }
-      );
-    } catch {
-      molePreloadRef.current = false;
+  const startSession = async () => {
+    const sessionId = sequenceSessions[exerciseIndex]?.sessionId;
+    if (!sessionId || startedSessionId === sessionId) {
+      setScreen(SCREEN.EXERCISE_SESSION);
+      return;
     }
-  }, []);
-
-  const clearCountdown = useCallback(() => {
-    if (countdownTimerRef.current) {
-      clearTimeout(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-    countdownActiveRef.current = false;
-    countdownTokenRef.current += 1;
-    setCountdownStep(null);
-  }, []);
-
-  const sendSessionStartSignal = async (sessionId) => {
-    if (!sessionId) return;
-    if (startedSessionId === sessionId) return;
     try {
       if (useMock) {
-        console.log("[FLOW] session start", sessionId);
         setStartedSessionId(sessionId);
+        setScreen(SCREEN.EXERCISE_SESSION);
         return;
       }
-      console.log("[FLOW] session start", sessionId);
+      console.log("[API] session start", {
+        url: `${API_USER_BASE_URL}/sessions/${sessionId}/start`,
+      });
       await fetch(`${API_USER_BASE_URL}/sessions/${sessionId}/start`, {
         method: "POST",
       });
@@ -545,36 +492,17 @@ export default function App() {
       // ignore start errors for now
     } finally {
       setStartedSessionId(sessionId);
+      setScreen(SCREEN.EXERCISE_SESSION);
     }
   };
-
-  const enterSession = () => {
-    setScreen(SCREEN.EXERCISE_SESSION);
-  };
-
-  useEffect(() => {
-    if (screen !== SCREEN.EXERCISE_INTRO) return;
-    const sessionId = sequenceSessions[exerciseIndex]?.sessionId;
-    if (!sessionId || sessionStartSentRef.current === sessionId) return;
-    sessionStartSentRef.current = sessionId;
-    sendSessionStartSignal(sessionId);
-    if (currentExerciseId === 2) {
-      preloadMoleModel();
-    }
-  }, [screen, exerciseIndex, sequenceSessions, currentExerciseId, sendSessionStartSignal, preloadMoleModel]);
 
   const startTry = async (nextTryId) => {
     if (!nextTryId || activeTryId === nextTryId) return;
-    if (startedTryRef.current === nextTryId) return;
     try {
       if (useMock) {
-        console.log("[FLOW] try start", nextTryId);
-        startedTryRef.current = nextTryId;
         setActiveTryId(nextTryId);
         return;
       }
-      console.log("[FLOW] try start", nextTryId);
-      startedTryRef.current = nextTryId;
       console.log("[API] try start", {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/start`,
       });
@@ -586,49 +514,13 @@ export default function App() {
     }
   };
 
-  const runCountdown = useCallback((nextTryId) => {
-    if (!nextTryId) return;
-    if (startedTryRef.current === nextTryId) return;
-    clearCountdown();
-    countdownActiveRef.current = true;
-    const token = countdownTokenRef.current + 1;
-    countdownTokenRef.current = token;
-    const steps = ["3", "2", "1", "시작"];
-    let index = 0;
-    playFailAudio(steps[index]);
-    setCountdownStep(steps[index]);
-    const tick = () => {
-      if (countdownTokenRef.current !== token) return;
-      index += 1;
-      if (index < steps.length) {
-        playFailAudio(steps[index]);
-        setCountdownStep(steps[index]);
-        if (index === steps.length - 1) {
-          startTry(nextTryId);
-          countdownTimerRef.current = setTimeout(() => {
-            if (countdownTokenRef.current !== token) return;
-            clearCountdown();
-            if (currentExerciseId === 2) {
-              setMoleTrySignal((prev) => prev + 1);
-            }
-          }, 1000);
-          return;
-        }
-        countdownTimerRef.current = setTimeout(tick, 1000);
-      }
-    };
-    countdownTimerRef.current = setTimeout(tick, 1000);
-  }, [clearCountdown, startTry, currentExerciseId]);
-
   const finishTry = async (nextTryId) => {
     if (!nextTryId) return;
     try {
       if (useMock) {
-        console.log("[FLOW] try finish", nextTryId);
         setTryScores((prev) => ({ ...prev, [nextTryId]: 10 }));
         return;
       }
-      console.log("[FLOW] try finish", nextTryId);
       console.log("[API] try finish", {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`,
         body: { tryId: nextTryId, failType: "", totalScore: 0 },
@@ -652,7 +544,6 @@ export default function App() {
     } catch {
       // ignore finish errors for now
     }
-    startedTryRef.current = null;
     return null;
   };
 
@@ -660,11 +551,7 @@ export default function App() {
     const sessionId = sequenceSessions[exerciseIndex]?.sessionId;
     if (!sessionId) return;
     try {
-      if (useMock) {
-        console.log("[FLOW] session finish", sessionId);
-        return;
-      }
-      console.log("[FLOW] session finish", sessionId);
+      if (useMock) return;
       console.log("[API] session finish", {
         url: `${API_USER_BASE_URL}/api/sessions/${sessionId}/finish`,
       });
@@ -679,11 +566,7 @@ export default function App() {
   const finishSequence = async () => {
     if (!sequenceId) return;
     try {
-      if (useMock) {
-        console.log("[FLOW] sequence finish", sequenceId);
-        return;
-      }
-      console.log("[FLOW] sequence finish", sequenceId);
+      if (useMock) return;
       console.log("[API] sequence finish", {
         url: `${API_USER_BASE_URL}/api/sequences/${sequenceId}/finish`,
       });
@@ -736,12 +619,7 @@ export default function App() {
         clearTimeout(exerciseCompleteTimerRef.current);
         exerciseCompleteTimerRef.current = null;
       }
-      if (lowerBodyFeedbackTimerRef.current) {
-        clearTimeout(lowerBodyFeedbackTimerRef.current);
-        lowerBodyFeedbackTimerRef.current = null;
-      }
       setExerciseCompleteFeedback(null);
-      setLowerBodyFeedback(null);
       return;
     }
   }, [screen]);
@@ -762,7 +640,7 @@ export default function App() {
       armRaiseCompleteRef.current = true;
       setArmRaiseFeedback({
         id: Date.now(),
-        message: "수고하셨습니다",
+        message: "고생하셨습니다.\n오늘도 완료하셨습니다",
         duration: 5000,
       });
       if (armRaiseCompleteTimerRef.current) {
@@ -788,7 +666,7 @@ export default function App() {
       moleAutoAdvanceRef.current = true;
       setExerciseCompleteFeedback({
         id: Date.now(),
-        message: "수고하셨습니다",
+        message: "고생하셨습니다.\n오늘도 완료하셨습니다",
         duration: 5000,
       });
       if (exerciseCompleteTimerRef.current) {
@@ -801,7 +679,14 @@ export default function App() {
     }
   }, [screen, currentExerciseId, moleGameCount, moleGameTotal, goToNextStep]);
 
-  // 하체 전용일 때도 화면 흐름은 항상 intro -> session 순서를 유지한다.
+  useEffect(() => {
+    if (currentExerciseId !== 2) return;
+    if (screen === SCREEN.EXERCISE_SESSION) return;
+    if (screen === SCREEN.EXERCISE_INTRO || screen === SCREEN.EXERCISE_LIST) return;
+    if (moleGameCount < moleGameTotal) {
+      setScreen(SCREEN.EXERCISE_SESSION);
+    }
+  }, [screen, currentExerciseId, moleGameCount, moleGameTotal]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
@@ -809,16 +694,38 @@ export default function App() {
     }
     if (useMock) {
       setSensorPower(null);
+      return;
     }
+    if (typeof EventSource === "undefined") return;
+    const sse = new EventSource("/api/ingest/events");
+    sse.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        const frames = Array.isArray(payload?.frames) ? payload.frames : [];
+        const frame = frames.length ? frames[frames.length - 1] : null;
+        const power = frame?.sensor?.power;
+        if (typeof power === "number") {
+          setSensorPower(power);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+    sse.onerror = () => {
+      sse.close();
+    };
+    return () => {
+      sse.close();
+    };
   }, [screen, currentExerciseId, useMock]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
     const timeout = setTimeout(() => {
-      enterSession();
+      startSession();
     }, 1200);
     return () => clearTimeout(timeout);
-  }, [screen, postureChecked]);
+  }, [screen, postureChecked, exerciseIndex, sequenceSessions, startedSessionId]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
@@ -833,9 +740,8 @@ export default function App() {
     lastArmRaiseCountRef.current = armRaiseCount;
 
     const run = async () => {
-      let nextDelayMs = 0;
+      let nextDelayMs = 2000;
       const currentTryId = currentTryIds[tryIndex];
-      startedTryRef.current = null;
       if (currentTryId) {
         const result = await finishTry(currentTryId);
         if (result && typeof result === "object") {
@@ -847,9 +753,9 @@ export default function App() {
             setArmRaiseFeedback({
               id: Date.now(),
               message: "잘하셨어요!",
-              duration: 2500,
+              duration: 2000,
             });
-            nextDelayMs = 2500;
+            nextDelayMs = 2000;
           } else if (status === "FAIL") {
             const failId = result.failId || "F_ELSE";
 
@@ -858,9 +764,9 @@ export default function App() {
             setArmRaiseFeedback({
               id: Date.now(),
               message: result.failName || "예외 발생 예외 발생",
-              duration: 3500,
+              duration: 2400,
             });
-            nextDelayMs = 3500;
+            nextDelayMs = 2400;
           }
         }
       }
@@ -870,7 +776,6 @@ export default function App() {
           clearTimeout(armRaiseTimeoutRef.current);
         }
         armRaiseTimeoutRef.current = setTimeout(() => {
-          startedTryRef.current = null;
           setTryIndex((prev) => prev + 1);
           armRaiseTimeoutRef.current = null;
         }, nextDelayMs);
@@ -890,73 +795,6 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
-      lastMoleCountRef.current = moleGameCount;
-      if (moleTryTimeoutRef.current) {
-        clearTimeout(moleTryTimeoutRef.current);
-        moleTryTimeoutRef.current = null;
-      }
-      return;
-    }
-    if (moleGameCount <= lastMoleCountRef.current) return;
-    lastMoleCountRef.current = moleGameCount;
-    const currentTryId = currentTryIds[tryIndex];
-    const run = async () => {
-      let nextDelayMs = 2500;
-      if (currentTryId) {
-        const result = await finishTry(currentTryId);
-        if (result && typeof result === "object") {
-          const status = String(result.resultStatus || "").toUpperCase();
-          if (status === "SUCCESS") {
-            playFailAudio("SUCCESS");
-            setLowerBodyFeedback({
-              id: Date.now(),
-              message: "잘하셨어요!",
-              duration: 2500,
-            });
-            nextDelayMs = 2500;
-          } else if (status === "FAIL") {
-            const failId = result.failId || "F_ELSE";
-            playFailAudio(failId);
-            setLowerBodyFeedback({
-              id: Date.now(),
-              message: result.failName || "예외 발생",
-              duration: 3500,
-            });
-            nextDelayMs = 3500;
-          }
-        }
-      }
-      if (moleGameCount < moleGameTotal) {
-        if (moleTryTimeoutRef.current) {
-          clearTimeout(moleTryTimeoutRef.current);
-        }
-        if (lowerBodyFeedbackTimerRef.current) {
-          clearTimeout(lowerBodyFeedbackTimerRef.current);
-        }
-        lowerBodyFeedbackTimerRef.current = setTimeout(() => {
-          setLowerBodyFeedback(null);
-          lowerBodyFeedbackTimerRef.current = null;
-        }, nextDelayMs);
-        moleTryTimeoutRef.current = setTimeout(() => {
-          startedTryRef.current = null;
-          setTryIndex((prev) => prev + 1);
-          moleTryTimeoutRef.current = null;
-        }, nextDelayMs);
-      }
-    };
-    run();
-  }, [
-    screen,
-    currentExerciseId,
-    moleGameCount,
-    moleGameTotal,
-    currentTryIds,
-    tryIndex,
-    finishTry,
-  ]);
-
-  useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION) return;
     setSetIndex(1);
   }, [screen, exerciseIndex]);
@@ -968,34 +806,12 @@ export default function App() {
   }, [exerciseIndex]);
 
   useEffect(() => {
-    if (screen !== SCREEN.EXERCISE_SESSION) {
-      lastCountdownTryRef.current = null;
-      lastStartedTryIndexRef.current = -1;
-      startedTryRef.current = null;
-      clearCountdown();
-      return;
-    }
-    if (!guideEnded) return;
+    if (screen !== SCREEN.EXERCISE_SESSION) return;
     const nextTryId = currentTryIds[tryIndex];
-    if (!nextTryId) return;
-    if (lastStartedTryIndexRef.current === tryIndex) return;
-    if (lastCountdownTryRef.current === nextTryId) return;
-    lastCountdownTryRef.current = nextTryId;
-    lastStartedTryIndexRef.current = tryIndex;
-    runCountdown(nextTryId);
-    if (currentExerciseId === 2) {
-      preloadMoleModel();
+    if (nextTryId) {
+      startTry(nextTryId);
     }
-  }, [
-    screen,
-    guideEnded,
-    tryIndex,
-    currentTryIds,
-    currentExerciseId,
-    runCountdown,
-    clearCountdown,
-    preloadMoleModel,
-  ]);
+  }, [screen, tryIndex, currentTryIds]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
@@ -1216,7 +1032,7 @@ export default function App() {
             <button
               className="primary-button"
               type="button"
-              onClick={enterSession}
+              onClick={startSession}
               disabled={!postureChecked}
             >
               바로 시작
@@ -1228,47 +1044,21 @@ export default function App() {
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
           <div className="session-visual">
-            {!guideEnded && (
-              <div className="exercise-guide-video">
-                <video
-                  src="/IMG_4685.mov"
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={() => setGuideEnded(true)}
-                  controls={false}
-                />
-              </div>
-            )}
             {exerciseCompleteFeedback && exerciseCompleteFeedback.message && (
               <div className="arm-raise-feedback" style={{ opacity: 1 }}>
                 {exerciseCompleteFeedback.message}
               </div>
             )}
-            {currentExerciseId === 2 &&
-              lowerBodyFeedback &&
-              lowerBodyFeedback.message && (
-                <div className="arm-raise-feedback" style={{ opacity: 1 }}>
-                  {lowerBodyFeedback.message}
-                </div>
-              )}
-            {countdownStep && (
-              <div className="try-countdown-overlay">
-                <div className="try-countdown-text">{countdownStep}</div>
-              </div>
-            )}
-            {guideEnded && currentExerciseId === 2 ? (
+            {currentExerciseId === 2 ? (
               <MoleGame
                 onCountChange={(count, total) => {
                   setMoleGameCount(count);
                   setMoleGameTotal(total);
                 }}
-                onPowerChange={(power) => setSensorPower(power)}
+                sensorPower={holdingPower || sensorPower}
                 requiredPower={requiredPower}
-                tryStartSignal={moleTrySignal}
-                showLoadingOverlay={false}
               />
-            ) : guideEnded ? (
+            ) : (
               <ArmRaiseGame
                 onCountChange={(count, total) => {
                   setArmRaiseCount(count);
@@ -1276,7 +1066,7 @@ export default function App() {
                 }}
                 resultFeedback={armRaiseFeedback}
               />
-            ) : null}
+            )}
           </div>
           <div className="session-panel session-panel-next">
             {currentExerciseId === 2 && (
