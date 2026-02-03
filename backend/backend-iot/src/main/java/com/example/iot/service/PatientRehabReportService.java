@@ -1,5 +1,6 @@
 package com.example.iot.service;
 
+import com.example.iot.client.GmsClient;
 import com.example.iot.domain.*;
 import com.example.iot.dto.request.PatientRehabReportRequest;
 import com.example.iot.dto.response.PatientRehabReportResponse;
@@ -24,7 +25,8 @@ public class PatientRehabReportService {
     private final SessionRepository sessionRepository;
     private final SessionSummaryRepository sessionSummaryRepository;
     private final PatientRehabReportRepository patientRehabReportRepository;
-    private final ExercisePatientMappingRepository mappingRepository; // 추가
+    private final ExercisePatientMappingRepository mappingRepository;
+    private final GmsClient gmsClient;
     private final ObjectMapper objectMapper;
 
     /**
@@ -149,6 +151,33 @@ public class PatientRehabReportService {
                 }).toList();
 
         sessionSummaryRepository.saveAll(summaries);
+    }
+
+    @Transactional
+    public void createAndSaveReport(Long sequenceId) {
+        // 1. 데이터 조립
+        PatientRehabReportRequest request = createReportRequest(sequenceId);
+
+        // 2. LLM 분석 요청 (GmsClient 호출)
+        PatientRehabReportResponse response = gmsClient.getLlmAnalysis(request);
+
+        // 3. 결과 저장
+        saveLlmReportResponse(response);
+    }
+
+    @Transactional(readOnly = true)
+    public PatientRehabReportResponse getSavedReport(Long sequenceId) {
+        // 시퀀스 ID로 저장된 리포트 엔티티 조회
+        PatientRehabReport report = patientRehabReportRepository.findBySequenceId(sequenceId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 시퀀스의 리포트가 존재하지 않습니다. ID: " + sequenceId));
+
+        try {
+            // DB에 저장된 JSON 문자열을 다시 Response DTO 객체로 변환하여 반환
+            return objectMapper.readValue(report.getFullReportJson(), PatientRehabReportResponse.class);
+        } catch (JsonProcessingException e) {
+            log.error("JSON 역직렬화 실패", e);
+            throw new RuntimeException("리포트 데이터를 읽는 중 오류가 발생했습니다.");
+        }
     }
 
     private String serializeToJson(Object obj) {
