@@ -2,6 +2,9 @@ package com.example.iot.dto.request;
 
 import lombok.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,10 +22,29 @@ public class TryEvaluationRequest {
     private Double avgShoulderLevelDiff;      // 어깨 수평 불균형 (Avg)
     private Double avgPelvisLevelDiff;        // 골반 수평 편차 (Avg)
     private Double avgMovementAcceleration;   // 수행 가속도 (Avg)
-    private Double ankleSwayDistance;         // 비마비측 발목 흔들림 (Distance - XYZ 편차)
+    private Double ankleSwayDistance;         // 비마비측 발목 흔들림
+
+    private Double maxMovementAcceleration;
 
     // 기타 (확장성을 위해 남겨둠)
     private Double avgTrunkLateralTilt;
+
+    // ErrorComponent 판정용 원천 데이터 (Map으로 관리하여 확장성 확보)
+    private Map<String, Double> sumMap = new HashMap<>();
+    private Map<String, Long> countMap = new HashMap<>();
+
+    public void addStats(String goalName, Double sum, Long count) {
+        sumMap.put(goalName, sum);
+        countMap.put(goalName, count);
+    }
+
+    public double getSumByGoalName(String goalName) {
+        return sumMap.getOrDefault(goalName, 0.0);
+    }
+
+    public long getCountByGoalName(String goalName) {
+        return countMap.getOrDefault(goalName, 0L);
+    }
 
     /**
      * 목표 명칭에 따라 적절한 분석 수치를 반환합니다.
@@ -41,6 +63,10 @@ public class TryEvaluationRequest {
             case "비마비측 발목 흔들림" -> nvl(ankleSwayDistance);
             default -> 0.0;
         };
+    }
+
+    public double getMaxMovementAcceleration() {
+        return nvl(maxMovementAcceleration);
     }
 
     private double nvl(Double value) {

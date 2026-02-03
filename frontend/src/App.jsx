@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -10,6 +10,8 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import "./App.css";
 import MainLayout from "./components/MainLayout";
 import PatientCheck from "./components/PatientCheck";
@@ -116,12 +118,21 @@ export default function App() {
   const [armRaiseFeedback, setArmRaiseFeedback] = useState(null);
   const [moleGameCount, setMoleGameCount] = useState(0);
   const [moleGameTotal, setMoleGameTotal] = useState(10);
+  const [holdingPower, setHoldingPower] = useState(0);
+  const [exerciseCompleteFeedback, setExerciseCompleteFeedback] = useState(null);
+  const [sensorPower, setSensorPower] = useState(null);
+  const patientWeight = 70;
+  const requiredPower = patientWeight * 0.75;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
+  const molePreloadRef = useRef(false);
+  const exerciseCompleteTimerRef = useRef(null);
   const armRaiseTimeoutRef = useRef(null);
   const lastArmRaiseCountRef = useRef(0);
   const armRaiseCompleteRef = useRef(false);
   const prevTryIndexRef = useRef(0);
+  const armRaiseCompleteTimerRef = useRef(null);
+  const allowSessionExitRef = useRef(false);
   const [activeTryId, setActiveTryId] = useState(null);
   const [compareItems, setCompareItems] = useState([]);
   const [sequenceAverages, setSequenceAverages] = useState([]);
@@ -191,15 +202,7 @@ export default function App() {
     }
   }, [screen]);
 
-  const cameraNotice = useMemo(() => {
-    if (screen === SCREEN.PATIENT_CHECK) {
-      return "카메라 화면에 팔과 어깨가 모두 보이도록 앉아주세요.";
-    }
-    if (screen === SCREEN.EXERCISE_INTRO && !postureChecked) {
-      return "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.";
-    }
-    return "";
-  }, [screen, postureChecked]);
+  const cameraNotice = useMemo(() => "", []);
 
   const handleLogin = async ({ nextPatientId, nextNurseId }) => {
     setIsLoggingIn(true);
@@ -448,6 +451,25 @@ export default function App() {
     fetchDetail();
   }, [currentExerciseId]);
 
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.code === 'KeyW') {
+        setHoldingPower(requiredPower);
+      }
+    };
+    const onKeyUp = (e) => {
+      if (e.code === 'KeyW') {
+        setHoldingPower(0);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [requiredPower]);
+
   const startSession = async () => {
     const sessionId = sequenceSessions[exerciseIndex]?.sessionId;
     if (!sessionId || startedSessionId === sessionId) {
@@ -558,6 +580,9 @@ export default function App() {
 
   const goToNextStep = useCallback(async (options = {}) => {
     const { forceComplete = false, skipTryFinish = false } = options;
+    if (currentExerciseId === 2 && moleGameCount < moleGameTotal) {
+      return;
+    }
     const currentTryId = currentTryIds[tryIndex];
     if (!skipTryFinish && currentTryId) {
       await finishTry(currentTryId);
@@ -575,6 +600,9 @@ export default function App() {
       setScreen(SCREEN.EXERCISE_RESULT);
     }
   }, [
+    currentExerciseId,
+    moleGameCount,
+    moleGameTotal,
     currentTryIds,
     tryIndex,
     totalTries,
@@ -586,9 +614,24 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION) {
+      if (exerciseCompleteTimerRef.current) {
+        clearTimeout(exerciseCompleteTimerRef.current);
+        exerciseCompleteTimerRef.current = null;
+      }
+      setExerciseCompleteFeedback(null);
+      return;
+    }
+  }, [screen]);
+
+  useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
       autoAdvanceRef.current = false;
       armRaiseCompleteRef.current = false;
+      if (armRaiseCompleteTimerRef.current) {
+        clearTimeout(armRaiseCompleteTimerRef.current);
+        armRaiseCompleteTimerRef.current = null;
+      }
       return;
     }
     if (!armRaiseTotal) return;
@@ -600,8 +643,15 @@ export default function App() {
         message: "고생하셨습니다.\n오늘도 완료하셨습니다",
         duration: 5000,
       });
-      setTimeout(() => {
+      if (armRaiseCompleteTimerRef.current) {
+        clearTimeout(armRaiseCompleteTimerRef.current);
+      }
+      if (exerciseCompleteTimerRef.current) {
+        clearTimeout(exerciseCompleteTimerRef.current);
+      }
+      exerciseCompleteTimerRef.current = setTimeout(() => {
         goToNextStep({ forceComplete: true, skipTryFinish: true });
+        exerciseCompleteTimerRef.current = null;
       }, 5000);
     }
   }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
@@ -614,9 +664,60 @@ export default function App() {
     if (!moleGameTotal) return;
     if (moleGameCount >= moleGameTotal && !moleAutoAdvanceRef.current) {
       moleAutoAdvanceRef.current = true;
-      goToNextStep({ forceComplete: true, skipTryFinish: true });
+      setExerciseCompleteFeedback({
+        id: Date.now(),
+        message: "고생하셨습니다.\n오늘도 완료하셨습니다",
+        duration: 5000,
+      });
+      if (exerciseCompleteTimerRef.current) {
+        clearTimeout(exerciseCompleteTimerRef.current);
+      }
+      exerciseCompleteTimerRef.current = setTimeout(() => {
+        goToNextStep({ forceComplete: true, skipTryFinish: true });
+        exerciseCompleteTimerRef.current = null;
+      }, 5000);
     }
   }, [screen, currentExerciseId, moleGameCount, moleGameTotal, goToNextStep]);
+
+  useEffect(() => {
+    if (currentExerciseId !== 2) return;
+    if (screen === SCREEN.EXERCISE_SESSION) return;
+    if (screen === SCREEN.EXERCISE_INTRO || screen === SCREEN.EXERCISE_LIST) return;
+    if (moleGameCount < moleGameTotal) {
+      setScreen(SCREEN.EXERCISE_SESSION);
+    }
+  }, [screen, currentExerciseId, moleGameCount, moleGameTotal]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
+      return;
+    }
+    if (useMock) {
+      setSensorPower(null);
+      return;
+    }
+    if (typeof EventSource === "undefined") return;
+    const sse = new EventSource("/api/ingest/events");
+    sse.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        const frames = Array.isArray(payload?.frames) ? payload.frames : [];
+        const frame = frames.length ? frames[frames.length - 1] : null;
+        const power = frame?.sensor?.power;
+        if (typeof power === "number") {
+          setSensorPower(power);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+    sse.onerror = () => {
+      sse.close();
+    };
+    return () => {
+      sse.close();
+    };
+  }, [screen, currentExerciseId, useMock]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO || !postureChecked) return;
@@ -943,7 +1044,21 @@ export default function App() {
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
           <div className="session-visual">
-            {currentExerciseId === 1 ? (
+            {exerciseCompleteFeedback && exerciseCompleteFeedback.message && (
+              <div className="arm-raise-feedback" style={{ opacity: 1 }}>
+                {exerciseCompleteFeedback.message}
+              </div>
+            )}
+            {currentExerciseId === 2 ? (
+              <MoleGame
+                onCountChange={(count, total) => {
+                  setMoleGameCount(count);
+                  setMoleGameTotal(total);
+                }}
+                sensorPower={holdingPower || sensorPower}
+                requiredPower={requiredPower}
+              />
+            ) : (
               <ArmRaiseGame
                 onCountChange={(count, total) => {
                   setArmRaiseCount(count);
@@ -951,18 +1066,25 @@ export default function App() {
                 }}
                 resultFeedback={armRaiseFeedback}
               />
-            ) : currentExerciseId === 2 ? (
-              <MoleGame
-                onCountChange={(count, total) => {
-                  setMoleGameCount(count);
-                  setMoleGameTotal(total);
-                }}
-              />
-            ) : (
-              <div className="session-visual-placeholder">3D 반응형 화면 자리</div>
             )}
           </div>
           <div className="session-panel session-panel-next">
+            {currentExerciseId === 2 && (
+              <div className="power-gauge">
+                <div className="power-gauge-track">
+                  <span
+                    className="power-gauge-fill"
+                    style={{
+                      width: `${
+                        requiredPower > 0
+                          ? Math.min(((holdingPower || sensorPower || 0) / requiredPower) * 100, 100)
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="session-bar">
               <span
                 style={{
@@ -979,7 +1101,31 @@ export default function App() {
           <button
             className="ghost-button session-next"
             type="button"
-            onClick={goToNextStep}
+            onClick={() => {
+              if (screen === SCREEN.EXERCISE_SESSION && currentExerciseId === 1) {
+                if (armRaiseCount < armRaiseTotal) {
+                  setArmRaiseCount((prev) => Math.min(prev + 1, armRaiseTotal));
+                  if (tryIndex < totalTries - 1) {
+                    setTryIndex((prev) => prev + 1);
+                  }
+                  return;
+                }
+              }
+              if (screen === SCREEN.EXERCISE_SESSION && currentExerciseId === 2) {
+                if (moleGameCount < moleGameTotal) {
+                  setMoleGameCount((prev) => Math.min(prev + 1, moleGameTotal));
+                  if (tryIndex < totalTries - 1) {
+                    setTryIndex((prev) => prev + 1);
+                  }
+                  return;
+                }
+                if (moleGameCount >= moleGameTotal) {
+                  goToNextStep({ forceComplete: true, skipTryFinish: true });
+                  return;
+                }
+              }
+              goToNextStep();
+            }}
           >
             다음 단계
           </button>
