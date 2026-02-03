@@ -18,7 +18,7 @@ public record PatientRehabReportRequest(
     public record RehabSessionSummary(
             Long sessionId,
             String exerciseName,
-            PreviousSessionContext previousSessionContext, // 세션별 이전 문맥
+            PreviousSessionContext previousSessionContext, // 세션별 이전 문맥 (기록 없을 시 null)
             int totalTries,
             int successTries,
             Double sessionAvgScore,
@@ -30,7 +30,17 @@ public record PatientRehabReportRequest(
             Double lastSessionAvgScore,
             Double lastSessionMainGoalRate,
             String lastSessionNote
-    ) {}
+    ) {
+        // 이전 기록이 없을 경우
+        public static PreviousSessionContext empty() {
+            return new PreviousSessionContext(
+                    null,
+                    0.0,
+                    0.0,
+                    "이전 기록이 없습니다"
+            );
+        }
+    }
 
     public record RehabTryDetail(
             int tryOrder,
