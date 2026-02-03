@@ -558,7 +558,21 @@ export default function TherapistUI() {
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">주요 위험 신호</div>
+                      <div className="report-card-title-row">
+                        <div className="report-card-title">주요 위험 신호</div>
+                        <button
+                          className="therapist-fail-button"
+                          type="button"
+                          onClick={() => {
+                            const patientQuery = selectedPatient?.patientId
+                              ? `?patientId=${selectedPatient.patientId}`
+                              : "";
+                            window.location.href = `/therapist/fail_3D${patientQuery}`;
+                          }}
+                        >
+                          실패분석
+                        </button>
+                      </div>
                       <div className="report-card-body">
                         {reportData.reportInput?.riskSignals?.length ? (
                           <ul className="report-bullets report-bullets--risk">

@@ -534,6 +534,23 @@
   background: #f7f9fc;
 }
 
+.therapist-fail-button {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 53, 94, 0.6);
+  background: #1f2a44;
+  color: #e5e7eb;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.therapist-fail-button:hover {
+  background: #243255;
+  border-color: rgba(48, 74, 138, 0.8);
+}
+
 .therapist-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
