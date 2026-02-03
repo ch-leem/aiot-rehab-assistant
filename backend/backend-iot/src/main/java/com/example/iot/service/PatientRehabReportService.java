@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -153,6 +154,7 @@ public class PatientRehabReportService {
         sessionSummaryRepository.saveAll(summaries);
     }
 
+    @Async("reportTaskExecutor")
     @Transactional
     public void createAndSaveReport(Long sequenceId) {
         log.info("비동기 리포트 생성 시작 - Sequence ID: {}, Thread: {}", sequenceId, Thread.currentThread().getName());

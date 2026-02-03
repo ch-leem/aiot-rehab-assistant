@@ -26,6 +26,7 @@ public class TryService {
     private final FailRepository failRepository;
     private final ExerciseGoalRepository exerciseGoalRepository;
     private final ExercisePatientMappingRepository mappingRepository;
+    private final SequenceService sequenceService;
     private final FrameAnalyzer frameAnalyzer;
 
     @Transactional
@@ -129,6 +130,11 @@ public class TryService {
             if (session != null) session.setSuccessTries(session.getSuccessTries() + 1);
         }
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
+
+        // 현재 Try -> Session -> Sequence ID를 타고 올라가서 체크를 요청합니다.
+        if (session != null && session.getSequence() != null) {
+            sequenceService.checkSequenceCompletion(session.getSequence().getId());
+        }
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
         JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel, patient);
