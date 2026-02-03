@@ -1349,6 +1349,8 @@ export default function App() {
               { exerciseId: 2, totalTries: 12, successTries: 8 },
             ];
             const averages = sequenceAverages.length ? sequenceAverages : defaults;
+            const hasUpperExercise = todayExerciseIds.includes(1);
+            const hasLowerExercise = todayExerciseIds.includes(2);
             const upper =
               averages.find((item) => Number(item.exerciseId) === 1) ?? defaults[0];
             const lower =
@@ -1364,11 +1366,16 @@ export default function App() {
             const lowerGoals =
               recentGoals.find((item) => Number(item.exerciseId) === 2)?.goals ?? [];
             const goalLength = Math.max(upperGoals.length, lowerGoals.length, 5);
-            const chartData = Array.from({ length: goalLength }).map((_, index) => ({
-              name: `${index + 1}`,
-              upper: Number(upperGoals[index] ?? 0),
-              lower: Number(lowerGoals[index] ?? 0),
-            }));
+            const chartData = Array.from({ length: goalLength }).map((_, index) => {
+              const base = { name: `${index + 1}` };
+              if (hasUpperExercise) {
+                base.upper = Number(upperGoals[index] ?? 0);
+              }
+              if (hasLowerExercise) {
+                base.lower = Number(lowerGoals[index] ?? 0);
+              }
+              return base;
+            });
             return (
           <div className="result-layout">
             <section className="result-left">
@@ -1378,8 +1385,8 @@ export default function App() {
                   <h1>오늘의 기록</h1>
                   {hasExercises && (
                     <div className="result-toggles">
-                      <span className="result-toggle upper">상체</span>
-                      <span className="result-toggle lower">하체</span>
+                      {hasUpperExercise && <span className="result-toggle upper">상체</span>}
+                      {hasLowerExercise && <span className="result-toggle lower">하체</span>}
                     </div>
                   )}
                 </div>
@@ -1493,69 +1500,79 @@ export default function App() {
                   </button>
                 </div>
                 <div className="chart-card">
-                  <div className="card-title">상체 + 하체 성공 횟수</div>
+                  <div className="card-title">
+                    {hasUpperExercise && hasLowerExercise
+                      ? "상체 + 하체 성공 횟수"
+                      : hasUpperExercise
+                        ? "상체 성공 횟수"
+                        : "하체 성공 횟수"}
+                  </div>
                   <div className="card-meta">오늘 수행한 전체 동작 기준</div>
-                  <div className="donut-grid">
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: upper.successTries },
-                                { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#b56a6a" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {upper.successTries}/{upper.totalTries}
+                  <div className={`donut-grid${hasUpperExercise && hasLowerExercise ? "" : " single"}`}>
+                    {hasUpperExercise && (
+                      <div className="donut-item">
+                        <div className="donut-chart">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "성공", value: upper.successTries },
+                                  { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
+                                ]}
+                                dataKey="value"
+                                innerRadius={58}
+                                outerRadius={90}
+                                paddingAngle={2}
+                              >
+                                <Cell fill="#b56a6a" />
+                                <Cell fill="#e6dfd6" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="donut-center">
+                            <div className="donut-value">
+                              {upper.successTries}/{upper.totalTries}
+                            </div>
+                          </div>
+                          <div className="donut-label donut-label-float">
+                            <span className="legend-dot upper" />
+                            상체 성공
                           </div>
                         </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot upper" />
-                          상체 성공
-                        </div>
                       </div>
-                    </div>
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: lower.successTries },
-                                { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#6f8fb8" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {lower.successTries}/{lower.totalTries}
+                    )}
+                    {hasLowerExercise && (
+                      <div className="donut-item">
+                        <div className="donut-chart">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "성공", value: lower.successTries },
+                                  { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
+                                ]}
+                                dataKey="value"
+                                innerRadius={58}
+                                outerRadius={90}
+                                paddingAngle={2}
+                              >
+                                <Cell fill="#6f8fb8" />
+                                <Cell fill="#e6dfd6" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="donut-center">
+                            <div className="donut-value">
+                              {lower.successTries}/{lower.totalTries}
+                            </div>
+                          </div>
+                          <div className="donut-label donut-label-float">
+                            <span className="legend-dot lower" />
+                            하체 성공
                           </div>
                         </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot lower" />
-                          하체 성공
-                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
                 <div className="chart-card">
@@ -1566,20 +1583,24 @@ export default function App() {
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="upper"
-                          stroke="#b56a6a"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="lower"
-                          stroke="#6f8fb8"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
+                        {hasUpperExercise && (
+                          <Line
+                            type="monotone"
+                            dataKey="upper"
+                            stroke="#b56a6a"
+                            strokeWidth={3}
+                            dot={{ r: 4 }}
+                          />
+                        )}
+                        {hasLowerExercise && (
+                          <Line
+                            type="monotone"
+                            dataKey="lower"
+                            stroke="#6f8fb8"
+                            strokeWidth={3}
+                            dot={{ r: 4 }}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
