@@ -435,7 +435,302 @@ export default function TherapistUI() {
                       </div>
                     </div>
                     <div className="report-card">
-                      <div className="report-card-title">최근 시퀀스 기록</div>
+                      <div className="report-card-title-row">
+                        <div className="report-card-title">주요 위험 신호</div>
+                        <button
+                          className="therapist-fail-button"
+                          type="button"
+                          onClick={() => {
+                            const patientQuery = selectedPatient?.patientId
+                              ? `?patientId=${selectedPatient.patientId}`
+                              : "";
+                            window.location.href = `/therapist/fail_3D${patientQuery}`;
+                          }}
+                        >
+                          실패분석
+                        </button>
+                      </div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.riskSignals?.length ? (
+                          <ul className="report-bullets report-bullets--risk">
+                            {reportData.reportInput.riskSignals.map((item, index) => (
+                              <li key={`risk-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="report-empty">위험 신호가 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">다음 재활 집중 포인트</div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.nextFocus?.length ? (
+                          <ul className="report-bullets report-bullets--focus">
+                            {reportData.reportInput.nextFocus.map((item, index) => (
+                              <li key={`focus-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="report-empty">집중 포인트가 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">세션 상세 정보</div>
+                      <div className="report-card-body">
+                        {reportData.reportInput?.exerciseSummaries?.length ? (
+                          <div className="exercise-list">
+                            {reportData.reportInput.exerciseSummaries.map((exercise, index) => {
+                              const key = `${exercise.exerciseName ?? "exercise"}-${index}`;
+                              const isOpen = expandedExercise === key;
+                              return (
+                                <div key={key} className="exercise-card">
+                                  <button
+                                    type="button"
+                                    className={`exercise-header${isOpen ? " open" : ""}`}
+                                    onClick={() => {
+                                      const nextOpen = isOpen ? null : key;
+                                      setExpandedExercise(nextOpen);
+                                      if (!isOpen && exercise.sessionId) {
+                                        loadSessionDetail(exercise.sessionId);
+                                      }
+                                    }}
+                                    aria-expanded={isOpen}
+                                  >
+                                    <div className="exercise-title">
+                                      <span>{exercise.exerciseName ?? "-"}</span>
+                                      <span className={getSummaryTagClass(exercise.summaryTag)}>
+                                        {exercise.summaryTag ?? "-"}
+                                      </span>
+                                      <span className={getTrendClass(exercise.withinSessionTrend)}>
+                                        {getTrendSymbol(exercise.withinSessionTrend)}{" "}
+                                        {exercise.withinSessionTrend ?? "-"}
+                                      </span>
+                                    </div>
+                                    <div className="exercise-meta">
+                                      <span className="meta-pill-compact">
+                                        성공 비율 {formatPercent(exercise.performance?.successRate)}
+                                      </span>
+                                      <span className="meta-pill-compact">
+                                        평균 점수 {formatNumber(exercise.performance?.averageScore)}
+                                      </span>
+                                      <span className="exercise-toggle">{isOpen ? "닫기" : "보기"}</span>
+                                    </div>
+                                  </button>
+                                  {isOpen && (
+                                    <div className="exercise-body">
+                                      <div className="exercise-note">
+                                        {exercise.sessionNote ?? "-"}
+                                      </div>
+                                      <div className="session-mini-charts">
+                                        {(() => {
+                                          const sessionId = exercise.sessionId;
+                                          const session = sessionId ? sessionDetails[sessionId] : null;
+                                          const tries = session?.tries ?? [];
+                                          const total = session?.total_tries ?? tries.length;
+                                          const success =
+                                            session?.success_tries ??
+                                            tries.filter((t) => t.result === "SUCCESS").length;
+                                          const successRate = total
+                                            ? Math.round((success / total) * 100)
+                                            : 0;
+                                          const scoreValues = tries
+                                            .map((t) => Number(t.totalScore))
+                                            .filter((v) => Number.isFinite(v));
+                                          const maxVal = scoreValues.length
+                                            ? Math.max(...scoreValues)
+                                            : 0;
+                                          const failReasons = tries
+                                            .filter((t) => t.result === "FAIL" && t.fail_name)
+                                            .reduce((acc, t) => {
+                                              acc[t.fail_name] = (acc[t.fail_name] || 0) + 1;
+                                              return acc;
+                                            }, {});
+                                          const topFails = Object.entries(failReasons)
+                                            .sort((a, b) => b[1] - a[1])
+                                            .slice(0, 2);
+
+                                          if (!sessionId) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 상세 데이터가 없습니다.
+                                              </div>
+                                            );
+                                          }
+                                          if (sessionLoading[sessionId]) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 데이터를 불러오는 중입니다.
+                                              </div>
+                                            );
+                                          }
+                                          if (!session) {
+                                            return (
+                                              <div className="session-empty">
+                                                세션 상세 데이터가 없습니다.
+                                              </div>
+                                            );
+                                          }
+
+                                          return (
+                                            <>
+                                              <div className="session-section-title">세션 개요</div>
+                                              <div className="session-kpi">
+                                                <span>
+                                                  성공 {success}/{total}
+                                                </span>
+                                                <span>성공률 {successRate}%</span>
+                                              </div>
+                                              {topFails.length > 0 && (
+                                                <div className="session-fails">
+                                                  실패 사유:{" "}
+                                                  {topFails
+                                                    .map(([name, count]) => `${name} (${count})`)
+                                                    .join(", ")}
+                                                </div>
+                                              )}
+                                              {scoreValues.length > 0 && (
+                                                <>
+                                                  <div className="session-trend">
+                                                    <div className="session-scale">
+                                                      <span>100</span>
+                                                      <span>50</span>
+                                                      <span>0</span>
+                                                    </div>
+                                                    {(() => {
+                                                      const points = scoreValues.map((val, i) => {
+                                                        const x =
+                                                          scoreValues.length === 1
+                                                            ? 50
+                                                            : (i / (scoreValues.length - 1)) * 100;
+                                                        const y = 100 - (maxVal ? (val / maxVal) * 100 : 0);
+                                                        return { x, y };
+                                                      });
+                                                      const pointsStr = points
+                                                        .map((p) => `${p.x},${p.y}`)
+                                                        .join(" ");
+
+                                                      return (
+                                                        <svg
+                                                          className="session-line"
+                                                          viewBox="0 0 100 100"
+                                                          preserveAspectRatio="none"
+                                                        >
+                                                          <polyline
+                                                            className="session-line-stroke"
+                                                            points={pointsStr}
+                                                          />
+                                                        </svg>
+                                                      );
+                                                    })()}
+                                                  </div>
+                                                </>
+                                              )}
+                                              {tries.length > 0 && (
+                                                <>
+                                                  <div className="session-section-title">
+                                                    Try 결과 흐름
+                                                  </div>
+                                                  <div className="session-timeline">
+                                                    {tries.map((t, i) => (
+                                                      <span
+                                                        key={`result-${i}`}
+                                                        className={`session-dot ${
+                                                          t.result === "SUCCESS" ? "success" : "fail"
+                                                        }`}
+                                                        title={
+                                                          t.result === "FAIL"
+                                                            ? t.fail_name ?? "FAIL"
+                                                            : "SUCCESS"
+                                                        }
+                                                      />
+                                                    ))}
+                                                  </div>
+                                                  <div className="session-legend">
+                                                    <span>
+                                                      <span className="session-dot success" />
+                                                      성공
+                                                    </span>
+                                                    <span>
+                                                      <span className="session-dot fail" />
+                                                      실패
+                                                    </span>
+                                                  </div>
+                                                </>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+
+                                      <div className="exercise-tags-explain">
+                                        <div className="exercise-tag-row">
+                                          <span className="exercise-tag-label">세션 요약:</span>
+                                          <span className={getSummaryTagClass(exercise.summaryTag)}>
+                                            {exercise.summaryTag ?? "-"}
+                                          </span>
+                                          <span className="exercise-tag-desc">
+                                            {getSummaryTagDescription(exercise.summaryTag)}
+                                          </span>
+                                        </div>
+                                        <div className="exercise-tag-row">
+                                          <span className="exercise-tag-label">세션 경향:</span>
+                                          <span className={getTrendClass(exercise.withinSessionTrend)}>
+                                            {getTrendSymbol(exercise.withinSessionTrend)}{" "}
+                                            {exercise.withinSessionTrend ?? "-"}
+                                          </span>
+                                          <span className="exercise-tag-desc">
+                                            {getTrendDescription(exercise.withinSessionTrend)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {exercise.keyObservations?.length ? (
+                                        <ul className="exercise-list-items">
+                                          {exercise.keyObservations.map((note, noteIndex) => (
+                                            <li key={`${key}-note-${noteIndex}`}>{note}</li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <div className="exercise-muted">
+                                          주요 관찰 내용이 없습니다.
+                                        </div>
+                                      )}
+                                      <div className="exercise-compare">
+                                        <strong>이전 세션과 비교: </strong>
+                                        {exercise.comparisonToPrevious?.used ? (
+                                          <>
+                                            <span
+                                              className={getTrendClass(
+                                                exercise.comparisonToPrevious.trend
+                                              )}
+                                            >
+                                              {getTrendSymbol(exercise.comparisonToPrevious.trend)}{" "}
+                                              {exercise.comparisonToPrevious.trend ?? "-"}
+                                            </span>
+                                            <span className="exercise-compare-text">
+                                              {exercise.comparisonToPrevious.trendDescription ?? "-"}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span className="tag tag--muted">
+                                            이전 세션과 비교 데이터가 없습니다.
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          "운동 요약 정보가 없습니다."
+                        )}
+                      </div>
+                    </div>
+                    <div className="report-card">
+                      <div className="report-card-title">최근 시퀀스</div>
                       <div className="report-list">
                         {reportData.sequences.length > 0 ? (
                           reportData.sequences.slice(0, 5).map((item) => (

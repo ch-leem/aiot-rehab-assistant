@@ -1,0 +1,240 @@
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --panel-bg: #1e293b;
+  --panel-border: #334155;
+  --accent: #3b82f6;
+  --btn-bg: #334155;
+  --btn-hover: #475569;
+  --header-height: 60px;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* Header */
+.dashboard-header {
+  height: var(--header-height);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--panel-border);
+  background: #111827;
+  flex: 0 0 auto;
+}
+
+.brand-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Main Content Area (Top/Bottom Split) */
+.dashboard-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Critical for nested scrolling/overflow */
+  padding: 12px;
+  gap: 12px;
+}
+
+.viewport-section {
+  flex: 3;
+  /* 60% approx space */
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+
+.analysis-section {
+  flex: 2;
+  /* 40% approx space */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel-plain {
+  /* Used for 3D view container if we want it frameless or framed */
+  flex: 1;
+  background: black;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Controls Bar */
+.controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid var(--panel-border);
+  flex: 0 0 auto;
+}
+
+.btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--btn-bg);
+  color: #e2e8f0;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+  border-color: #64748b;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--btn-bg);
+  color: white;
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+}
+
+/* Utility */
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Smart Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+  border: 2px solid #0f172a;
+  /* Creates padding effect for thin look */
+}
+
+/* Bottom Dock Container */
+.bottom-dock {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 140px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid var(--panel-border);
+  z-index: 50;
+  display: flex;
+  /* Horizontal layout */
+}
+
+/* Timeline Footer (Left Side of Dock) */
+.timeline-footer {
+  position: relative;
+  /* Changed from absolute */
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+  padding: 0 12px;
+  flex: 1;
+  /* Take remaining space */
+  min-width: 0;
+}
+
+.timeline-content-wrapper {
+  opacity: 1;
+  height: 100%;
+}
+
+/* Controls Dock (Right Side of Dock) */
+.controls-dock {
+  flex: 0 0 220px;
+  /* Fixed width for controls */
+  height: 100%;
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.3);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+  border: none;
+  /* Expands on hover */
+}
