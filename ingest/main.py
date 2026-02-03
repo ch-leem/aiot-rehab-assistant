@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 import math
@@ -59,6 +60,20 @@ class IngestPayload(BaseModel):
 
 class TryStartRequest(BaseModel):
     try_id: str = Field(...)
+
+RAW_TTL_SEC = int(os.getenv("RAW_TTL_SEC", "3600"))  # 1시간
+
+def raw_key(try_id: str) -> str:
+    return f"try:{try_id}:raw"
+
+def store_raw(try_id: str, payload_json: str):
+    k = raw_key(try_id)
+    pipe = r.pipeline()
+    pipe.rpush(k, payload_json)
+    pipe.ttl(k)
+    ttl = pipe.execute()[1]
+    if ttl is None or ttl < 0:
+        r.expire(k, RAW_TTL_SEC)
 
 
 def push_sse(payload_json: str):
@@ -203,6 +218,7 @@ async def ingest_stream(payload: IngestPayload, request: Request):
     # 2) ✅ 활성 try가 있으면 try별 처리
     try_id = r.get(ACTIVE_TRY_KEY)
     if try_id:
+        store_raw(try_id, payload_json)
         # try별 latest/stream 저장
         try_event = {"ts_ms": str(now_ms), "client_ip": client_ip, "payload": payload_json}
         r.xadd(_try_stream_key(try_id), try_event, maxlen=MAXLEN, approximate=True)
@@ -290,7 +306,7 @@ async def ingest_stream(payload: IngestPayload, request: Request):
 
             # 3) sum/count는 무조건 업데이트
             for m, v in values.items():
-                if m == "trunk_forward_tilt" or m == "trunk_rotation_lateral_flexion":
+                if m == "trunk_forward_tilt" or m == "trunk_rotation_lateral_flexion" or m == 'pelvis_level':
                     pipe.hincrbyfloat(key, f"sum.{m}", abs(v))
                 else:
                     pipe.hincrbyfloat(key, f"sum.{m}", v)

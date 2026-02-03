@@ -48,6 +48,8 @@ services:
       context: ./backend
       dockerfile: backend-iot/Dockerfile
     container_name: rehab-iot-api-server
+    volumes:
+     - ./fail-logs:/data/fail-logs
     restart: unless-stopped
     depends_on: [db, redis]
     environment:
