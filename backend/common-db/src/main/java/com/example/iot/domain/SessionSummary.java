@@ -1,39 +1,44 @@
 package com.example.iot.domain;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "session_summary")
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
+@Getter @Setter
 public class SessionSummary {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "sequence_id")
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
     @JoinColumn(name = "sequence_id", nullable = false)
     private Sequence sequence;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "session_id", nullable = false)
-    private Session session;
+    @Column(name = "total_trials")
+    private Long totalTrials; // int8 대응
 
-    private Double successRate;
-    private Double averageScore;
+    @Column(name = "success_trials")
+    private Long successTrials; // int8 대응
 
-    private String summaryTag;         // STABLE, VARIABLE, UNSTABLE 등
-    private String sessionTrend; // IMPROVING, STABLE, DECLINING 등
+    @Column(name = "avg_angle")
+    private Double avgAngle;
 
-    @Column(columnDefinition = "TEXT")
-    private String sessionNote; // "어깨 가동 범위는 양호하나..."
+    @Column(name = "in_target_rate")
+    private Double inTargetRate;
 
-    private String trend;            // IMPROVING, STABLE 등 (이전 대비)
+    @Column(name = "compensation_total")
+    private Long compensationTotal; // int8 대응
 
-    @Column(columnDefinition = "TEXT")
-    private String trendDescription; // "이전 세션에서 언급된..."
+    @Column(name = "stability_level")
+    private String stabilityLevel;
+
+    protected SessionSummary() {}
+
+    public SessionSummary(Sequence sequence) {
+        this.sequence = sequence;
+    }
 }

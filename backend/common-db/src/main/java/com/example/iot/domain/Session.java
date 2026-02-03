@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "session")
@@ -36,9 +34,6 @@ public class Session {
     private LocalDateTime startedAt;
 
     private LocalDateTime endedAt;
-
-    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL)
-    private List<Try> tries = new ArrayList<>();
 
     protected Session() {}
 
