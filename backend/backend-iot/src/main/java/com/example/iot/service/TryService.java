@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -28,6 +29,7 @@ public class TryService {
     private final ExercisePatientMappingRepository mappingRepository;
     private final SequenceService sequenceService;
     private final FrameAnalyzer frameAnalyzer;
+    private final TryRawDumpService tryRawDumpService;
 
     @Transactional
     public TryStartResponse startTry(Long tryId) {
@@ -125,6 +127,14 @@ public class TryService {
         JudgeResult dbJudge = determineJudge(mainResult, accelResult, otherSubResults, null, branchScores, totalAverage, maxAccel, patient);
         if (dbJudge.isFailed()) {
             setTryFailure(t, dbJudge.getFailGoalName());
+            try {
+                // tryId = t.getId() (네 시스템에서 tryId가 Redis try_id랑 같은 값이라면)
+                Path dumped = tryRawDumpService.dumpRawAsJsonl(t.getId(), true); // true면 Redis raw 삭제
+                log.info("[FAIL RAW DUMP] tryId={} saved={}", t.getId(), dumped.toAbsolutePath());
+            } catch (Exception e) {
+                // 덤프 실패해도 운동 종료 자체는 진행되게(중요)
+                log.warn("[FAIL RAW DUMP] tryId={} dump failed: {}", t.getId(), e.getMessage(), e);
+            }
         } else {
             t.setResult(TryResult.SUCCESS);
             if (session != null) session.setSuccessTries(session.getSuccessTries() + 1);
@@ -147,6 +157,10 @@ public class TryService {
         log.info("최종 판정 [FE]: {}", frontJudge.isFailed() ? "FAIL (사유: " + frontJudge.getFailGoalName() + ")" : "SUCCESS");
         log.info("최종 판정 [DB]: {}", dbJudge.isFailed() ? "FAIL (사유: " + dbJudge.getFailGoalName() + ")" : "SUCCESS");
         log.info("================================================================");
+
+        if( !frontJudge.isFailed() ) {
+            session.setGoal(Integer.toString(Integer.parseInt(session.getGoal()) + 1));
+        }
 
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
         return toResponse(t,

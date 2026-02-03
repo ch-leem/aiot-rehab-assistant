@@ -37,11 +37,9 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
   }, [resultFeedback]);
 
   useEffect(() => {
-    console.log("[ArmRaiseGame] useEffect start", containerRef.current);
     const container = containerRef.current;
     
     if (!container) return undefined;
-    console.warn("[ArmRaiseGame] container is null -> effect aborted");
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -306,7 +304,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
       },
       undefined,
       (err) => {
-        console.warn("GLB load failed", err);
         debugBox.visible = true;
       }
     );
@@ -555,10 +552,6 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
 
       return scores.length ? Math.max(...scores) : 0;
     };
-    console.log("[SSE] condition check", {
-      poseSseUrl,
-      eventSourceType: typeof EventSource,
-    });
     if (poseSseUrl && typeof EventSource !== "undefined") {
       try {
         poseStream = new EventSource(poseSseUrl);
