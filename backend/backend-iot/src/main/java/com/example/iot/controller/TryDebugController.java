@@ -16,14 +16,11 @@ public class TryDebugController {
 
     private final TryRawDumpService dumpService;
 
-    @GetMapping("/{tryId}/fail-log")
-    public ResponseEntity<Resource> downloadFailLog(
-            @PathVariable Long tryId,
-            @RequestParam(defaultValue = "true") boolean deleteAfter
-    ) throws Exception {
+    // ✅ Redis가 아니라, 이미 생성된 파일을 가져오기만
+    @GetMapping("/{tryId}/fail-log-file")
+    public ResponseEntity<Resource> downloadFailLogFile(@PathVariable Long tryId) throws Exception {
 
-        Path file = dumpService.dumpRawAsJsonl(tryId, deleteAfter);
-
+        Path file = dumpService.findLatestDumpFile(tryId); // 디스크에서 최신 파일 찾기
         Resource resource = new FileSystemResource(file.toFile());
 
         return ResponseEntity.ok()
@@ -32,4 +29,5 @@ public class TryDebugController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }
+
 }
