@@ -38,9 +38,25 @@ function parseJsonlText(text) {
       throw new Error(`JSONL 파싱 실패: ${idx + 1}번째 줄`);
     }
   });
-  const frames = normalizeFrames({ frames: parsed });
-  if (frames.length === parsed.length) return frames;
-  return normalizeFrames(parsed);
+
+  const flattened = [];
+  parsed.forEach((item) => {
+    if (item && typeof item === "object") {
+      if (Array.isArray(item.frames)) {
+        item.frames.forEach((frame) => flattened.push(frame));
+        return;
+      }
+      if ("frame_idx" in item && "ts" in item) {
+        flattened.push(item);
+        return;
+      }
+    }
+    flattened.push(item);
+  });
+
+  const frames = normalizeFrames({ frames: flattened });
+  if (frames.length > 0) return frames;
+  return normalizeFrames(flattened);
 }
 
 function getQueryParam(name) {
@@ -50,6 +66,10 @@ function getQueryParam(name) {
 }
 
 export default function TherapistFail3D() {
+  const demoParam = getQueryParam("demo");
+  const demoFileParam = getQueryParam("demoFile");
+  const demoUrl = demoFileParam || "/try-2690-20260203-170451 (1).jsonl";
+
   const [patientId, setPatientId] = useState(getQueryParam("patientId"));
   const [sessions, setSessions] = useState([]);
   const [sequenceError, setSequenceError] = useState("");
@@ -186,6 +206,33 @@ export default function TherapistFail3D() {
     }
   }, []);
 
+  const loadDemoFrames = useCallback(async () => {
+    setFramesLoading(true);
+    setFramesError("");
+    try {
+      const res = await fetch(demoUrl, { method: "GET" });
+      if (!res.ok) throw new Error("더미 JSONL을 불러오지 못했습니다.");
+      const text = await res.text();
+      const nextFrames = parseJsonlText(text);
+      setFrames(nextFrames);
+      framesRef.current = nextFrames;
+      setCursor(0);
+      cursorRef.current = 0;
+      periodMsRef.current = estimatePeriodMs(nextFrames);
+      setPlaying(false);
+      playingRef.current = false;
+      lastNowRef.current = null;
+      accMsRef.current = 0;
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    } catch (err) {
+      setFramesError(err?.message ?? "더미 JSONL을 불러오지 못했습니다.");
+      setFrames([]);
+    } finally {
+      setFramesLoading(false);
+    }
+  }, [demoUrl]);
+
   useEffect(() => {
     if (!patientId) return;
     loadSequence(patientId);
@@ -204,6 +251,12 @@ export default function TherapistFail3D() {
     if (!selectedTryId) return;
     loadFailLogFrames(selectedTryId);
   }, [selectedTryId, loadFailLogFrames]);
+
+  useEffect(() => {
+    if (demoParam === "1" || demoParam === "true") {
+      loadDemoFrames();
+    }
+  }, [demoParam, loadDemoFrames]);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -335,6 +388,13 @@ export default function TherapistFail3D() {
           <button
             className="fail3d-back"
             type="button"
+            onClick={loadDemoFrames}
+          >
+            더미 로드
+          </button>
+          <button
+            className="fail3d-back"
+            type="button"
             onClick={() => {
               window.location.href = "/therapist";
             }}
@@ -348,8 +408,11 @@ export default function TherapistFail3D() {
         <div className="fail3d-viewport">
           <div className="fail3d-panel">
             <div className="fail3d-time">
-              {frame && frames.length > 0
-                ? `Time: ${((frame.ts.video_ms - frames[0].ts.video_ms) / 1000).toFixed(2)}s`
+              {frame && frames.length > 0 && frames[0]?.ts?.video_ms != null
+                ? `Time: ${(
+                    (Number(frame.ts.video_ms) - Number(frames[0].ts.video_ms)) /
+                    1000
+                  ).toFixed(2)}s`
                 : "Ready"}
             </div>
             <Pose3D frame={frame} />

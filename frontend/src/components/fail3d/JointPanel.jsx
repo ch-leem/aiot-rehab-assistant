@@ -33,15 +33,8 @@ export default function JointPanel({ frame }) {
     }));
   }, [frame]);
 
-  if (!frame) {
-    return (
-      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
-        No Data
-      </div>
-    );
-  }
-
   const symmetryScore = useMemo(() => {
+    if (!frame) return "-";
     let totalDiff = 0;
     targets.forEach((t) => {
       const l = frame?.deg?.left?.[t.key] ?? 0;
@@ -51,6 +44,14 @@ export default function JointPanel({ frame }) {
     const avgDiff = totalDiff / targets.length;
     return Math.max(0, 100 - avgDiff).toFixed(0);
   }, [frame]);
+
+  if (!frame) {
+    return (
+      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+        No Data
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
