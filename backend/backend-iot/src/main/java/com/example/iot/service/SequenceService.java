@@ -8,6 +8,7 @@ import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -20,19 +21,23 @@ public class SequenceService {
     private final SequenceRepository sequenceRepo;
     private final SessionRepository sessionRepo;
     private final TryRepository tryRepo;
+    private final PatientRehabReportService reportService;
+
 
     public SequenceService(
             PatientRepository patientRepo,
             ExercisePatientMappingRepository mappingRepo,
             SequenceRepository sequenceRepo,
             SessionRepository sessionRepo,
-            TryRepository tryRepo
+            TryRepository tryRepo,
+            PatientRehabReportService reportService
     ) {
         this.patientRepo = patientRepo;
         this.mappingRepo = mappingRepo;
         this.sequenceRepo = sequenceRepo;
         this.sessionRepo = sessionRepo;
         this.tryRepo = tryRepo;
+        this.reportService = reportService;
     }
 
     @Transactional
@@ -95,5 +100,41 @@ public class SequenceService {
                 sequence.getId(),
                 sessionResponses
         );
+    }
+
+    @Transactional
+    public void checkSequenceCompletion(Long sequenceId) {
+        List<Session> sessions = sessionRepo.findAllDetailBySequenceId(sequenceId);
+
+        // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
+        boolean isAllFinished = sessions.stream().allMatch(s -> {
+            // DB에 저장된 실제 Try 데이터의 총 개수를 가져옵니다.
+            // (성공/실패 여부와 상관없이 현재까지 수행한 횟수)
+            int currentTryCount = tryRepo.countBySessionId(s.getId());
+
+            // 현재 수행 횟수가 목표(totalTries)에 도달했는지 체크
+            return currentTryCount >= s.getTotalTries();
+        });
+
+        // 2. 조건이 맞으면 이미 작성하신 '마감 실행' 메서드 호출
+        if (isAllFinished) {
+            this.completeSequence(sequenceId);
+        }
+    }
+
+    @Transactional
+    public void completeSequence(Long sequenceId) {
+        Sequence sequence = sequenceRepo.findById(sequenceId)
+                .orElseThrow(() -> new IllegalArgumentException("Sequence not found: " + sequenceId));
+
+        // 1. 종료 시간 기록 (마감 처리)
+        if (sequence.getEndedAt() == null) {
+            sequence.setEndedAt(LocalDateTime.now());
+            sequenceRepo.save(sequence);
+        }
+
+        // 2. AI 리포트 생성 서비스 호출 (비동기)
+        // 리포트 서비스 내부에서 @Async 처리가 되어 있으므로, 시퀀스 종료 로직은 즉시 완료됩니다.
+        reportService.createAndSaveReport(sequenceId);
     }
 }

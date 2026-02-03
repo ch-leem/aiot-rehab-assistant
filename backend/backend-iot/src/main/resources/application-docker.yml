@@ -34,3 +34,8 @@ springdoc:
 logging:
   level:
     org.hibernate.SQL: debug
+
+gms:
+  api:
+    key: ${GMS_KEY:""}
+    url: https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions

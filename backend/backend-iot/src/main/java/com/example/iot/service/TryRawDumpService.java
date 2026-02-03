@@ -13,13 +13,15 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class TryRawDumpService {
     private final StringRedisTemplate redis;
-
+    //test주석
     // 저장 폴더 (도커면 볼륨 마운트 추천)
     private static final Path BASE_DIR = Paths.get("/data/fail-logs");
 
@@ -55,5 +57,20 @@ public class TryRawDumpService {
         }
 
         return file;
+    }
+
+    public Path findLatestDumpFile(Long tryId) throws Exception {
+        if (!Files.exists(BASE_DIR)) {
+            throw new IllegalStateException("fail-logs dir not found: " + BASE_DIR);
+        }
+        String prefix = "try-" + tryId + "-";
+
+        try (Stream<Path> s = Files.list(BASE_DIR)) {
+            return s.filter(p -> p.getFileName().toString().startsWith(prefix))
+                    .filter(p -> p.getFileName().toString().endsWith(".jsonl"))
+                    .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
+                    .orElseThrow(() ->
+                            new IllegalStateException("fail log file not found for tryId=" + tryId));
+        }
     }
 }

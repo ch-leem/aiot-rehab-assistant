@@ -166,7 +166,11 @@ export default function App() {
       F_PL_HOR: "/audio/F_PL_HOR_골반을_맞춰주세요.mp3",
       F_ANK_STB: "/audio/F_ANK_STB_반대쪽_발에_발목을_고정해주세요.mp3",
       F_ELSE: "/audio/F_ELSE_예외_발생_예외_발생.mp3",
-      SUCCESS: "/audio/T_잘하셨어요.mp3"
+      SUCCESS: "/audio/T_잘하셨어요.mp3",
+      3: "/audio/3_삼.mp3",
+      2: "/audio/2_이.mp3",
+      1: "/audio/1_일.mp3",
+      시작: "/audio/시작_시작.mp3"
     };
 
     const src = AUDIO_MAP[failId] || AUDIO_MAP.F_ELSE;
@@ -591,11 +595,13 @@ export default function App() {
     countdownTokenRef.current = token;
     const steps = ["3", "2", "1", "시작"];
     let index = 0;
+    playFailAudio(steps[index]);
     setCountdownStep(steps[index]);
     const tick = () => {
       if (countdownTokenRef.current !== token) return;
       index += 1;
       if (index < steps.length) {
+        playFailAudio(steps[index]);
         setCountdownStep(steps[index]);
         if (index === steps.length - 1) {
           startTry(nextTryId);
