@@ -126,7 +126,7 @@ export default function App() {
   const [countdownStep, setCountdownStep] = useState(null);
   const [moleTrySignal, setMoleTrySignal] = useState(0);
   const patientWeight = 50;
-  const requiredPower = patientWeight * 0.6;
+  const requiredPower = patientWeight * 0.8;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
   const molePreloadRef = useRef(false);
