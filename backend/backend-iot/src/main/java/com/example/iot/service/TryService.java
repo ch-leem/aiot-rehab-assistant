@@ -152,6 +152,10 @@ public class TryService {
         log.info("최종 판정 [DB]: {}", dbJudge.isFailed() ? "FAIL (사유: " + dbJudge.getFailGoalName() + ")" : "SUCCESS");
         log.info("================================================================");
 
+        if( !frontJudge.isFailed() ) {
+            session.setGoal(Integer.toString(Integer.parseInt(session.getGoal()) + 1));
+        }
+
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
         return toResponse(t,
                 frontJudge.isFailed() ? "FAIL" : "SUCCESS",
