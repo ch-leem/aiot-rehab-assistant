@@ -6,7 +6,6 @@ import "./MoleGame.css";
 
 export default function MoleGame({
   onCountChange,
-  sensorPower = null,
   requiredPower = 0.8,
   showLoadingOverlay = true,
   tryStartSignal = 0,
@@ -28,7 +27,7 @@ export default function MoleGame({
   const assetsTimeoutRef = useRef(null);
   const tryActiveRef = useRef(false);
   const startTryRef = useRef(null);
-  const [ssePower, setSsePower] = useState(null);
+  const powerRef = useRef(null);
 
   onCountChangeRef.current = onCountChange;
 
@@ -483,7 +482,7 @@ export default function MoleGame({
             const rawPower = frame?.sensor?.power;
             const parsedPower = Number(rawPower);
             if (Number.isFinite(parsedPower)) {
-              setSsePower(parsedPower);
+              powerRef.current = parsedPower;
               if (typeof onPowerChange === "function") {
                 onPowerChange(parsedPower);
               }
@@ -553,8 +552,8 @@ export default function MoleGame({
             hitTriggered = true;
             hitMole();
           }
-          const effectivePower = sensorPower ?? ssePower;
-          if (!hitTriggered && !tryResolved && effectivePower != null && effectivePower >= requiredPower) {
+          const realtimePower = powerRef.current;
+          if (!hitTriggered && !tryResolved && realtimePower != null && realtimePower >= requiredPower) {
             hitTriggered = true;
             hitMole();
           }

@@ -1198,7 +1198,6 @@ export default function App() {
                   setMoleGameTotal(total);
                 }}
                 onPowerChange={(power) => setSensorPower(power)}
-                sensorPower={holdingPower || sensorPower}
                 requiredPower={requiredPower}
                 tryStartSignal={moleTrySignal}
                 showLoadingOverlay={false}
