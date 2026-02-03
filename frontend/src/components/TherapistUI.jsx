@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import MainLayout from "./MainLayout";
 import GooeyText from "./GooeyText";
 
@@ -13,6 +13,7 @@ const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
 
 const mockReports = import.meta.glob("../mocks/*.json", { eager: true });
 const mockSessions = import.meta.glob("../mocks/sessions/*.json", { eager: true });
+const mockTherapistDashboard = mockReports["../mocks/therapistDashboard.json"]?.default ?? null;
 
 const getMockReportById = (sequenceId, patientId) => {
   if (!sequenceId || !patientId) return null;
@@ -71,16 +72,26 @@ const normalizeSessionDetail = (raw) => {
   };
 };
 
+const normalizeReportInput = (raw) => {
+  if (!raw) return null;
+  const report = raw.data ?? raw;
+  if (!report) return null;
 
-const fetchSequenceReport = async (sequenceId, patientId) => {
-  if (!sequenceId || !patientId) return null;
-  const res = await fetch(
-    `${API_IOT_BASE_URL}/api/patients/sequences/${sequenceId}`,
-    { method: "GET" }
-  );
-  if (!res.ok) throw new Error("시퀀스 리포트를 불러오지 못했습니다.");
-  const payload = await res.json();
-  return payload?.data ?? null;
+  return {
+    sequenceId: report.sequenceId ?? report.sequence_id ?? null,
+    patientName: report.patientName ?? report.patient_name ?? "",
+    patientId: report.patientId ?? report.patient_id ?? null,
+    date: report.date ?? null,
+    rehabPhase: report.rehabPhase ?? report.rehab_phase ?? null,
+    side: report.side ?? null,
+    overallSummary: report.overallSummary ?? report.overall_summary ?? null,
+    exerciseSummaries: (report.exerciseSummaries ?? report.exercise_summaries ?? []).map((es) => ({
+      ...es,
+      withinSessionTrend: es.withinSessionTrend ?? es.sessionTrend ?? es.session_trend ?? "",
+    })),
+    riskSignals: report.riskSignals ?? report.risk_signals ?? [],
+    nextFocus: report.nextFocus ?? report.next_focus ?? [],
+  };
 };
 
 const formatDateTime = (value) => {
@@ -221,33 +232,8 @@ export default function TherapistUI() {
     setErrorMessage("");
     try {
       if (USE_MOCK) {
-        const data = {
-          therapistId: Number(trimmedId) || 1,
-          therapistName: "김닥터",
-          patients: [
-            {
-              patientId: 103,
-              name: "박재활",
-              gender: "MALE",
-              age: 37,
-              diseaseName: "뇌졸중",
-            },
-            {
-              patientId: 105,
-              name: "정이원",
-              gender: "FEMALE",
-              age: 45,
-              diseaseName: "척수 손상",
-            },
-            {
-              patientId: 120,
-              name: "김미수",
-              gender: "MALE",
-              age: 62,
-              diseaseName: "퇴행성 관절염",
-            },
-          ],
-        };
+        const data = mockTherapistDashboard;
+        if (!data) throw new Error("목업 대시보드 데이터가 없습니다.");
         setTherapistName(data.therapistName ?? "");
         setPatients(Array.isArray(data.patients) ? data.patients : []);
         setSelectedPatient(null);
@@ -268,7 +254,7 @@ export default function TherapistUI() {
       setSelectedPatient(null);
       setSearchValue("");
       setView(VIEW.LOOKUP);
-    } catch (err) {
+    } catch (_err) {
       setErrorMessage("의료인 번호를 확인해주세요.");
     } finally {
       setIsLoading(false);
@@ -290,7 +276,7 @@ export default function TherapistUI() {
       if (!res.ok) throw new Error("세션 상세를 불러오지 못했습니다.");
       const payload = await res.json();
       setSessionDetails((prev) => ({ ...prev, [sessionId]: normalizeSessionDetail(payload) }));
-    } catch (err) {
+    } catch (_err) {
       setSessionDetails((prev) => ({ ...prev, [sessionId]: null }));
     } finally {
       setSessionLoading((prev) => ({ ...prev, [sessionId]: false }));
@@ -336,12 +322,9 @@ export default function TherapistUI() {
         return;
       }
 
-      const [profileRes, sequencesRes, reportRes] = await Promise.all([
+      const [profileRes, sequencesRes] = await Promise.all([
         fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
         fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, {
-          method: "GET",
-        }),
-        fetch(`${API_IOT_BASE_URL}/api/therapist/patient/${patient.patientId}/report`, {
           method: "GET",
         }),
       ]);
@@ -350,25 +333,29 @@ export default function TherapistUI() {
 
       const profilePayload = await profileRes.json();
       const sequencesPayload = sequencesRes.ok ? await sequencesRes.json() : { data: [] };
-      const reportPayload = reportRes.ok ? await reportRes.json() : { data: null };
       const sequences = Array.isArray(sequencesPayload?.data) ? sequencesPayload.data : [];
 
       const latestSequence = sequences
         .slice()
         .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
 
-      const reportInput =
-        reportPayload?.data ??
-        (latestSequence?.sequence_id
-          ? await fetchSequenceReport(latestSequence.sequence_id, patient.patientId)
-          : null);
+      let reportInput = null;
+      if (latestSequence?.sequence_id) {
+        const reportRes = await fetch(
+          `${API_IOT_BASE_URL}/api/rehab/reports/${latestSequence.sequence_id}`,
+          { method: "GET" }
+        );
+        if (reportRes.ok) {
+          reportInput = normalizeReportInput(await reportRes.json());
+        }
+      }
 
       setReportData({
         profile: profilePayload?.data ?? null,
         sequences,
         reportInput,
       });
-    } catch (err) {
+    } catch (_err) {
       setReportError("리포트를 불러오지 못했습니다.");
     } finally {
       setReportLoading(false);
@@ -506,14 +493,27 @@ export default function TherapistUI() {
                 )}
                 {!reportLoading && !reportError && selectedPatient && (
                   <>
+                    <div className="report-top">
+                          <div className="report-top-title">
+                            {(reportData.profile?.name ?? reportData.reportInput?.patientName ?? "-")}{" "}
+                            님 재활 리포트
+                          </div>
+                          <div className="title-meta">
+                            <span>Seq #{reportData.reportInput.sequenceId}</span> |{" "}
+                            <span>
+                              운동 개수:{" "}
+                              {reportData.reportInput.overallSummary?.totalExercises ?? "-"}
+                            </span>{" "}|{" "}
+                            <span>기록일 {formatDateTime(reportData.reportInput.date)}</span>
+                          </div>
+                        </div>
                     <div className="report-card">
                       <div className="report-card-title">환자 정보</div>
                       <div className="report-card-body">
                         {reportData.profile ? (
                           <>
-                            {reportData.profile.name ?? reportData.reportInput?.patientName ?? "-"}{" "}
-                            (ID {reportData.profile.patient_id}) |{" "}
-                            {reportData.profile.gender === "MALE" ? "M" : "F"} |{" "}
+                            ID : {reportData.profile.patient_id ?? reportData.reportInput?.patientName ?? "-"}{" "}
+                             |{" "}{reportData.profile.gender === "MALE" ? "M" : "F"} |{" "}
                             {calcAge(reportData.profile.birth_date) ?? "-"}세
                             <br />
                             질환: {reportData.profile.disease_name} | 재활 단계:{" "}
@@ -527,344 +527,314 @@ export default function TherapistUI() {
                         )}
                       </div>
                     </div>
-                    <div className="report-card">
-                      <div className="report-card-title-row">
-                        <div className="report-card-title">시퀀스 요약</div>
-                        {reportData.reportInput && (
-                          <div className="summary-meta summary-meta-inline">
-                            <span>Seq #{reportData.reportInput.sequenceId}</span> |{" "}
-                            <span>
-                              운동 개수:{" "}
-                              {reportData.reportInput.overallSummary?.totalExercises ?? "-"}
-                            </span>{" "}
-                            |{" "}
-                            <span>기록일 {formatDateTime(reportData.reportInput.date)}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="report-card-body">
-                        {reportData.reportInput ? (
-                          <>
+                    {reportData.reportInput ? (
+                      <>
+
+                        <div className="report-card">
+                          <div className="report-card-title">시퀀스 요약</div>
+                          <div className="report-card-body">
                             <div className="summary-headline">
                               {reportData.reportInput.overallSummary?.title ?? "-"}
                             </div>
                             <div className="summary-body">
                               {reportData.reportInput.overallSummary?.overallAssessment ?? "-"}
                             </div>
-                          </>
-                        ) : (
-                          "시퀀스 요약 정보가 없습니다."
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">주요 위험 신호</div>
-                      <div className="report-card-body">
-                        {reportData.reportInput?.riskSignals?.length ? (
-                          <ul className="report-bullets report-bullets--risk">
-                            {reportData.reportInput.riskSignals.map((item, index) => (
-                              <li key={`risk-${index}`}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="report-empty">위험 신호가 없습니다.</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">다음 재활 집중 포인트</div>
-                      <div className="report-card-body">
-                        {reportData.reportInput?.nextFocus?.length ? (
-                          <ul className="report-bullets report-bullets--focus">
-                            {reportData.reportInput.nextFocus.map((item, index) => (
-                              <li key={`focus-${index}`}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="report-empty">집중 포인트가 없습니다.</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">세션 상세 정보</div>
-                      <div className="report-card-body">
-                        {reportData.reportInput?.exerciseSummaries?.length ? (
-                          <div className="exercise-list">
-                            {reportData.reportInput.exerciseSummaries.map((exercise, index) => {
-                              const key = `${exercise.exerciseName ?? "exercise"}-${index}`;
-                              const isOpen = expandedExercise === key;
-                              return (
-                                <div key={key} className="exercise-card">
-                                  <button
-                                    type="button"
-                                    className={`exercise-header${isOpen ? " open" : ""}`}
-                                    onClick={() => {
-                                      const nextOpen = isOpen ? null : key;
-                                      setExpandedExercise(nextOpen);
-                                      if (!isOpen && exercise.sessionId) {
-                                        loadSessionDetail(exercise.sessionId);
-                                      }
-                                    }}
-                                    aria-expanded={isOpen}
-                                  >
-                                    <div className="exercise-title">
-                                      <span>{exercise.exerciseName ?? "-"}</span>
-                                      <span className={getSummaryTagClass(exercise.summaryTag)}>
-                                        {exercise.summaryTag ?? "-"}
-                                      </span>
-                                      <span className={getTrendClass(exercise.withinSessionTrend)}>
-                                        {getTrendSymbol(exercise.withinSessionTrend)}{" "}
-                                        {exercise.withinSessionTrend ?? "-"}
-                                      </span>
-                                    </div>
-                                    <div className="exercise-meta">
-                                      <span className="meta-pill-compact">
-                                        성공 비율 {formatPercent(exercise.performance?.successRate)}
-                                      </span>
-                                      <span className="meta-pill-compact">
-                                        평균 점수 {formatNumber(exercise.performance?.averageScore)}
-                                      </span>
-                                      <span className="exercise-toggle">{isOpen ? "닫기" : "보기"}</span>
-                                    </div>
-                                  </button>
-                                  {isOpen && (
-                                    <div className="exercise-body">
-                                      <div className="exercise-note">
-                                        {exercise.sessionNote ?? "-"}
-                                      </div>
-                                      <div className="session-mini-charts">
-                                        {(() => {
-                                          const sessionId = exercise.sessionId;
-                                          const session = sessionId ? sessionDetails[sessionId] : null;
-                                          const tries = session?.tries ?? [];
-                                          const total = session?.total_tries ?? tries.length;
-                                          const success =
-                                            session?.success_tries ??
-                                            tries.filter((t) => t.result === "SUCCESS").length;
-                                          const successRate = total
-                                            ? Math.round((success / total) * 100)
-                                            : 0;
-                                          const scoreValues = tries
-                                            .map((t) => Number(t.totalScore))
-                                            .filter((v) => Number.isFinite(v));
-                                          const maxVal = scoreValues.length
-                                            ? Math.max(...scoreValues)
-                                            : 0;
-                                          const failReasons = tries
-                                            .filter((t) => t.result === "FAIL" && t.fail_name)
-                                            .reduce((acc, t) => {
-                                              acc[t.fail_name] = (acc[t.fail_name] || 0) + 1;
-                                              return acc;
-                                            }, {});
-                                          const topFails = Object.entries(failReasons)
-                                            .sort((a, b) => b[1] - a[1])
-                                            .slice(0, 2);
-
-                                          if (!sessionId) {
-                                            return (
-                                              <div className="session-empty">
-                                                세션 상세 데이터가 없습니다.
-                                              </div>
-                                            );
+                          </div>
+                        </div>
+                        <div className="report-card">
+                          <div className="report-card-title">주요 위험 신호</div>
+                          <div className="report-card-body">
+                            {reportData.reportInput?.riskSignals?.length ? (
+                              <ul className="report-bullets report-bullets--risk">
+                                {reportData.reportInput.riskSignals.map((item, index) => (
+                                  <li key={`risk-${index}`}>{item}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="report-empty">위험 신호가 없습니다.</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="report-card">
+                          <div className="report-card-title">다음 재활 집중 포인트</div>
+                          <div className="report-card-body">
+                            {reportData.reportInput?.nextFocus?.length ? (
+                              <ul className="report-bullets report-bullets--focus">
+                                {reportData.reportInput.nextFocus.map((item, index) => (
+                                  <li key={`focus-${index}`}>{item}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="report-empty">집중 포인트가 없습니다.</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="report-card">
+                          <div className="report-card-title">세션 상세 정보</div>
+                          <div className="report-card-body">
+                            {reportData.reportInput?.exerciseSummaries?.length ? (
+                              <div className="exercise-list">
+                                {reportData.reportInput.exerciseSummaries.map((exercise, index) => {
+                                  const key = `${exercise.exerciseName ?? "exercise"}-${index}`;
+                                  const isOpen = expandedExercise === key;
+                                  return (
+                                    <div key={key} className="exercise-card">
+                                      <button
+                                        type="button"
+                                        className={`exercise-header${isOpen ? " open" : ""}`}
+                                        onClick={() => {
+                                          const nextOpen = isOpen ? null : key;
+                                          setExpandedExercise(nextOpen);
+                                          if (!isOpen && exercise.sessionId) {
+                                            loadSessionDetail(exercise.sessionId);
                                           }
-                                          if (sessionLoading[sessionId]) {
-                                            return (
-                                              <div className="session-empty">
-                                                세션 데이터를 불러오는 중입니다.
-                                              </div>
-                                            );
-                                          }
-                                          if (!session) {
-                                            return (
-                                              <div className="session-empty">
-                                                세션 상세 데이터가 없습니다.
-                                              </div>
-                                            );
-                                          }
-
-                                          return (
-                                            <>
-                                              <div className="session-section-title">세션 개요</div>
-                                              <div className="session-kpi">
-                                                <span>
-                                                  성공 {success}/{total}
-                                                </span>
-                                                <span>성공률 {successRate}%</span>
-                                              </div>
-                                              {topFails.length > 0 && (
-                                                <div className="session-fails">
-                                                  실패 사유:{" "}
-                                                  {topFails
-                                                    .map(([name, count]) => `${name} (${count})`)
-                                                    .join(", ")}
-                                                </div>
-                                              )}
-                                              {scoreValues.length > 0 && (
-                                                <>
-                                                  <div className="session-trend">
-                                                    <div className="session-scale">
-                                                      <span>100</span>
-                                                      <span>50</span>
-                                                      <span>0</span>
-                                                    </div>
-                                                    {(() => {
-                                                      const points = scoreValues.map((val, i) => {
-                                                        const x =
-                                                          scoreValues.length === 1
-                                                            ? 50
-                                                            : (i / (scoreValues.length - 1)) * 100;
-                                                        const y = 100 - (maxVal ? (val / maxVal) * 100 : 0);
-                                                        return { x, y };
-                                                      });
-                                                      const pointsStr = points
-                                                        .map((p) => `${p.x},${p.y}`)
-                                                        .join(" ");
-
-                                                      return (
-                                                        <svg
-                                                          className="session-line"
-                                                          viewBox="0 0 100 100"
-                                                          preserveAspectRatio="none"
-                                                        >
-                                                          <polyline
-                                                            className="session-line-stroke"
-                                                            points={pointsStr}
-                                                          />
-                                                        </svg>
-                                                      );
-                                                    })()}
-                                                  </div>
-                                                </>
-                                              )}
-                                              {tries.length > 0 && (
-                                                <>
-                                                  <div className="session-section-title">
-                                                    Try 결과 흐름
-                                                  </div>
-                                                  <div className="session-timeline">
-                                                    {tries.map((t, i) => (
-                                                      <span
-                                                        key={`result-${i}`}
-                                                        className={`session-dot ${
-                                                          t.result === "SUCCESS" ? "success" : "fail"
-                                                        }`}
-                                                        title={
-                                                          t.result === "FAIL"
-                                                            ? t.fail_name ?? "FAIL"
-                                                            : "SUCCESS"
-                                                        }
-                                                      />
-                                                    ))}
-                                                  </div>
-                                                  <div className="session-legend">
-                                                    <span>
-                                                      <span className="session-dot success" />
-                                                      성공
-                                                    </span>
-                                                    <span>
-                                                      <span className="session-dot fail" />
-                                                      실패
-                                                    </span>
-                                                  </div>
-                                                </>
-                                              )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-
-                                      <div className="exercise-tags-explain">
-                                        <div className="exercise-tag-row">
-                                          <span className="exercise-tag-label">세션 요약:</span>
+                                        }}
+                                        aria-expanded={isOpen}
+                                      >
+                                        <div className="exercise-title">
+                                          <span>{exercise.exerciseName ?? "-"}</span>
                                           <span className={getSummaryTagClass(exercise.summaryTag)}>
                                             {exercise.summaryTag ?? "-"}
                                           </span>
-                                          <span className="exercise-tag-desc">
-                                            {getSummaryTagDescription(exercise.summaryTag)}
-                                          </span>
-                                        </div>
-                                        <div className="exercise-tag-row">
-                                          <span className="exercise-tag-label">세션 경향:</span>
                                           <span className={getTrendClass(exercise.withinSessionTrend)}>
                                             {getTrendSymbol(exercise.withinSessionTrend)}{" "}
                                             {exercise.withinSessionTrend ?? "-"}
                                           </span>
-                                          <span className="exercise-tag-desc">
-                                            {getTrendDescription(exercise.withinSessionTrend)}
-                                          </span>
                                         </div>
-                                      </div>
-                                      {exercise.keyObservations?.length ? (
-                                        <ul className="exercise-list-items">
-                                          {exercise.keyObservations.map((note, noteIndex) => (
-                                            <li key={`${key}-note-${noteIndex}`}>{note}</li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        <div className="exercise-muted">
-                                          주요 관찰 내용이 없습니다.
+                                        <div className="exercise-meta">
+                                          <span className="meta-pill-compact">
+                                            성공 비율 {formatPercent(exercise.performance?.successRate)}
+                                          </span>
+                                          <span className="meta-pill-compact">
+                                            평균 점수 {formatNumber(exercise.performance?.averageScore)}
+                                          </span>
+                                          <span className="exercise-toggle">{isOpen ? "닫기" : "보기"}</span>
+                                        </div>
+                                      </button>
+                                      {isOpen && (
+                                        <div className="exercise-body">
+                                          <div className="exercise-note">
+                                            {exercise.sessionNote ?? "-"}
+                                          </div>
+                                          <div className="session-mini-charts">
+                                            {(() => {
+                                              const sessionId = exercise.sessionId;
+                                              const session = sessionId ? sessionDetails[sessionId] : null;
+                                              const tries = session?.tries ?? [];
+                                              const total = session?.total_tries ?? tries.length;
+                                              const success =
+                                                session?.success_tries ??
+                                                tries.filter((t) => t.result === "SUCCESS").length;
+                                              const successRate = total
+                                                ? Math.round((success / total) * 100)
+                                                : 0;
+                                              const scoreValues = tries
+                                                .map((t) => Number(t.totalScore))
+                                                .filter((v) => Number.isFinite(v));
+                                              const maxVal = scoreValues.length
+                                                ? Math.max(...scoreValues)
+                                                : 0;
+                                              const failReasons = tries
+                                                .filter((t) => t.result === "FAIL" && t.fail_name)
+                                                .reduce((acc, t) => {
+                                                  acc[t.fail_name] = (acc[t.fail_name] || 0) + 1;
+                                                  return acc;
+                                                }, {});
+                                              const topFails = Object.entries(failReasons)
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(0, 2);
+
+                                              if (!sessionId) {
+                                                return (
+                                                  <div className="session-empty">세션 상세 데이터가 없습니다.</div>
+                                                );
+                                              }
+                                              if (sessionLoading[sessionId]) {
+                                                return (
+                                                  <div className="session-empty">세션 데이터를 불러오는 중입니다.</div>
+                                                );
+                                              }
+                                              if (!session) {
+                                                return (
+                                                  <div className="session-empty">세션 상세 데이터가 없습니다.</div>
+                                                );
+                                              }
+
+                                              return (
+                                                <>
+                                                  <div className="session-section-title">세션 개요</div>
+                                                  <div className="session-kpi">
+                                                    <span>성공 {success}/{total}</span>
+                                                    <span>성공률 {successRate}%</span>
+                                                  </div>
+                                                  {topFails.length > 0 && (
+                                                    <div className="session-fails">
+                                                      실패 사유:{" "}
+                                                      {topFails
+                                                        .map(([name, count]) => `${name} (${count})`)
+                                                        .join(", ")}
+                                                    </div>
+                                                  )}
+                                                  {scoreValues.length > 0 && (
+                                                    <div className="session-trend">
+                                                      <div className="session-scale">
+                                                        <span>100</span>
+                                                        <span>50</span>
+                                                        <span>0</span>
+                                                      </div>
+                                                      {(() => {
+                                                        const points = scoreValues.map((val, i) => {
+                                                          const x =
+                                                            scoreValues.length === 1
+                                                              ? 50
+                                                              : (i / (scoreValues.length - 1)) * 100;
+                                                          const y = 100 - (maxVal ? (val / maxVal) * 100 : 0);
+                                                          return { x, y };
+                                                        });
+                                                        const pointsStr = points
+                                                          .map((p) => `${p.x},${p.y}`)
+                                                          .join(" ");
+                                                        return (
+                                                          <svg
+                                                            className="session-line"
+                                                            viewBox="0 0 100 100"
+                                                            preserveAspectRatio="none"
+                                                          >
+                                                            <polyline
+                                                              className="session-line-stroke"
+                                                              points={pointsStr}
+                                                            />
+                                                          </svg>
+                                                        );
+                                                      })()}
+                                                    </div>
+                                                  )}
+                                                  {tries.length > 0 && (
+                                                    <>
+                                                      <div className="session-section-title">Try 결과 흐름</div>
+                                                      <div className="session-timeline">
+                                                        {tries.map((t, i) => (
+                                                          <span
+                                                            key={`result-${i}`}
+                                                            className={`session-dot ${
+                                                              t.result === "SUCCESS" ? "success" : "fail"
+                                                            }`}
+                                                            title={
+                                                              t.result === "FAIL"
+                                                                ? t.fail_name ?? "FAIL"
+                                                                : "SUCCESS"
+                                                            }
+                                                          />
+                                                        ))}
+                                                      </div>
+                                                      <div className="session-legend">
+                                                        <span>
+                                                          <span className="session-dot success" />
+                                                          성공
+                                                        </span>
+                                                        <span>
+                                                          <span className="session-dot fail" />
+                                                          실패
+                                                        </span>
+                                                      </div>
+                                                    </>
+                                                  )}
+                                                </>
+                                              );
+                                            })()}
+                                          </div>
+
+                                          <div className="exercise-tags-explain">
+                                            <div className="exercise-tag-row">
+                                              <span className="exercise-tag-label">세션 요약:</span>
+                                              <span className={getSummaryTagClass(exercise.summaryTag)}>
+                                                {exercise.summaryTag ?? "-"}
+                                              </span>
+                                              <span className="exercise-tag-desc">
+                                                {getSummaryTagDescription(exercise.summaryTag)}
+                                              </span>
+                                            </div>
+                                            <div className="exercise-tag-row">
+                                              <span className="exercise-tag-label">세션 경향:</span>
+                                              <span className={getTrendClass(exercise.withinSessionTrend)}>
+                                                {getTrendSymbol(exercise.withinSessionTrend)}{" "}
+                                                {exercise.withinSessionTrend ?? "-"}
+                                              </span>
+                                              <span className="exercise-tag-desc">
+                                                {getTrendDescription(exercise.withinSessionTrend)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          {exercise.keyObservations?.length ? (
+                                            <ul className="exercise-list-items">
+                                              {exercise.keyObservations.map((note, noteIndex) => (
+                                                <li key={`${key}-note-${noteIndex}`}>{note}</li>
+                                              ))}
+                                            </ul>
+                                          ) : (
+                                            <div className="exercise-muted">주요 관찰 내용이 없습니다.</div>
+                                          )}
+                                          <div className="exercise-compare">
+                                            <strong>이전 세션과 비교: </strong>
+                                            {exercise.comparisonToPrevious?.used ? (
+                                              <>
+                                                <span
+                                                  className={getTrendClass(
+                                                    exercise.comparisonToPrevious.trend
+                                                  )}
+                                                >
+                                                  {getTrendSymbol(exercise.comparisonToPrevious.trend)}{" "}
+                                                  {exercise.comparisonToPrevious.trend ?? "-"}
+                                                </span>
+                                                <span className="exercise-compare-text">
+                                                  {exercise.comparisonToPrevious.trendDescription ?? "-"}
+                                                </span>
+                                              </>
+                                            ) : (
+                                              <span className="tag tag--muted">
+                                                이전 세션과 비교 데이터가 없습니다.
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
-                                      <div className="exercise-compare">
-                                        <strong>이전 세션과 비교: </strong>
-                                        {exercise.comparisonToPrevious?.used ? (
-                                          <>
-                                            <span
-                                              className={getTrendClass(
-                                                exercise.comparisonToPrevious.trend
-                                              )}
-                                            >
-                                              {getTrendSymbol(exercise.comparisonToPrevious.trend)}{" "}
-                                              {exercise.comparisonToPrevious.trend ?? "-"}
-                                            </span>
-                                            <span className="exercise-compare-text">
-                                              {exercise.comparisonToPrevious.trendDescription ?? "-"}
-                                            </span>
-                                          </>
-                                        ) : (
-                                          <span className="tag tag--muted">
-                                            이전 세션과 비교 데이터가 없습니다.
-                                          </span>
-                                        )}
-                                      </div>
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              "운동 요약 정보가 없습니다."
+                            )}
                           </div>
-                        ) : (
-                          "운동 요약 정보가 없습니다."
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-card">
-                      <div className="report-card-title">최근 시퀀스</div>
-                      <div className="report-list">
-                        {reportData.sequences.length > 0 ? (
-                          reportData.sequences.slice(0, 5).map((item) => (
-                            <div key={item.sequence_id} className="report-list-row">
-                              <span className="report-date">
-                                {formatDateTime(item.started_at)} ~ {formatDateTime(item.ended_at)}
-                              </span>
-                              <span className="report-feedback">{item.feedback || "-"}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="therapist-empty">최근 시퀀스 기록이 없습니다.</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="report-disclaimer">
-                      본 보고서는 제공된 재활 세션 데이터에 기반한 AI 생성 요약으로, <br/>
-                      진단이나 치료 결정을 대체하지 않으며 최종 해석과 임상적 판단은 담당 의료진의 전문적 판단에 따릅니다.
-                    </div>
+                        </div>
+                        <div className="report-card">
+                          <div className="report-card-title">최근 시퀀스</div>
+                          <div className="report-list">
+                            {reportData.sequences.length > 0 ? (
+                              reportData.sequences.slice(0, 5).map((item) => (
+                                <div key={item.sequence_id} className="report-list-row">
+                                  <span className="report-date">
+                                    {formatDateTime(item.started_at)} ~
+                                    {formatDateTime(item.ended_at)}
+                                  </span>
+                                  <span className="report-feedback">{item.feedback || "-"}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="therapist-empty">최근 시퀀스 기록이 없습니다.</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="report-disclaimer">본 보고서는 제공된 재활 세션 데이터에 기반한 AI 생성 요약으로, 
+                          <br/>진단이나 치료 결정을 대체하지 않으며 최종 해석과 임상적 판단은 담당 의료진의 전문적 판단에 따릅니다.</div>
+                      </>
+                    ) : (
+                      <div className="therapist-empty">진행된 재활운동이 없습니다.</div>
+                    )}
                   </>
                 )}
                 {!reportLoading && !reportError && !selectedPatient && (
-                  <div className="therapist-empty">
-                    환자를 선택하면 리포트가 표시됩니다.
-                  </div>
+                  <div className="therapist-empty">환자를 선택하면 리포트가 표시됩니다.</div>
                 )}
               </div>
             </section>
