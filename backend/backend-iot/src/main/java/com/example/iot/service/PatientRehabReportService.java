@@ -155,14 +155,22 @@ public class PatientRehabReportService {
 
     @Transactional
     public void createAndSaveReport(Long sequenceId) {
-        // 1. 데이터 조립
-        PatientRehabReportRequest request = createReportRequest(sequenceId);
+        log.info("비동기 리포트 생성 시작 - Sequence ID: {}, Thread: {}", sequenceId, Thread.currentThread().getName());
 
-        // 2. LLM 분석 요청 (GmsClient 호출)
-        PatientRehabReportResponse response = gmsClient.getLlmAnalysis(request);
+        try {
+            // 1. 데이터 조립
+            PatientRehabReportRequest request = createReportRequest(sequenceId);
 
-        // 3. 결과 저장
-        saveLlmReportResponse(response);
+            // 2. LLM 분석 요청 (GmsClient 호출 - 내부 block()은 비동기 스레드 안에서 실행되므로 안전)
+            PatientRehabReportResponse response = gmsClient.getLlmAnalysis(request);
+
+            // 3. 결과 저장
+            saveLlmReportResponse(response);
+
+            log.info("비동기 리포트 생성 및 저장 완료 - Sequence ID: {}", sequenceId);
+        } catch (Exception e) {
+            log.error("비동기 리포트 생성 중 오류 발생 - Sequence ID: {}", sequenceId, e);
+        }
     }
 
     @Transactional(readOnly = true)

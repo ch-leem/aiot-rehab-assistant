@@ -21,7 +21,8 @@ public class PatientRehabReportController {
         try {
             // 이 메서드는 데이터 조립 -> GMS 호출 -> 저장을 한 번에 수행합니다.
             reportService.createAndSaveReport(sequenceId);
-            return ResponseEntity.ok("리포트 생성이 완료되었습니다. Sequence ID: " + sequenceId);
+            return ResponseEntity.accepted()
+                    .body("리포트 생성 요청이 접수되었습니다. 잠시 후 조회가 가능합니다. ID: " + sequenceId);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body("리포트 생성 중 오류 발생: " + e.getMessage());
