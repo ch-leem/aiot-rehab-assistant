@@ -117,6 +117,7 @@ export default function App() {
   const [armRaiseCount, setArmRaiseCount] = useState(0);
   const [armRaiseTotal, setArmRaiseTotal] = useState(10);
   const [armRaiseFeedback, setArmRaiseFeedback] = useState(null);
+  const [lowerBodyFeedback, setLowerBodyFeedback] = useState(null);
   const [moleGameCount, setMoleGameCount] = useState(0);
   const [moleGameTotal, setMoleGameTotal] = useState(10);
   const [holdingPower, setHoldingPower] = useState(0);
@@ -138,10 +139,12 @@ export default function App() {
   const startedTryRef = useRef(null);
   const lastStartedTryIndexRef = useRef(-1);
   const armRaiseTimeoutRef = useRef(null);
+  const moleTryTimeoutRef = useRef(null);
   const lastArmRaiseCountRef = useRef(0);
   const armRaiseCompleteRef = useRef(false);
   const prevTryIndexRef = useRef(0);
   const armRaiseCompleteTimerRef = useRef(null);
+  const lowerBodyFeedbackTimerRef = useRef(null);
   const allowSessionExitRef = useRef(false);
   const lastMoleCountRef = useRef(0);
   const [activeTryId, setActiveTryId] = useState(null);
@@ -727,7 +730,12 @@ export default function App() {
         clearTimeout(exerciseCompleteTimerRef.current);
         exerciseCompleteTimerRef.current = null;
       }
+      if (lowerBodyFeedbackTimerRef.current) {
+        clearTimeout(lowerBodyFeedbackTimerRef.current);
+        lowerBodyFeedbackTimerRef.current = null;
+      }
       setExerciseCompleteFeedback(null);
+      setLowerBodyFeedback(null);
       return;
     }
   }, [screen]);
@@ -819,7 +827,7 @@ export default function App() {
     lastArmRaiseCountRef.current = armRaiseCount;
 
     const run = async () => {
-      let nextDelayMs = 2000;
+      let nextDelayMs = 0;
       const currentTryId = currentTryIds[tryIndex];
       startedTryRef.current = null;
       if (currentTryId) {
@@ -833,9 +841,9 @@ export default function App() {
             setArmRaiseFeedback({
               id: Date.now(),
               message: "잘하셨어요!",
-              duration: 2000,
+              duration: 2500,
             });
-            nextDelayMs = 2000;
+            nextDelayMs = 2500;
           } else if (status === "FAIL") {
             const failId = result.failId || "F_ELSE";
 
@@ -844,16 +852,22 @@ export default function App() {
             setArmRaiseFeedback({
               id: Date.now(),
               message: result.failName || "예외 발생 예외 발생",
-              duration: 2400,
+              duration: 3500,
             });
-            nextDelayMs = 2400;
+            nextDelayMs = 3500;
           }
         }
       }
 
       if (armRaiseCount < armRaiseTotal) {
-        startedTryRef.current = null;
-        setTryIndex((prev) => prev + 1);
+        if (armRaiseTimeoutRef.current) {
+          clearTimeout(armRaiseTimeoutRef.current);
+        }
+        armRaiseTimeoutRef.current = setTimeout(() => {
+          startedTryRef.current = null;
+          setTryIndex((prev) => prev + 1);
+          armRaiseTimeoutRef.current = null;
+        }, nextDelayMs);
       }
     };
 
@@ -872,18 +886,57 @@ export default function App() {
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
       lastMoleCountRef.current = moleGameCount;
+      if (moleTryTimeoutRef.current) {
+        clearTimeout(moleTryTimeoutRef.current);
+        moleTryTimeoutRef.current = null;
+      }
       return;
     }
     if (moleGameCount <= lastMoleCountRef.current) return;
     lastMoleCountRef.current = moleGameCount;
     const currentTryId = currentTryIds[tryIndex];
     const run = async () => {
+      let nextDelayMs = 2500;
       if (currentTryId) {
-        await finishTry(currentTryId);
+        const result = await finishTry(currentTryId);
+        if (result && typeof result === "object") {
+          const status = String(result.resultStatus || "").toUpperCase();
+          if (status === "SUCCESS") {
+            playFailAudio("SUCCESS");
+            setLowerBodyFeedback({
+              id: Date.now(),
+              message: "잘하셨어요!",
+              duration: 2500,
+            });
+            nextDelayMs = 2500;
+          } else if (status === "FAIL") {
+            const failId = result.failId || "F_ELSE";
+            playFailAudio(failId);
+            setLowerBodyFeedback({
+              id: Date.now(),
+              message: result.failName || "예외 발생",
+              duration: 3500,
+            });
+            nextDelayMs = 3500;
+          }
+        }
       }
       if (moleGameCount < moleGameTotal) {
-        startedTryRef.current = null;
-        setTryIndex((prev) => prev + 1);
+        if (moleTryTimeoutRef.current) {
+          clearTimeout(moleTryTimeoutRef.current);
+        }
+        if (lowerBodyFeedbackTimerRef.current) {
+          clearTimeout(lowerBodyFeedbackTimerRef.current);
+        }
+        lowerBodyFeedbackTimerRef.current = setTimeout(() => {
+          setLowerBodyFeedback(null);
+          lowerBodyFeedbackTimerRef.current = null;
+        }, nextDelayMs);
+        moleTryTimeoutRef.current = setTimeout(() => {
+          startedTryRef.current = null;
+          setTryIndex((prev) => prev + 1);
+          moleTryTimeoutRef.current = null;
+        }, nextDelayMs);
       }
     };
     run();
@@ -1186,6 +1239,13 @@ export default function App() {
                 {exerciseCompleteFeedback.message}
               </div>
             )}
+            {currentExerciseId === 2 &&
+              lowerBodyFeedback &&
+              lowerBodyFeedback.message && (
+                <div className="arm-raise-feedback" style={{ opacity: 1 }}>
+                  {lowerBodyFeedback.message}
+                </div>
+              )}
             {countdownStep && (
               <div className="try-countdown-overlay">
                 <div className="try-countdown-text">{countdownStep}</div>
