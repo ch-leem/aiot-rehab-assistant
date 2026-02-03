@@ -62,11 +62,11 @@ public class SequenceService {
         if (summary == null) return null;
 
         return SequenceDetailResponse.SummaryInfo.builder()
-                .exerciseId(summary.getExerciseId())
-                .successRate(summary.getSuccessRate())    // 기존 inTargetRate 대체
-                .averageScore(summary.getAverageScore())  // 기존 avgAngle 대체
-                .summaryTag(summary.getSummaryTag())      // 기존 stabilityLevel 대체
-                .sessionNote(summary.getSessionNote())    // 추가된 분석 필드
+                .exerciseId(summary.getSession().getExercise().getId())
+                .successRate(summary.getSuccessRate())
+                .averageScore(summary.getAverageScore())
+                .summaryTag(summary.getSummaryTag())
+                .sessionNote(summary.getSessionNote())
                 .build();
     }
 
