@@ -233,49 +233,169 @@ export default function MoleGame({
       if (!mole || !hammer || tryResolved) return;
       tryResolved = true;
 
-      const createHitEffect = (pos) => {
-        const particleCount = 8;
+      const createHitEffect = (moleObj, scale = 1) => {
         const particles = [];
-        const geometry = new THREE.SphereGeometry(12, 10, 10);
-        const material = new THREE.MeshBasicMaterial({
-          color: 0xffd700,
-          transparent: true,
-          opacity: 0.9,
-          blending: THREE.AdditiveBlending,
-        });
+        const parentObj = moleObj.parent || scene;
 
-        for (let i = 0; i < particleCount; i += 1) {
-          const p = new THREE.Mesh(geometry, material);
-          p.position.copy(pos);
-          p.position.y += 150;
-          p.frustumCulled = false;
-          p.renderOrder = 10;
-          p.userData.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 50,
-            Math.random() * 50 + 20,
-            (Math.random() - 0.5) * 50
-          );
-          scene.add(p);
-          particles.push(p);
+        // ✅ 1. 폭발 링
+        const ringCount = 3;
+        for (let r = 0; r < ringCount; r++) {
+          const ringGeometry = new THREE.RingGeometry(10 * scale, 15 * scale, 16);
+          const ringMaterial = new THREE.MeshBasicMaterial({
+            color: r === 0 ? 0xffff00 : r === 1 ? 0xffa500 : 0xff6600,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+          });
+          const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+          ring.position.set(moleObj.position.x, moleObj.position.y + 80 * scale, moleObj.position.z);
+          ring.rotation.x = Math.PI / 2;
+          ring.userData.expandSpeed = 80 + r * 20;
+          ring.userData.type = 'ring';
+          parentObj.add(ring);
+          particles.push(ring);
         }
 
+        // ✅ 2. 별 파티클
+        const starCount = 12;
+        for (let i = 0; i < starCount; i++) {
+          const angle = (Math.PI * 2 * i) / starCount;
+          const starShape = new THREE.Shape();
+          const outerRadius = 15 * scale;
+          const innerRadius = 7 * scale;
+          
+          for (let j = 0; j < 10; j++) {
+            const a = (j * Math.PI) / 5;
+            const r = j % 2 === 0 ? outerRadius : innerRadius;
+            const x = Math.cos(a) * r;
+            const y = Math.sin(a) * r;
+            if (j === 0) starShape.moveTo(x, y);
+            else starShape.lineTo(x, y);
+          }
+          starShape.closePath();
+          
+          const starGeometry = new THREE.ShapeGeometry(starShape);
+          const starMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            transparent: true,
+            opacity: 1,
+            blending: THREE.AdditiveBlending,
+          });
+          const star = new THREE.Mesh(starGeometry, starMaterial);
+          star.position.set(
+            moleObj.position.x,
+            moleObj.position.y + 100 * scale,
+            moleObj.position.z
+          );
+          star.userData.velocity = new THREE.Vector3(
+            Math.cos(angle) * 60 * scale,
+            (Math.random() * 30 + 40) * scale,
+            Math.sin(angle) * 60 * scale
+          );
+          star.userData.rotSpeed = (Math.random() - 0.5) * 0.3;
+          star.userData.type = 'star';
+          parentObj.add(star);
+          particles.push(star);
+        }
+
+        // ✅ 3. 구형 파티클
+        const sphereCount = 16;
+        for (let i = 0; i < sphereCount; i++) {
+          const size = (Math.random() * 10 + 15) * scale;
+          const geometry = new THREE.SphereGeometry(size, 8, 8);
+          const material = new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? 0xffd700 : 0xff8c00,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+          });
+          const sphere = new THREE.Mesh(geometry, material);
+          sphere.position.set(
+            moleObj.position.x + (Math.random() - 0.5) * 30 * scale,
+            moleObj.position.y + 100 * scale,
+            moleObj.position.z + (Math.random() - 0.5) * 30 * scale
+          );
+          sphere.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 80 * scale,
+            (Math.random() * 60 + 50) * scale,
+            (Math.random() - 0.5) * 80 * scale
+          );
+          sphere.userData.type = 'sphere';
+          parentObj.add(sphere);
+          particles.push(sphere);
+        }
+
+        // ✅ 4. 번개 라인
+        const lightningCount = 8;
+        for (let i = 0; i < lightningCount; i++) {
+          const angle = (Math.PI * 2 * i) / lightningCount;
+          const points = [];
+          const length = 80 * scale;
+          for (let j = 0; j <= 5; j++) {
+            const t = j / 5;
+            points.push(new THREE.Vector3(
+              Math.cos(angle) * length * t + (Math.random() - 0.5) * 10 * scale,
+              100 * scale + (Math.random() - 0.5) * 20 * scale,
+              Math.sin(angle) * length * t + (Math.random() - 0.5) * 10 * scale
+            ));
+          }
+          const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+          const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 1,
+            linewidth: 3,
+            blending: THREE.AdditiveBlending,
+          });
+          const line = new THREE.Line(lineGeometry, lineMaterial);
+          line.position.set(moleObj.position.x, moleObj.position.y, moleObj.position.z);
+          line.userData.type = 'lightning';
+          line.userData.life = 0;
+          parentObj.add(line);
+          particles.push(line);
+        }
+
+        // ✅ 애니메이션
+        const startTime = performance.now();
         const animateParticles = () => {
+          const elapsed = performance.now() - startTime;
+          const progress = elapsed / 800;
           let alive = false;
+
           particles.forEach((p) => {
-            p.position.add(p.userData.velocity);
-            p.userData.velocity.y -= 2;
-            p.scale.multiplyScalar(0.95);
-            if (p.scale.x > 0.1) {
-              alive = true;
-            } else {
-              p.visible = false;
+            if (p.userData.type === 'ring') {
+              p.scale.x += p.userData.expandSpeed * 0.016;
+              p.scale.y += p.userData.expandSpeed * 0.016;
+              p.material.opacity = Math.max(0, 1 - progress * 1.5);
+              if (p.material.opacity > 0) alive = true;
+            } else if (p.userData.type === 'star') {
+              p.position.add(p.userData.velocity.clone().multiplyScalar(0.016));
+              p.userData.velocity.y -= 3;
+              p.rotation.z += p.userData.rotSpeed;
+              p.material.opacity = Math.max(0, 1 - progress * 1.2);
+              if (p.material.opacity > 0) alive = true;
+            } else if (p.userData.type === 'sphere') {
+              p.position.add(p.userData.velocity.clone().multiplyScalar(0.016));
+              p.userData.velocity.y -= 4;
+              p.scale.multiplyScalar(0.96);
+              p.material.opacity = Math.max(0, 1 - progress * 1.3);
+              if (p.material.opacity > 0) alive = true;
+            } else if (p.userData.type === 'lightning') {
+              p.userData.life += 0.016;
+              p.material.opacity = Math.max(0, 1 - p.userData.life * 5);
+              if (p.material.opacity > 0) alive = true;
             }
           });
 
-          if (alive) {
+          if (alive && progress < 1.5) {
             requestAnimationFrame(animateParticles);
           } else {
-            particles.forEach((p) => scene.remove(p));
+            particles.forEach((p) => {
+              if (p.parent) p.parent.remove(p);
+              if (p.geometry) p.geometry.dispose();
+              if (p.material) p.material.dispose();
+            });
           }
         };
 
@@ -297,7 +417,9 @@ export default function MoleGame({
         if (progress < 1) {
           requestAnimationFrame(animateHammer);
         } else {
-          createHitEffect(mole.position);
+          // ✅ 이펙트 생성!
+          createHitEffect(mole, 1);
+          
           const mStartTime = performance.now();
           const startY = mole.position.y;
           const targetY = mole.userData.hiddenY;
@@ -450,13 +572,13 @@ export default function MoleGame({
           <div className="mole-hole">
             <div className="digging-mole" />
           </div>
-          <p className="loading-text">??? ? ?? ?...</p>
+          <p className="loading-text">열심히 굴 파는 중...</p>
         </div>
       )}
       {showLoadingOverlay && loadError && (
         <div className="loading-overlay">
           <p style={{ color: "#d32f2f", fontWeight: "bold" }}>
-            ?? ? ??? ??????.
+            ⚠️ 굴 파기에 실패했습니다.
           </p>
           <button
             onClick={handleRetry}
@@ -464,7 +586,7 @@ export default function MoleGame({
             style={{ marginTop: "10px" }}
             type="button"
           >
-            ?? ??
+            다시 시도
           </button>
         </div>
       )}

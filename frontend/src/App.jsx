@@ -124,7 +124,7 @@ export default function App() {
   const [sensorPower, setSensorPower] = useState(null);
   const [countdownStep, setCountdownStep] = useState(null);
   const [moleTrySignal, setMoleTrySignal] = useState(0);
-  const patientWeight = 70;
+  const patientWeight = 50;
   const requiredPower = patientWeight * 0.75;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
@@ -787,14 +787,7 @@ export default function App() {
     }
   }, [screen, currentExerciseId, moleGameCount, moleGameTotal, goToNextStep]);
 
-  useEffect(() => {
-    if (currentExerciseId !== 2) return;
-    if (screen === SCREEN.EXERCISE_SESSION) return;
-    if (screen === SCREEN.EXERCISE_INTRO || screen === SCREEN.EXERCISE_LIST) return;
-    if (moleGameCount < moleGameTotal) {
-      setScreen(SCREEN.EXERCISE_SESSION);
-    }
-  }, [screen, currentExerciseId, moleGameCount, moleGameTotal]);
+  // 하체 전용일 때도 화면 흐름은 항상 intro -> session 순서를 유지한다.
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 2) {
@@ -1240,7 +1233,6 @@ export default function App() {
                 resultFeedback={armRaiseFeedback}
               />
             ) : null}
-            )}
           </div>
           <div className="session-panel session-panel-next">
             {currentExerciseId === 2 && (
