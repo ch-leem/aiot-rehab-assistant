@@ -27,6 +27,7 @@ export default function MoleGame({
   const assetsTimeoutRef = useRef(null);
   const tryActiveRef = useRef(false);
   const startTryRef = useRef(null);
+  const debugTickRef = useRef(0);
 
   onCountChangeRef.current = onCountChange;
 
@@ -493,6 +494,19 @@ export default function MoleGame({
           showTimer += dt;
           const isFirstTry = currentRound === 0;
           const maxShowDuration = isFirstTry ? firstShowDuration : baseShowDuration;
+          if (performance.now() - debugTickRef.current > 600) {
+            debugTickRef.current = performance.now();
+            console.log("[MoleGame] state", {
+              tryActive: tryActiveRef.current,
+              phase,
+              hitTriggered,
+              tryResolved,
+              holding,
+              holdMs: holding ? Math.round(performance.now() - holdStart) : 0,
+              sensorPower,
+              requiredPower,
+            });
+          }
           if (showTimer >= maxShowDuration && !hitTriggered && !tryResolved) {
             hitTriggered = true;
             tryResolved = true;
