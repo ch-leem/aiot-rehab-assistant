@@ -41,6 +41,37 @@ const getMockSessionById = (sessionId) => {
   return mockSessions[key]?.default ?? null;
 };
 
+const normalizeSessionDetail = (raw) => {
+  if (!raw) return null;
+  const session =
+    raw.data ??
+    raw.sequenceReportRequest?.sessions?.[0] ??
+    raw.session ??
+    raw;
+
+  if (!session) return null;
+
+  const tries = Array.isArray(session.tries) ? session.tries : [];
+  return {
+    session_id:
+      session.session_id ??
+      raw.sequenceReportRequest?.sequenceId ??
+      session.sessionId ??
+      null,
+    exercise_name: session.exercise_name ?? session.exerciseName ?? "",
+    total_tries: session.total_tries ?? session.totalTries ?? tries.length,
+    success_tries: session.success_tries ?? session.successTries ?? null,
+    tries: tries.map((t) => ({
+      try_id: t.try_id ?? t.tryOrder ?? null,
+      result: t.result ?? t.resultStatus ?? "",
+      fail_name: t.fail_name ?? t.failName ?? null,
+      totalScore: t.totalScore ?? t.total_score ?? null,
+      goal_sensor: t.goal_sensor ?? t.goalSensor ?? t.goal_vision ?? t.goalVision ?? null,
+    })),
+  };
+};
+
+
 const fetchSequenceReport = async (sequenceId, patientId) => {
   if (!sequenceId || !patientId) return null;
   const res = await fetch(
@@ -250,7 +281,7 @@ export default function TherapistUI() {
     try {
       if (USE_MOCK) {
         const mock = getMockSessionById(sessionId);
-        setSessionDetails((prev) => ({ ...prev, [sessionId]: mock?.data ?? null }));
+        setSessionDetails((prev) => ({ ...prev, [sessionId]: normalizeSessionDetail(mock) }));
         return;
       }
       const res = await fetch(`${API_IOT_BASE_URL}/api/patients/sessions/${sessionId}`, {
@@ -258,7 +289,7 @@ export default function TherapistUI() {
       });
       if (!res.ok) throw new Error("세션 상세를 불러오지 못했습니다.");
       const payload = await res.json();
-      setSessionDetails((prev) => ({ ...prev, [sessionId]: payload?.data ?? null }));
+      setSessionDetails((prev) => ({ ...prev, [sessionId]: normalizeSessionDetail(payload) }));
     } catch (err) {
       setSessionDetails((prev) => ({ ...prev, [sessionId]: null }));
     } finally {
@@ -613,11 +644,11 @@ export default function TherapistUI() {
                                           const successRate = total
                                             ? Math.round((success / total) * 100)
                                             : 0;
-                                          const sensorValues = tries
-                                            .map((t) => Number(t.goal_sensor))
+                                          const scoreValues = tries
+                                            .map((t) => Number(t.totalScore))
                                             .filter((v) => Number.isFinite(v));
-                                          const maxVal = sensorValues.length
-                                            ? Math.max(...sensorValues)
+                                          const maxVal = scoreValues.length
+                                            ? Math.max(...scoreValues)
                                             : 0;
                                           const failReasons = tries
                                             .filter((t) => t.result === "FAIL" && t.fail_name)
@@ -668,7 +699,7 @@ export default function TherapistUI() {
                                                     .join(", ")}
                                                 </div>
                                               )}
-                                              {sensorValues.length > 0 && (
+                                              {scoreValues.length > 0 && (
                                                 <>
                                                   <div className="session-trend">
                                                     <div className="session-scale">
@@ -677,11 +708,11 @@ export default function TherapistUI() {
                                                       <span>0</span>
                                                     </div>
                                                     {(() => {
-                                                      const points = sensorValues.map((val, i) => {
+                                                      const points = scoreValues.map((val, i) => {
                                                         const x =
-                                                          sensorValues.length === 1
+                                                          scoreValues.length === 1
                                                             ? 50
-                                                            : (i / (sensorValues.length - 1)) * 100;
+                                                            : (i / (scoreValues.length - 1)) * 100;
                                                         const y = 100 - (maxVal ? (val / maxVal) * 100 : 0);
                                                         return { x, y };
                                                       });
@@ -823,6 +854,10 @@ export default function TherapistUI() {
                           <div className="therapist-empty">최근 시퀀스 기록이 없습니다.</div>
                         )}
                       </div>
+                    </div>
+                    <div className="report-disclaimer">
+                      본 보고서는 제공된 재활 세션 데이터에 기반한 AI 생성 요약으로, <br/>
+                      진단이나 치료 결정을 대체하지 않으며 최종 해석과 임상적 판단은 담당 의료진의 전문적 판단에 따릅니다.
                     </div>
                   </>
                 )}
