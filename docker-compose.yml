@@ -14,7 +14,7 @@ services:
       - db-data:/var/lib/postgresql/data
     networks: [appnet]
     ports:
-    - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5432:5432"
 
   redis:
     image: redis:7-alpine
@@ -63,6 +63,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
 
+      # GMS
+      GMS_KEY: ${GMS_KEY}
+
       # base url
       INGEST_BASE_URL: http://ingest-api:8000
     expose:
@@ -109,7 +112,7 @@ services:
     restart: unless-stopped
     networks:
       - appnet
-  
+
   nginx:
     image: nginx:alpine
     container_name: rehab-nginx
