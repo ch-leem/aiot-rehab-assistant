@@ -106,6 +106,7 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const stageTotal = 5;
   const [postureChecked, setPostureChecked] = useState(false);
+  const [guideEnded, setGuideEnded] = useState(false);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [setIndex, setSetIndex] = useState(1);
   const [exerciseDetails, setExerciseDetails] = useState({});
@@ -413,11 +414,18 @@ export default function App() {
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_INTRO) return;
     setPostureChecked(false);
-    const timeout = setTimeout(() => {
-      setPostureChecked(true);
-    }, 6000);
-    return () => clearTimeout(timeout);
+    setGuideEnded(false);
+    return undefined;
   }, [screen, exerciseIndex]);
+
+  useEffect(() => {
+    if (screen !== SCREEN.EXERCISE_INTRO || !guideEnded) return;
+    setPostureChecked(true);
+    const timeout = setTimeout(() => {
+      enterSession();
+    }, 200);
+    return () => clearTimeout(timeout);
+  }, [screen, guideEnded]);
 
   useEffect(() => {
     if (!currentExerciseId) return;
@@ -937,6 +945,7 @@ export default function App() {
       clearCountdown();
       return;
     }
+    if (!guideEnded) return;
     const nextTryId = currentTryIds[tryIndex];
     if (!nextTryId) return;
     if (lastStartedTryIndexRef.current === tryIndex) return;
@@ -949,6 +958,7 @@ export default function App() {
     }
   }, [
     screen,
+    guideEnded,
     tryIndex,
     currentTryIds,
     currentExerciseId,
@@ -1188,6 +1198,18 @@ export default function App() {
         <div className="placeholder-screen exercise-session enter">
           <div className="screen-label">운동 진행</div>
           <div className="session-visual">
+            {!guideEnded && (
+              <div className="exercise-guide-video">
+                <video
+                  src="/IMG_4685.mov"
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={() => setGuideEnded(true)}
+                  controls={false}
+                />
+              </div>
+            )}
             {exerciseCompleteFeedback && exerciseCompleteFeedback.message && (
               <div className="arm-raise-feedback" style={{ opacity: 1 }}>
                 {exerciseCompleteFeedback.message}
@@ -1198,7 +1220,7 @@ export default function App() {
                 <div className="try-countdown-text">{countdownStep}</div>
               </div>
             )}
-            {currentExerciseId === 2 ? (
+            {guideEnded && currentExerciseId === 2 ? (
               <MoleGame
                 onCountChange={(count, total) => {
                   setMoleGameCount(count);
@@ -1209,7 +1231,7 @@ export default function App() {
                 tryStartSignal={moleTrySignal}
                 showLoadingOverlay={false}
               />
-            ) : (
+            ) : guideEnded ? (
               <ArmRaiseGame
                 onCountChange={(count, total) => {
                   setArmRaiseCount(count);
@@ -1217,6 +1239,7 @@ export default function App() {
                 }}
                 resultFeedback={armRaiseFeedback}
               />
+            ) : null}
             )}
           </div>
           <div className="session-panel session-panel-next">

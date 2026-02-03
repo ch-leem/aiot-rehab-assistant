@@ -1349,6 +1349,23 @@
   border-top: 14px solid rgba(255, 243, 214, 0.95);
 }
 
+.exercise-guide-video {
+  width: 100%;
+  max-width: 720px;
+  margin: 12px 0 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 14px 28px rgba(48, 36, 20, 0.18);
+  border: 1px solid rgba(197, 161, 120, 0.35);
+}
+
+.exercise-guide-video video {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #000;
+}
+
 .power-gauge {
   margin-bottom: 12px;
 }
