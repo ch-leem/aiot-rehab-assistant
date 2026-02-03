@@ -10,6 +10,7 @@ import java.util.List;
 @Repository
 public interface TryRepository extends JpaRepository<Try, Long> {
 
+    //세션 id에 맞는 Try정도 가져오기
     List<Try> findBySessionId(Long sessionId);
 
     //Session아이디 몇 개인지 count
