@@ -92,7 +92,7 @@ export default function MoleGame({
     let currentRound = 0;
     const totalRounds = 10;
     const popDuration = 0.5;
-    const baseShowDuration = 9.0;
+    const baseShowDuration = 14.0;
     const firstShowDuration = 30.0;
     let moleTimer = 0;
     let showTimer = 0;
