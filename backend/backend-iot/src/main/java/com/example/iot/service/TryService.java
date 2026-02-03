@@ -93,7 +93,7 @@ public class TryService {
                     finalTarget,
                     goal.getThreshold(),
                     evalRequest.getCountByGoalName(name),
-                    evalRequest.getSumByGoalName(name),
+                    evalRequest.getSumByGoalName(name) * evalRequest.getCountByGoalName(name),
                     "비마비측 발목 흔들림".equals(name)
             );
             branchScores.put(name, branchScore);
