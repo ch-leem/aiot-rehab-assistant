@@ -223,7 +223,7 @@ export default function TherapistUI() {
       if (USE_MOCK) {
         const data = {
           therapistId: Number(trimmedId) || 1,
-          therapistName: "플러스",
+          therapistName: "김닥터",
           patients: [
             {
               patientId: 103,
