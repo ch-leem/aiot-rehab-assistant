@@ -13,9 +13,9 @@ import java.util.Optional;
 public interface SessionSummaryRepository extends JpaRepository<SessionSummary, Long> {
 
     @Query("""
-        select ss from SessionSummary ss 
-        join fetch ss.session s 
-        join fetch s.exercise 
+        select ss from SessionSummary ss
+        join fetch ss.session s
+        join fetch s.exercise
         where ss.sequence.id = :sequenceId
     """)
     List<SessionSummary> findAllBySequenceId(@Param("sequenceId") Long sequenceId);
@@ -26,9 +26,9 @@ public interface SessionSummaryRepository extends JpaRepository<SessionSummary, 
      * 특정 환자의 가장 최근 세션 요약을 가져오는 쿼리 (에러 해결용)
      */
     @Query("""
-        select ss from SessionSummary ss 
-        where ss.sequence.patient.id = :patientId 
-        order by ss.id desc 
+        select ss from SessionSummary ss
+        where ss.sequence.patient.id = :patientId
+        order by ss.id desc
         limit 1
     """)
     Optional<SessionSummary> findLatestByPatientId(@Param("patientId") Long patientId);

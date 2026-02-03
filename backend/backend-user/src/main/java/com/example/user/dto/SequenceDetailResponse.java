@@ -1,7 +1,5 @@
 package com.example.user.dto;
 
-import com.example.iot.domain.Sequence;
-import com.example.iot.domain.SessionSummary;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
