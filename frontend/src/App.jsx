@@ -795,30 +795,7 @@ export default function App() {
     }
     if (useMock) {
       setSensorPower(null);
-      return;
     }
-    if (typeof EventSource === "undefined") return;
-    const sse = new EventSource("/api/ingest/events");
-    sse.onmessage = (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        console.log("[SSE] lower-body payload", payload);
-        const frames = Array.isArray(payload?.frames) ? payload.frames : [];
-        const frame = frames.length ? frames[frames.length - 1] : null;
-        const power = frame?.sensor?.power;
-        if (typeof power === "number") {
-          setSensorPower(power);
-        }
-      } catch {
-        // ignore parse errors
-      }
-    };
-    sse.onerror = () => {
-      sse.close();
-    };
-    return () => {
-      sse.close();
-    };
   }, [screen, currentExerciseId, useMock]);
 
   useEffect(() => {
@@ -1220,6 +1197,7 @@ export default function App() {
                   setMoleGameCount(count);
                   setMoleGameTotal(total);
                 }}
+                onPowerChange={(power) => setSensorPower(power)}
                 sensorPower={holdingPower || sensorPower}
                 requiredPower={requiredPower}
                 tryStartSignal={moleTrySignal}

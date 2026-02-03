@@ -10,6 +10,7 @@ export default function MoleGame({
   requiredPower = 0.8,
   showLoadingOverlay = true,
   tryStartSignal = 0,
+  onPowerChange = null,
 }) {
   const containerRef = useRef(null);
   const [gameState, setGameState] = useState("ready");
@@ -27,6 +28,7 @@ export default function MoleGame({
   const assetsTimeoutRef = useRef(null);
   const tryActiveRef = useRef(false);
   const startTryRef = useRef(null);
+  const [ssePower, setSsePower] = useState(null);
 
   onCountChangeRef.current = onCountChange;
 
@@ -467,6 +469,36 @@ export default function MoleGame({
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
+    const poseSseUrl = import.meta.env.VITE_POSE_SSE_URL || "/api/ingest/events";
+    let poseStream = null;
+    if (poseSseUrl && typeof EventSource !== "undefined") {
+      try {
+        poseStream = new EventSource(poseSseUrl);
+        poseStream.onmessage = (ev) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            console.log("[SSE] lower-body payload", payload);
+            const frames = Array.isArray(payload?.frames) ? payload.frames : [];
+            const frame = frames.length ? frames[frames.length - 1] : null;
+            const power = frame?.sensor?.power;
+            if (typeof power === "number") {
+              setSsePower(power);
+              if (typeof onPowerChange === "function") {
+                onPowerChange(power);
+              }
+            }
+          } catch {
+            // ignore parse errors
+          }
+        };
+        poseStream.onerror = () => {
+          // ignore stream errors
+        };
+      } catch {
+        // ignore stream errors
+      }
+    }
+
     let rafId;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
@@ -520,7 +552,8 @@ export default function MoleGame({
             hitTriggered = true;
             hitMole();
           }
-          if (!hitTriggered && !tryResolved && sensorPower != null && sensorPower >= requiredPower) {
+          const effectivePower = sensorPower ?? ssePower;
+          if (!hitTriggered && !tryResolved && effectivePower != null && effectivePower >= requiredPower) {
             hitTriggered = true;
             hitMole();
           }
@@ -542,6 +575,9 @@ export default function MoleGame({
       }
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      if (poseStream) {
+        poseStream.close();
+      }
       cancelAnimationFrame(rafId);
       initializedRef.current = false;
       if (container.contains(renderer.domElement)) {
