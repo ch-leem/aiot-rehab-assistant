@@ -480,11 +480,12 @@ export default function MoleGame({
             console.log("[SSE] lower-body payload", payload);
             const frames = Array.isArray(payload?.frames) ? payload.frames : [];
             const frame = frames.length ? frames[frames.length - 1] : null;
-            const power = frame?.sensor?.power;
-            if (typeof power === "number") {
-              setSsePower(power);
+            const rawPower = frame?.sensor?.power;
+            const parsedPower = Number(rawPower);
+            if (Number.isFinite(parsedPower)) {
+              setSsePower(parsedPower);
               if (typeof onPowerChange === "function") {
-                onPowerChange(power);
+                onPowerChange(parsedPower);
               }
             }
           } catch {
