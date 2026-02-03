@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class TryRawDumpService {
     private final StringRedisTemplate redis;
-
+    //test주석
     // 저장 폴더 (도커면 볼륨 마운트 추천)
     private static final Path BASE_DIR = Paths.get("/data/fail-logs");
 
