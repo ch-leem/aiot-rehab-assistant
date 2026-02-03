@@ -1,44 +1,38 @@
 package com.example.iot.domain;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Table(name = "session_summary")
-@Getter @Setter
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class SessionSummary {
 
     @Id
-    @Column(name = "sequence_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sequence_id", nullable = false)
     private Sequence sequence;
 
-    @Column(name = "total_trials")
-    private Long totalTrials; // int8 대응
+    @Column(nullable = false)
+    private Long exerciseId;
 
-    @Column(name = "success_trials")
-    private Long successTrials; // int8 대응
+    private Double successRate;
+    private Double averageScore;
 
-    @Column(name = "avg_angle")
-    private Double avgAngle;
+    private String summaryTag;         // STABLE, VARIABLE, UNSTABLE 등
+    private String sessionTrend; // IMPROVING, STABLE, DECLINING 등
 
-    @Column(name = "in_target_rate")
-    private Double inTargetRate;
+    @Column(columnDefinition = "TEXT")
+    private String sessionNote; // "어깨 가동 범위는 양호하나..."
 
-    @Column(name = "compensation_total")
-    private Long compensationTotal; // int8 대응
+    private String trend;            // IMPROVING, STABLE 등 (이전 대비)
 
-    @Column(name = "stability_level")
-    private String stabilityLevel;
-
-    protected SessionSummary() {}
-
-    public SessionSummary(Sequence sequence) {
-        this.sequence = sequence;
-    }
+    @Column(columnDefinition = "TEXT")
+    private String trendDescription; // "이전 세션에서 언급된..."
 }
