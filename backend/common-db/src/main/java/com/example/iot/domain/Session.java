@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "session")
@@ -25,7 +23,7 @@ public class Session {
     @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
-    private String goal;
+    private String goal = "0";
 
     @Column(name = "total_tries")
     private int totalTries = 0; // 전체 시도 횟수
@@ -36,9 +34,6 @@ public class Session {
     private LocalDateTime startedAt;
 
     private LocalDateTime endedAt;
-
-    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL)
-    private List<Try> tries = new ArrayList<>();
 
     protected Session() {}
 
