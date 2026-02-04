@@ -25,6 +25,6 @@ public class PatientRehabReport {
     @Column(columnDefinition = "TEXT")
     private String overallAssessment;
 
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "TEXT")
     private String fullReportJson;
 }
