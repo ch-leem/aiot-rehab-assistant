@@ -25,7 +25,7 @@ public class ErrorComponent {
         double meanE =  (sum - (threshold * cnt)) / (double) cnt ; // mean(E)
         //점수
         if(isJitter) {
-            perDegreeScore *= -50;
+            perDegreeScore *= 1;
         }
         double score = 100.0 +  meanE * perDegreeScore;
 
