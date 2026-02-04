@@ -787,8 +787,9 @@
 }
 
 .exercise-session .session-visual {
-  min-height: 360px;
+  min-height: 0;
   flex: 1;
+  height: 100%;
 }
 
 .exercise-session .session-next {
@@ -1205,13 +1206,13 @@
 
 .session-visual {
   width: 100%;
-  min-height: 180px;
+  min-height: 520px;
+  height: clamp(380px, 52vh, 640px);
   border-radius: 18px;
   border: 1px dashed rgba(201, 150, 74, 0.45);
   background: #fff7eb;
   color: var(--muted);
-  display: grid;
-  place-items: center;
+  display: block;
   font-size: 1.2rem;
   letter-spacing: 0.06em;
   position: relative;
@@ -1239,7 +1240,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 360px;
+  min-height: 0;
 }
 
 .arm-raise-wrapper {
@@ -1350,10 +1351,12 @@
 }
 
 .exercise-guide-video {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 720px;
-  margin: 12px 0 24px;
-  border-radius: 16px;
+  height: 100%;
+  margin: 0;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(48, 36, 20, 0.18);
   border: 1px solid rgba(197, 161, 120, 0.35);
@@ -1361,9 +1364,11 @@
 
 .exercise-guide-video video {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   background: #000;
+  object-fit: cover;
+  object-position: center 75%;
 }
 
 .power-gauge {
