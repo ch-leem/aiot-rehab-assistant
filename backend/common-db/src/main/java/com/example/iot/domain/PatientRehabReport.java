@@ -27,7 +27,4 @@ public class PatientRehabReport {
 
     @Column(columnDefinition = "LONGTEXT")
     private String fullReportJson;
-
-    @OneToMany(mappedBy = "sequence", cascade = CascadeType.ALL)
-    private List<SessionSummary> sessionSummaries;
 }
