@@ -126,7 +126,7 @@ export default function App() {
   const [countdownStep, setCountdownStep] = useState(null);
   const [moleTrySignal, setMoleTrySignal] = useState(0);
   const patientWeight = 50;
-  const requiredPower = patientWeight * 0.6;
+  const requiredPower = patientWeight * 0.8;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
   const molePreloadRef = useRef(false);
@@ -322,6 +322,8 @@ export default function App() {
       : currentExerciseId === 2
         ? moleGameTotal
         : totalTries;
+  const guideVideoSrc =
+    currentExerciseId === 2 ? "/down_guide.mp4" : "/up_guide.mp4";
 
 
   const startSequence = async () => {
@@ -1231,7 +1233,7 @@ export default function App() {
             {!guideEnded && (
               <div className="exercise-guide-video">
                 <video
-                  src="/IMG_4685.mov"
+                  src={guideVideoSrc}
                   autoPlay
                   muted
                   playsInline
@@ -1344,31 +1346,38 @@ export default function App() {
       {screen === SCREEN.EXERCISE_RESULT && (
         <div className="placeholder-screen result-screen enter">
           {(() => {
-            const defaults = [
-              { exerciseId: 1, totalTries: 12, successTries: 10 },
-              { exerciseId: 2, totalTries: 12, successTries: 8 },
-            ];
-            const averages = sequenceAverages.length ? sequenceAverages : defaults;
+            const performedIds = Array.from(new Set(todayExerciseIds));
+            const averages = sequenceAverages.length ? sequenceAverages : [];
             const upper =
-              averages.find((item) => Number(item.exerciseId) === 1) ?? defaults[0];
+              averages.find((item) => Number(item.exerciseId) === 1) ??
+              (performedIds.includes(1)
+                ? { exerciseId: 1, totalTries: 0, successTries: 0 }
+                : null);
             const lower =
-              averages.find((item) => Number(item.exerciseId) === 2) ?? defaults[1];
-            const upperFill = upper.totalTries
-              ? Math.round((upper.successTries / upper.totalTries) * 100)
-              : 0;
-            const lowerFill = lower.totalTries
-              ? Math.round((lower.successTries / lower.totalTries) * 100)
-              : 0;
+              averages.find((item) => Number(item.exerciseId) === 2) ??
+              (performedIds.includes(2)
+                ? { exerciseId: 2, totalTries: 0, successTries: 0 }
+                : null);
             const upperGoals =
               recentGoals.find((item) => Number(item.exerciseId) === 1)?.goals ?? [];
             const lowerGoals =
               recentGoals.find((item) => Number(item.exerciseId) === 2)?.goals ?? [];
-            const goalLength = Math.max(upperGoals.length, lowerGoals.length, 5);
-            const chartData = Array.from({ length: goalLength }).map((_, index) => ({
-              name: `${index + 1}`,
-              upper: Number(upperGoals[index] ?? 0),
-              lower: Number(lowerGoals[index] ?? 0),
-            }));
+            const goalLength = Math.max(
+              performedIds.includes(1) ? upperGoals.length : 0,
+              performedIds.includes(2) ? lowerGoals.length : 0,
+              0
+            );
+            const chartData = Array.from({ length: Math.max(goalLength, 5) }).map(
+              (_, index) => ({
+                name: `${index + 1}`,
+                ...(performedIds.includes(1)
+                  ? { upper: Number(upperGoals[index] ?? 0) }
+                  : {}),
+                ...(performedIds.includes(2)
+                  ? { lower: Number(lowerGoals[index] ?? 0) }
+                  : {}),
+              })
+            );
             return (
           <div className="result-layout">
             <section className="result-left">
@@ -1496,66 +1505,70 @@ export default function App() {
                   <div className="card-title">상체 + 하체 성공 횟수</div>
                   <div className="card-meta">오늘 수행한 전체 동작 기준</div>
                   <div className="donut-grid">
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: upper.successTries },
-                                { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#b56a6a" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {upper.successTries}/{upper.totalTries}
+                    {upper && (
+                      <div className="donut-item">
+                        <div className="donut-chart">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "성공", value: upper.successTries },
+                                  { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
+                                ]}
+                                dataKey="value"
+                                innerRadius={58}
+                                outerRadius={90}
+                                paddingAngle={2}
+                              >
+                                <Cell fill="#b56a6a" />
+                                <Cell fill="#e6dfd6" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="donut-center">
+                            <div className="donut-value">
+                              {upper.successTries}/{upper.totalTries}
+                            </div>
+                          </div>
+                          <div className="donut-label donut-label-float">
+                            <span className="legend-dot upper" />
+                            상체 성공
                           </div>
                         </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot upper" />
-                          상체 성공
-                        </div>
                       </div>
-                    </div>
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: lower.successTries },
-                                { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#6f8fb8" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {lower.successTries}/{lower.totalTries}
+                    )}
+                    {lower && (
+                      <div className="donut-item">
+                        <div className="donut-chart">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "성공", value: lower.successTries },
+                                  { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
+                                ]}
+                                dataKey="value"
+                                innerRadius={58}
+                                outerRadius={90}
+                                paddingAngle={2}
+                              >
+                                <Cell fill="#6f8fb8" />
+                                <Cell fill="#e6dfd6" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="donut-center">
+                            <div className="donut-value">
+                              {lower.successTries}/{lower.totalTries}
+                            </div>
+                          </div>
+                          <div className="donut-label donut-label-float">
+                            <span className="legend-dot lower" />
+                            하체 성공
                           </div>
                         </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot lower" />
-                          하체 성공
-                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
                 <div className="chart-card">
@@ -1566,20 +1579,24 @@ export default function App() {
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="upper"
-                          stroke="#b56a6a"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="lower"
-                          stroke="#6f8fb8"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
+                        {performedIds.includes(1) && (
+                          <Line
+                            type="monotone"
+                            dataKey="upper"
+                            stroke="#b56a6a"
+                            strokeWidth={3}
+                            dot={{ r: 4 }}
+                          />
+                        )}
+                        {performedIds.includes(2) && (
+                          <Line
+                            type="monotone"
+                            dataKey="lower"
+                            stroke="#6f8fb8"
+                            strokeWidth={3}
+                            dot={{ r: 4 }}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
