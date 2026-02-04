@@ -369,6 +369,12 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
         
         scene.add(this.mesh);
 
+        const box = new THREE.Box3().setFromObject(this.mesh);
+        const size = box.getSize(new THREE.Vector3());
+        this.baseHeight = size.y || 0.4;
+        this.hangScaleY = 0.33;
+        this.hangYOffset = this.baseHeight * (1 - this.hangScaleY) * 0.5;
+
         this.enabled = false;
         this.started = false;
         this.hangSway = 0;
@@ -411,6 +417,11 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
           this.mesh.rotation.x = 0;
           this.mesh.scale.set(1, 1, 1);
         }
+      }
+
+      applyHangScale() {
+        this.mesh.scale.set(1, this.hangScaleY, 1);
+        this.mesh.position.y += this.hangYOffset;
       }
     }
 
@@ -627,7 +638,7 @@ export default function ArmRaiseGame({ onCountChange, resultFeedback }) {
             c.hangSway = 0;
             c.mesh.rotation.y = Math.PI / 2;
             c.mesh.rotation.x = 0;
-            c.mesh.scale.set(1, 1, 1);
+            c.applyHangScale();
             playHangSfx();
             active += 1;
             if (reps < total) {
