@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 public class RecentGoalsService {
@@ -71,19 +72,17 @@ public class RecentGoalsService {
         Map<Long, ExerciseBucket> bucketMap = new LinkedHashMap<>();
 
         for (Session s : sessions) {
-
-
             Long exId = s.getExercise().getId();
             Exercise exercise = exerciseService.getExercise(exId);
             String exName = exercise.getName();
-            int sucess = Integer.parseInt(s.getGoal());
+            int success = Integer.parseInt(s.getGoal());
             int total = s.getTotalTries();
 
             String goal = "";
             if(total == 0) {
                 goal = "0";
             } else{
-                double temp = (double) ((double)sucess / (double)total) * 100;
+                double temp = (double) ((double)success / (double)total) * 100;
                 log.info("temp={}", temp);
                 goal = String.valueOf(temp);
             }
@@ -91,7 +90,7 @@ public class RecentGoalsService {
             ExerciseBucket bucket = bucketMap.computeIfAbsent(exId, k -> new ExerciseBucket(exId, exName));
 
             if (bucket.goals.size() < RECENT_GOALS_PER_EXERCISE) {
-                log.info("sucess = {}, total={}", sucess, total);
+                log.info("sucess = {}, total={}", success, total);
                 bucket.goals.add(goal);
                 log.info("sessionid={}", s.getId());
             }
@@ -116,7 +115,7 @@ public class RecentGoalsService {
         return t.replace("%", "");
     }
     private static String percent(int success, int total) {
-        if (total <= 0) return "0.0"; // 혹은 "N/A"
+        if (total <= 0) return "0.0";
         return BigDecimal.valueOf(success)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP)

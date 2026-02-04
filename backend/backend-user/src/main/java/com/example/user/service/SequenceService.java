@@ -43,19 +43,21 @@ public class SequenceService {
         Sequence sequence = sequenceRepository.findById(sequenceId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 재활 기록을 찾을 수 없습니다. ID: " + sequenceId));
 
-        // 2. 1:1 관계인 SessionSummary 조회 (@MapsId 구조이므로 sequenceId로 직접 조회 가능)
-        SessionSummary summary = summaryRepository.findById(sequenceId).orElse(null);
+        // 2. 해당 시퀀스의 모든 요약 리스트를 가져옵니다.
+        List<SessionSummary> summaryEntities = summaryRepository.findAllBySequenceId(sequenceId);
 
-        // 3. 해당 시퀀스에 속한 세션(운동) 리스트 조회
-        List<Session> sessions = sessionRepository.findAll().stream()
-                .filter(s -> s.getSequence() != null && s.getSequence().getId().equals(sequenceId))
-                .toList();
+        // 3. 해당 시퀀스에 속한 세션 리스트 조회
+        List<Session> sessionEntities = sessionRepository.findAllDetailBySequenceId(sequenceId);
 
         return SequenceDetailResponse.builder()
                 .sequenceId(sequence.getId())
                 .feedback(sequence.getFeedback())
-                .summary(mapToSummaryInfo(summary))
-                .sessions(sessions.stream()
+                // 3. [변경] DTO 필드명이 summaries(List)이므로 map을 통해 변환하여 전달
+                .summaries(summaryEntities.stream()
+                        .map(this::mapToSummaryInfo)
+                        .collect(Collectors.toList()))
+                // 4. 세션 아이템 매핑 (시도 횟수 포함)
+                .sessions(sessionEntities.stream()
                         .map(this::mapToSessionItem)
                         .collect(Collectors.toList()))
                 .build();
@@ -68,11 +70,11 @@ public class SequenceService {
         if (summary == null) return null;
 
         return SequenceDetailResponse.SummaryInfo.builder()
-                .totalTrials(summary.getTotalTrials())
-                .successTrials(summary.getSuccessTrials())
-                .avgAngle(summary.getAvgAngle())
-                .inTargetRate(summary.getInTargetRate())
-                .stabilityLevel(summary.getStabilityLevel())
+                .exerciseId(summary.getSession().getExercise().getId())
+                .successRate(summary.getSuccessRate())
+                .averageScore(summary.getAverageScore())
+                .summaryTag(summary.getSummaryTag())
+                .sessionNote(summary.getSessionNote())
                 .build();
     }
 
@@ -82,8 +84,10 @@ public class SequenceService {
     private SequenceDetailResponse.SessionItem mapToSessionItem(Session session) {
         return SequenceDetailResponse.SessionItem.builder()
                 .sessionId(session.getId())
-                .exerciseName(session.getExercise().getName()) // Exercise 정보 포함
+                .exerciseName(session.getExercise().getName())
                 .goal(session.getGoal())
+                .totalTries(session.getTotalTries())
+                .successTries(session.getSuccessTries())
                 .build();
     }
 }

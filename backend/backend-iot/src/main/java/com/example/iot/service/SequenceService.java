@@ -7,7 +7,10 @@ import com.example.iot.dto.response.SessionTryResponse;
 import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -20,19 +23,22 @@ public class SequenceService {
     private final SequenceRepository sequenceRepo;
     private final SessionRepository sessionRepo;
     private final TryRepository tryRepo;
+    private final PatientRehabReportService reportService;
 
     public SequenceService(
             PatientRepository patientRepo,
             ExercisePatientMappingRepository mappingRepo,
             SequenceRepository sequenceRepo,
             SessionRepository sessionRepo,
-            TryRepository tryRepo
+            TryRepository tryRepo,
+            PatientRehabReportService reportService
     ) {
         this.patientRepo = patientRepo;
         this.mappingRepo = mappingRepo;
         this.sequenceRepo = sequenceRepo;
         this.sessionRepo = sessionRepo;
         this.tryRepo = tryRepo;
+        this.reportService = reportService;
     }
 
     @Transactional
@@ -95,5 +101,49 @@ public class SequenceService {
                 sequence.getId(),
                 sessionResponses
         );
+    }
+
+    @Transactional
+    public void checkSequenceCompletion(Long sequenceId) {
+        List<Session> sessions = sessionRepo.findAllDetailBySequenceId(sequenceId);
+
+        // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
+        boolean isAllFinished = sessions.stream().allMatch(s -> {
+            // DB에 저장된 실제 Try 데이터의 총 개수를 가져옵니다.
+            int currentTryCount = tryRepo.countBySessionId(s.getId());
+
+            // 현재 수행 횟수가 목표(totalTries)에 도달했는지 체크
+            return currentTryCount >= s.getTotalTries();
+        });
+
+        // 2. 조건이 맞으면 이미 작성하신 '마감 실행' 메서드 호출
+        if (isAllFinished) {
+            this.completeSequence(sequenceId);
+        }
+    }
+
+    @Transactional
+    public void completeSequence(Long sequenceId) {
+        Sequence sequence = sequenceRepo.findById(sequenceId)
+                .orElseThrow(() -> new IllegalArgumentException("Sequence not found: " + sequenceId));
+
+        // 1. 종료 시간 기록 (마감 처리)
+        if (sequence.getEndedAt() == null) {
+            sequence.setEndedAt(LocalDateTime.now());
+            sequenceRepo.save(sequence);
+        }
+
+        // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    reportService.createAndSaveReport(sequenceId);
+                }
+            });
+        } else {
+            // 트랜잭션이 없는 상태라면 즉시 실행
+            reportService.createAndSaveReport(sequenceId);
+        }
     }
 }

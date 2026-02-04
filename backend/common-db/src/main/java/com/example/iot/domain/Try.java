@@ -2,10 +2,7 @@ package com.example.iot.domain;
 
 import com.example.iot.domain.constant.TryResult;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
@@ -14,9 +11,11 @@ import java.util.List;
 
 @Slf4j
 @Entity
-@Table(name = "try")
+@Table(name = "`try`" )
 @Getter @Setter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class Try {
 
     @Id
@@ -33,12 +32,13 @@ public class Try {
     private TryResult result;
 
     @Column(name = "total_score")
-    private Double totalScore; // 이번 시도의 종합 점수 (0~100)
+    private Double totalScore;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fail_id")
     private Fail fail;
 
+    @Builder.Default
     @OneToMany(mappedBy = "exerciseTry", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TryGoalResult> goalResults = new ArrayList<>();
 
@@ -48,12 +48,10 @@ public class Try {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
-    // 생성자 유지 및 초기화 로직
     public Try(Session session) {
         this.session = session;
         this.startedAt = LocalDateTime.now();
     }
-
 
     /**
      * 편의 메서드: 상세 결과를 추가하고 종합 점수를 갱신합니다.

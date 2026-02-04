@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "session")
@@ -44,6 +46,9 @@ public class Session {
         this.totalTries = 0;
         this.successTries = 0;
     }
+
+    @OneToMany(mappedBy = "session")
+    private List<Try> tries = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {
