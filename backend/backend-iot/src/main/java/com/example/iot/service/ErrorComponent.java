@@ -25,12 +25,12 @@ public class ErrorComponent {
         double meanE =  (sum - (threshold * cnt)) / (double) cnt ; // mean(E)
         //점수
         if(isJitter) {
-            perDegreeScore *= 20;
+            perDegreeScore *= -50;
         }
         double score = 100.0 +  meanE * perDegreeScore;
 
         // 점수 범위 제한
-        return Math.min( 100, (int) score);
+        return (int) score;
     }
 
 //    private static double clamp01_100(double v) {
