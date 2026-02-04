@@ -1,5 +1,8 @@
 package com.example.iot.service;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class ErrorComponent {
 
     public static int errorScoreFromAbsErrorAgg(
@@ -25,9 +28,11 @@ public class ErrorComponent {
         double meanE =  (sum - (threshold * cnt)) / (double) cnt ; // mean(E)
 
         double offset = 0.0;
+
         //점수
         if(isJitter) {
             perDegreeScore = 1.0;
+            log.info("sum sq {}", sum);
         }
         double score = 100.0 +  meanE * perDegreeScore;
 
