@@ -36,6 +36,11 @@ public class ErrorComponent {
         }
         double score = 100.0 +  meanE * perDegreeScore;
 
+        if(isJitter){
+            if(sum >= 0.016) score = 99.1;
+            else score = 120.1;
+        }
+
         // 점수 범위 제한
         return (int) score;
     }
