@@ -37,7 +37,7 @@ public class ErrorComponent {
         double score = 100.0 +  meanE * perDegreeScore;
 
         if(isJitter){
-            if(sum >= 0.016) score = 99.1;
+            if(sum >= 0.019) score = 60.1;
             else score = 120.1;
         }
 
