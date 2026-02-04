@@ -65,6 +65,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
 
+      # GMS
+      GMS_KEY: ${GMS_KEY}
+
       # base url
       INGEST_BASE_URL: http://ingest-api:8000
     expose:
