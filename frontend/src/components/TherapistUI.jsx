@@ -499,12 +499,12 @@ export default function TherapistUI() {
                             님 재활 리포트
                           </div>
                           <div className="title-meta">
-                            <span>Seq #{reportData.reportInput.sequenceId}</span> |{" "}
+                            <span>Seq #{reportData.reportInput?.sequenceId ?? "-"}</span> |{" "}
                             <span>
                               운동 개수:{" "}
-                              {reportData.reportInput.overallSummary?.totalExercises ?? "-"}
+                              {reportData.reportInput?.overallSummary?.totalExercises ?? "-"}
                             </span>{" "}|{" "}
-                            <span>기록일 {formatDateTime(reportData.reportInput.date)}</span>
+                            <span>기록일 {formatDateTime(reportData.reportInput?.date)}</span>
                           </div>
                         </div>
                     <div className="report-card">
