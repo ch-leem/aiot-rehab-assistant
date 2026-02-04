@@ -23,11 +23,13 @@ public class ErrorComponent {
 
         //error 평균
         double meanE =  (sum - (threshold * cnt)) / (double) cnt ; // mean(E)
+
+        double offset = 0.0;
         //점수
         if(isJitter) {
-            perDegreeScore *= 1;
+            offset = 200;
         }
-        double score = 100.0 +  meanE * perDegreeScore;
+        double score = 100.0 +  meanE * perDegreeScore + offset;
 
         // 점수 범위 제한
         return (int) score;
