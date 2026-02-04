@@ -1,5 +1,0 @@
-rootProject.name = 'backend'
-
-include 'common-db'
-include 'backend-iot'
-include 'backend-user'
