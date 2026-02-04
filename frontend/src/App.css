@@ -1931,6 +1931,12 @@
   min-width: 0;
 }
 
+.donut-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  padding-left: 0;
+}
+
 .donut-item {
   display: flex;
   flex-direction: column;

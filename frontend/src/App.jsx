@@ -44,7 +44,9 @@ const EXERCISE_CATALOG = {
   },
 };
 const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
-const API_USER_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_USER_BASE_URL);
+const API_USER_BASE_URL = normalizeApiBase(
+  import.meta.env.VITE_API_USER_BASE_URL,
+);
 
 const RESULT_RULES = [
   {
@@ -90,7 +92,8 @@ const RESULT_RULES = [
 ];
 
 export default function App() {
-  const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+  const useMock =
+    String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
   const isTherapistRoute =
     typeof window !== "undefined" &&
     window.location.pathname.startsWith("/therapist");
@@ -119,10 +122,13 @@ export default function App() {
   const [moleGameCount, setMoleGameCount] = useState(0);
   const [moleGameTotal, setMoleGameTotal] = useState(10);
   const [holdingPower, setHoldingPower] = useState(0);
-  const [exerciseCompleteFeedback, setExerciseCompleteFeedback] = useState(null);
+  const [exerciseCompleteFeedback, setExerciseCompleteFeedback] =
+    useState(null);
   const [sensorPower, setSensorPower] = useState(null);
-  const patientWeight = 70;
-  const requiredPower = patientWeight * 0.75;
+  const [countdownStep, setCountdownStep] = useState(null);
+  const [moleTrySignal, setMoleTrySignal] = useState(0);
+  const patientWeight = 50;
+  const requiredPower = patientWeight * 0.8;
   const autoAdvanceRef = useRef(false);
   const moleAutoAdvanceRef = useRef(false);
   const molePreloadRef = useRef(false);
@@ -152,7 +158,7 @@ export default function App() {
       F_PL_HOR: "/audio/F_PL_HOR_골반을_맞춰주세요.mp3",
       F_ANK_STB: "/audio/F_ANK_STB_반대쪽_발에_발목을_고정해주세요.mp3",
       F_ELSE: "/audio/F_ELSE_예외_발생_예외_발생.mp3",
-      SUCCESS: "/audio/T_잘하셨어요.mp3"
+      SUCCESS: "/audio/T_잘하셨어요.mp3",
     };
 
     const src = AUDIO_MAP[failId] || AUDIO_MAP.F_ELSE;
@@ -234,7 +240,7 @@ export default function App() {
       });
       const res = await fetch(
         `${API_USER_BASE_URL}/api/patients/therapists/${nextNurseId}/patients/${nextPatientId}/summary`,
-        { method: "GET" }
+        { method: "GET" },
       );
       console.log("[API] login status", res.status);
       if (!res.ok) {
@@ -269,7 +275,9 @@ export default function App() {
   const hasExercises = todayExerciseIds.length > 0;
   const todayExercises = todayExerciseIds.map((id) => EXERCISE_CATALOG[id]);
   const currentSession = sequenceSessions[exerciseIndex] ?? null;
-  const currentTryIds = Array.isArray(currentSession?.tryIds) ? currentSession.tryIds : [];
+  const currentTryIds = Array.isArray(currentSession?.tryIds)
+    ? currentSession.tryIds
+    : [];
   const totalTries = currentTryIds.length || 10;
   const currentExerciseId = todayExerciseIds[exerciseIndex];
   const currentExerciseDetail = currentExerciseId
@@ -305,7 +313,6 @@ export default function App() {
         ? moleGameTotal
         : totalTries;
 
-
   const startSequence = async () => {
     if (!hasExercises) {
       setScreen(SCREEN.EXERCISE_RESULT);
@@ -324,7 +331,7 @@ export default function App() {
             sessionId: 100 + index,
             exerciseId,
             tryIds: Array.from({ length: 10 }, (_, i) => 1000 + index * 10 + i),
-          }))
+          })),
         );
         moveToExerciseIntro();
         return;
@@ -341,7 +348,7 @@ export default function App() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ triesPerSession: 10 }),
-        }
+        },
       );
       console.log("[API] sequence status", res.status);
       if (!res.ok) {
@@ -360,7 +367,7 @@ export default function App() {
   const successCount = 8;
   const resultRule =
     RESULT_RULES.find(
-      (rule) => successCount >= rule.min && successCount <= rule.max
+      (rule) => successCount >= rule.min && successCount <= rule.max,
     ) ?? RESULT_RULES[0];
 
   const compareTopItems = compareItems.length
@@ -370,7 +377,9 @@ export default function App() {
         { exerciseId: "lower", exerciseName: "하체 운동", diff: "" },
       ];
   const diffValues = compareTopItems.map((item) => Number(item.diff));
-  const validDiffs = diffValues.map((value) => (Number.isFinite(value) ? value : 0));
+  const validDiffs = diffValues.map((value) =>
+    Number.isFinite(value) ? value : 0,
+  );
   const focusIndex = validDiffs.length
     ? validDiffs.indexOf(Math.min(...validDiffs))
     : 0;
@@ -393,7 +402,10 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (!hasExercises && (screen === SCREEN.EXERCISE_LIST || screen === SCREEN.EXERCISE_INTRO)) {
+    if (
+      !hasExercises &&
+      (screen === SCREEN.EXERCISE_LIST || screen === SCREEN.EXERCISE_INTRO)
+    ) {
       setScreen(SCREEN.EXERCISE_RESULT);
     }
   }, [hasExercises, screen]);
@@ -416,7 +428,10 @@ export default function App() {
           setExerciseDetails((prev) => ({
             ...prev,
             [currentExerciseId]: {
-              name: currentExerciseId === 1 ? "팔 들어올리기 운동" : "하체 힘 회복 운동",
+              name:
+                currentExerciseId === 1
+                  ? "팔 들어올리기 운동"
+                  : "하체 힘 회복 운동",
               description:
                 currentExerciseId === 1
                   ? "팔을 천천히 들어 올리고 2초 유지한 뒤 내려주세요."
@@ -425,7 +440,8 @@ export default function App() {
                 currentExerciseId === 1
                   ? "어깨가 올라가지 않도록 자연스럽게 움직여주세요."
                   : "무릎이 과하게 앞으로 나가지 않도록 천천히 진행해주세요.",
-              postureGuide: "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
+              postureGuide:
+                "카메라 화면에 팔과 어깨가 모두 보이면 자동으로 넘어갑니다.",
             },
           }));
           return;
@@ -433,9 +449,12 @@ export default function App() {
         console.log("[API] exercise detail GET", {
           url: `${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`,
         });
-        const res = await fetch(`${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`, {
-          method: "GET",
-        });
+        const res = await fetch(
+          `${API_USER_BASE_URL}/api/exercises/${currentExerciseId}`,
+          {
+            method: "GET",
+          },
+        );
         console.log("[API] exercise detail status", res.status);
         if (!res.ok) return;
         const data = await res.json();
@@ -453,20 +472,20 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.code === 'KeyW') {
+      if (e.code === "KeyW") {
         setHoldingPower(requiredPower);
       }
     };
     const onKeyUp = (e) => {
-      if (e.code === 'KeyW') {
+      if (e.code === "KeyW") {
         setHoldingPower(0);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
     };
   }, [requiredPower]);
 
@@ -506,7 +525,9 @@ export default function App() {
       console.log("[API] try start", {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/start`,
       });
-      await fetch(`${API_USER_BASE_URL}/api/tries/${nextTryId}/start`, { method: "POST" });
+      await fetch(`${API_USER_BASE_URL}/api/tries/${nextTryId}/start`, {
+        method: "POST",
+      });
     } catch {
       // ignore start errors for now
     } finally {
@@ -525,13 +546,16 @@ export default function App() {
         url: `${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`,
         body: { tryId: nextTryId, failType: "", totalScore: 0 },
       });
-      const res = await fetch(`${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tryId: nextTryId,
-        }),
-      });
+      const res = await fetch(
+        `${API_USER_BASE_URL}/api/tries/${nextTryId}/finish`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tryId: nextTryId,
+          }),
+        },
+      );
       console.log("[API] try finish status", res.status);
       if (res.ok) {
         const data = await res.json();
@@ -578,40 +602,43 @@ export default function App() {
     }
   };
 
-  const goToNextStep = useCallback(async (options = {}) => {
-    const { forceComplete = false, skipTryFinish = false } = options;
-    if (currentExerciseId === 2 && moleGameCount < moleGameTotal) {
-      return;
-    }
-    const currentTryId = currentTryIds[tryIndex];
-    if (!skipTryFinish && currentTryId) {
-      await finishTry(currentTryId);
-    }
-    if (!forceComplete && tryIndex < totalTries - 1) {
-      setTryIndex((prev) => prev + 1);
-      return;
-    }
-    await finishSession();
-    if (exerciseIndex < todayExercises.length - 1) {
-      setExerciseIndex((prev) => prev + 1);
-      setScreen(SCREEN.EXERCISE_INTRO);
-    } else {
-      await finishSequence();
-      setScreen(SCREEN.EXERCISE_RESULT);
-    }
-  }, [
-    currentExerciseId,
-    moleGameCount,
-    moleGameTotal,
-    currentTryIds,
-    tryIndex,
-    totalTries,
-    finishTry,
-    finishSession,
-    finishSequence,
-    exerciseIndex,
-    todayExercises.length,
-  ]);
+  const goToNextStep = useCallback(
+    async (options = {}) => {
+      const { forceComplete = false, skipTryFinish = false } = options;
+      if (currentExerciseId === 2 && moleGameCount < moleGameTotal) {
+        return;
+      }
+      const currentTryId = currentTryIds[tryIndex];
+      if (!skipTryFinish && currentTryId) {
+        await finishTry(currentTryId);
+      }
+      if (!forceComplete && tryIndex < totalTries - 1) {
+        setTryIndex((prev) => prev + 1);
+        return;
+      }
+      await finishSession();
+      if (exerciseIndex < todayExercises.length - 1) {
+        setExerciseIndex((prev) => prev + 1);
+        setScreen(SCREEN.EXERCISE_INTRO);
+      } else {
+        await finishSequence();
+        setScreen(SCREEN.EXERCISE_RESULT);
+      }
+    },
+    [
+      currentExerciseId,
+      moleGameCount,
+      moleGameTotal,
+      currentTryIds,
+      tryIndex,
+      totalTries,
+      finishTry,
+      finishSession,
+      finishSequence,
+      exerciseIndex,
+      todayExercises.length,
+    ],
+  );
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION) {
@@ -682,7 +709,8 @@ export default function App() {
   useEffect(() => {
     if (currentExerciseId !== 2) return;
     if (screen === SCREEN.EXERCISE_SESSION) return;
-    if (screen === SCREEN.EXERCISE_INTRO || screen === SCREEN.EXERCISE_LIST) return;
+    if (screen === SCREEN.EXERCISE_INTRO || screen === SCREEN.EXERCISE_LIST)
+      return;
     if (moleGameCount < moleGameTotal) {
       setScreen(SCREEN.EXERCISE_SESSION);
     }
@@ -725,7 +753,13 @@ export default function App() {
       startSession();
     }, 1200);
     return () => clearTimeout(timeout);
-  }, [screen, postureChecked, exerciseIndex, sequenceSessions, startedSessionId]);
+  }, [
+    screen,
+    postureChecked,
+    exerciseIndex,
+    sequenceSessions,
+    startedSessionId,
+  ]);
 
   useEffect(() => {
     if (screen !== SCREEN.EXERCISE_SESSION || currentExerciseId !== 1) {
@@ -747,7 +781,6 @@ export default function App() {
         if (result && typeof result === "object") {
           const status = String(result.resultStatus || "").toUpperCase();
           if (status === "SUCCESS") {
-
             playFailAudio("SUCCESS");
 
             setArmRaiseFeedback({
@@ -837,7 +870,7 @@ export default function App() {
         });
         const res = await fetch(
           `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/compare-previous`,
-          { method: "GET" }
+          { method: "GET" },
         );
         console.log("[API] compare-previous status", res.status);
         if (!res.ok) return;
@@ -867,7 +900,7 @@ export default function App() {
         });
         const res = await fetch(
           `${API_USER_BASE_URL}/api/sequences/${patientId}/${sequenceId}/goals/recent`,
-          { method: "GET" }
+          { method: "GET" },
         );
         console.log("[API] recent goals status", res.status);
         if (!res.ok) return;
@@ -895,9 +928,12 @@ export default function App() {
         console.log("[API] sequence averages GET", {
           url: `${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`,
         });
-        const res = await fetch(`${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`, {
-          method: "GET",
-        });
+        const res = await fetch(
+          `${API_USER_BASE_URL}/api/sequence/${sequenceId}/average`,
+          {
+            method: "GET",
+          },
+        );
         console.log("[API] sequence averages status", res.status);
         if (!res.ok) return;
         const data = await res.json();
@@ -935,7 +971,9 @@ export default function App() {
         <PatientCheck
           onStart={() => {
             setExerciseIndex(0);
-            setScreen(hasExercises ? SCREEN.EXERCISE_LIST : SCREEN.EXERCISE_RESULT);
+            setScreen(
+              hasExercises ? SCREEN.EXERCISE_LIST : SCREEN.EXERCISE_RESULT,
+            );
           }}
           onBack={() => setScreen(SCREEN.LOGIN)}
           patientId={patientId}
@@ -1003,9 +1041,7 @@ export default function App() {
           <div className="check-row">
             <div>
               <div className="card-title">자세 확인</div>
-              <div className="card-meta">
-                {currentExercise.postureGuide}
-              </div>
+              <div className="card-meta">{currentExercise.postureGuide}</div>
             </div>
             <button
               className="ghost-button"
@@ -1077,7 +1113,12 @@ export default function App() {
                     style={{
                       width: `${
                         requiredPower > 0
-                          ? Math.min(((holdingPower || sensorPower || 0) / requiredPower) * 100, 100)
+                          ? Math.min(
+                              ((holdingPower || sensorPower || 0) /
+                                requiredPower) *
+                                100,
+                              100,
+                            )
                           : 0
                       }%`,
                     }}
@@ -1089,7 +1130,10 @@ export default function App() {
               <span
                 style={{
                   width: `${
-                    sessionTotal ? (Math.min(sessionCount, sessionTotal) / sessionTotal) * 100 : 0
+                    sessionTotal
+                      ? (Math.min(sessionCount, sessionTotal) / sessionTotal) *
+                        100
+                      : 0
                   }%`,
                 }}
               />
@@ -1102,7 +1146,10 @@ export default function App() {
             className="ghost-button session-next"
             type="button"
             onClick={() => {
-              if (screen === SCREEN.EXERCISE_SESSION && currentExerciseId === 1) {
+              if (
+                screen === SCREEN.EXERCISE_SESSION &&
+                currentExerciseId === 1
+              ) {
                 if (armRaiseCount < armRaiseTotal) {
                   setArmRaiseCount((prev) => Math.min(prev + 1, armRaiseTotal));
                   if (tryIndex < totalTries - 1) {
@@ -1111,7 +1158,10 @@ export default function App() {
                   return;
                 }
               }
-              if (screen === SCREEN.EXERCISE_SESSION && currentExerciseId === 2) {
+              if (
+                screen === SCREEN.EXERCISE_SESSION &&
+                currentExerciseId === 2
+              ) {
                 if (moleGameCount < moleGameTotal) {
                   setMoleGameCount((prev) => Math.min(prev + 1, moleGameTotal));
                   if (tryIndex < totalTries - 1) {
@@ -1138,11 +1188,17 @@ export default function App() {
               { exerciseId: 1, totalTries: 12, successTries: 10 },
               { exerciseId: 2, totalTries: 12, successTries: 8 },
             ];
-            const averages = sequenceAverages.length ? sequenceAverages : defaults;
+            const averages = sequenceAverages.length
+              ? sequenceAverages
+              : defaults;
+            const hasUpperExercise = todayExerciseIds.includes(1);
+            const hasLowerExercise = todayExerciseIds.includes(2);
             const upper =
-              averages.find((item) => Number(item.exerciseId) === 1) ?? defaults[0];
+              averages.find((item) => Number(item.exerciseId) === 1) ??
+              defaults[0];
             const lower =
-              averages.find((item) => Number(item.exerciseId) === 2) ?? defaults[1];
+              averages.find((item) => Number(item.exerciseId) === 2) ??
+              defaults[1];
             const upperFill = upper.totalTries
               ? Math.round((upper.successTries / upper.totalTries) * 100)
               : 0;
@@ -1150,233 +1206,303 @@ export default function App() {
               ? Math.round((lower.successTries / lower.totalTries) * 100)
               : 0;
             const upperGoals =
-              recentGoals.find((item) => Number(item.exerciseId) === 1)?.goals ?? [];
+              recentGoals.find((item) => Number(item.exerciseId) === 1)
+                ?.goals ?? [];
             const lowerGoals =
-              recentGoals.find((item) => Number(item.exerciseId) === 2)?.goals ?? [];
-            const goalLength = Math.max(upperGoals.length, lowerGoals.length, 5);
-            const chartData = Array.from({ length: goalLength }).map((_, index) => ({
-              name: `${index + 1}`,
-              upper: Number(upperGoals[index] ?? 0),
-              lower: Number(lowerGoals[index] ?? 0),
-            }));
+              recentGoals.find((item) => Number(item.exerciseId) === 2)
+                ?.goals ?? [];
+            const goalLength = Math.max(
+              upperGoals.length,
+              lowerGoals.length,
+              5,
+            );
+            const chartData = Array.from({ length: goalLength }).map(
+              (_, index) => {
+                const base = { name: `${index + 1}` };
+                if (hasUpperExercise) {
+                  base.upper = Number(upperGoals[index] ?? 0);
+                }
+                if (hasLowerExercise) {
+                  base.lower = Number(lowerGoals[index] ?? 0);
+                }
+                return base;
+              },
+            );
             return (
-          <div className="result-layout">
-            <section className="result-left">
-              <div className="result-left-inner">
-                <div className="screen-label">운동 결과</div>
-                <div className="result-title-row">
-                  <h1>오늘의 기록</h1>
-                  {hasExercises && (
-                    <div className="result-toggles">
-                      <span className="result-toggle upper">상체</span>
-                      <span className="result-toggle lower">하체</span>
-                    </div>
-                  )}
-                </div>
-                {!hasExercises && (
-                  <div className="info-grid single result-cards">
-                    <div className="info-card accent">
-                      <div>
-                        <div className="card-title">금일 운동이 없습니다</div>
-                        <div className="card-meta">
-                          오늘은 휴식이 필요한 날이에요. 다음 일정에 맞춰 다시 시작해요.
+              <div className="result-layout">
+                <section className="result-left">
+                  <div className="result-left-inner">
+                    <div className="screen-label">운동 결과</div>
+                    <div className="result-title-row">
+                      <h1>오늘의 기록</h1>
+                      {hasExercises && (
+                        <div className="result-toggles">
+                          {hasUpperExercise && (
+                            <span className="result-toggle upper">상체</span>
+                          )}
+                          {hasLowerExercise && (
+                            <span className="result-toggle lower">하체</span>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                )}
-                {hasExercises && (
-                  <div className="info-grid single result-cards">
-                    <div className="info-card accent">
-                      <div>
-                        <div className="card-title">오늘의 성과</div>
-                        <div className="card-meta">{resultRule.summary}</div>
-                      </div>
-                      <span className="card-badge">{resultRule.tag}</span>
-                    </div>
-                    <div className="info-card">
-                      <div>
-                        <div className="card-title">전과 달라진 점</div>
-                        <div className="card-meta change-split">
-                          {(compareItems.length ? compareItems.slice(0, 2) : [
-                            { exerciseId: "upper", exerciseName: "상체 운동", diff: "" },
-                            { exerciseId: "lower", exerciseName: "하체 운동", diff: "" },
-                          ]).map((item, index) => {
-                            const parsedDiff = Number(item.diff);
-                            const isValid = Number.isFinite(parsedDiff);
-                            const absDiff = Math.abs(parsedDiff);
-                            const isUp = parsedDiff > 0;
-                            const isDown = parsedDiff < 0;
-                            let level = "";
-                            if (!isValid || absDiff === 0) {
-                              level = "오늘도 안정적으로 이어가고 있어요";
-                            } else if (absDiff <= 5) {
-                              level = isUp
-                                ? "조금 더 편안하게 움직일 수 있었어요"
-                                : "천천히 조절해도 괜찮아요";
-                            } else if (absDiff <= 10) {
-                              level = isUp
-                                ? "움직임이 전보다 자연스러워졌어요"
-                                : "리듬을 천천히 맞춰가고 있어요";
-                            } else if (absDiff <= 15) {
-                              level = isUp
-                                ? "움직임이 안정적으로 이어졌어요"
-                                : "무리하지 않고 진행해도 충분해요";
-                            } else if (absDiff <= 20) {
-                              level = isUp
-                                ? "오늘은 움직임이 꽤 부드러웠어요"
-                                : "오늘은 몸을 풀어주는 데 집중했어요";
-                            } else if (absDiff <= 25) {
-                              level = isUp
-                                ? "오늘은 동작을 편안하게 잘 이어갔어요"
-                                : "컨디션에 맞춰 천천히 진행했어요";
-                            } else if (absDiff <= 30) {
-                              level = isUp
-                                ? "움직임 흐름이 한층 더 자연스러워졌어요"
-                                : "오늘은 몸을 쉬어가며 진행했어요";
-                            } else {
-                              level = isUp
-                                ? "오늘은 움직임이 아주 편안했어요"
-                                : "오늘은 몸 상태를 살피며 진행했어요";
-                            }
-                            const detail = "";
-                            return (
-                              <div
-                                key={item.exerciseId ?? index}
-                                className={`change-item ${index === 0 ? "upper" : "lower"}`}
-                              >
-                                {item.exerciseName}: {level}{detail}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="info-card">
-                      <div>
-                        <div className="card-title">앞으로의 목표</div>
-                        <div className="card-meta goal-change-list">
-                          {goalLines.map((line, index) => (
-                            <div
-                              key={line}
-                              className={`change-item ${index === 0 ? "upper" : "lower"}`}
-                            >
-                              {line}
+                    {!hasExercises && (
+                      <div className="info-grid single result-cards">
+                        <div className="info-card accent">
+                          <div>
+                            <div className="card-title">
+                              금일 운동이 없습니다
                             </div>
-                          ))}
+                            <div className="card-meta">
+                              오늘은 휴식이 필요한 날이에요. 다음 일정에 맞춰
+                              다시 시작해요.
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+                    {hasExercises && (
+                      <div className="info-grid single result-cards">
+                        <div className="info-card accent">
+                          <div>
+                            <div className="card-title">오늘의 성과</div>
+                            <div className="card-meta">
+                              {resultRule.summary}
+                            </div>
+                          </div>
+                          <span className="card-badge">{resultRule.tag}</span>
+                        </div>
+                        <div className="info-card">
+                          <div>
+                            <div className="card-title">전과 달라진 점</div>
+                            <div className="card-meta change-split">
+                              {(compareItems.length
+                                ? compareItems.slice(0, 2)
+                                : [
+                                    {
+                                      exerciseId: "upper",
+                                      exerciseName: "상체 운동",
+                                      diff: "",
+                                    },
+                                    {
+                                      exerciseId: "lower",
+                                      exerciseName: "하체 운동",
+                                      diff: "",
+                                    },
+                                  ]
+                              ).map((item, index) => {
+                                const parsedDiff = Number(item.diff);
+                                const isValid = Number.isFinite(parsedDiff);
+                                const absDiff = Math.abs(parsedDiff);
+                                const isUp = parsedDiff > 0;
+                                const isDown = parsedDiff < 0;
+                                let level = "";
+                                if (!isValid || absDiff === 0) {
+                                  level = "오늘도 안정적으로 이어가고 있어요";
+                                } else if (absDiff <= 5) {
+                                  level = isUp
+                                    ? "조금 더 편안하게 움직일 수 있었어요"
+                                    : "천천히 조절해도 괜찮아요";
+                                } else if (absDiff <= 10) {
+                                  level = isUp
+                                    ? "움직임이 전보다 자연스러워졌어요"
+                                    : "리듬을 천천히 맞춰가고 있어요";
+                                } else if (absDiff <= 15) {
+                                  level = isUp
+                                    ? "움직임이 안정적으로 이어졌어요"
+                                    : "무리하지 않고 진행해도 충분해요";
+                                } else if (absDiff <= 20) {
+                                  level = isUp
+                                    ? "오늘은 움직임이 꽤 부드러웠어요"
+                                    : "오늘은 몸을 풀어주는 데 집중했어요";
+                                } else if (absDiff <= 25) {
+                                  level = isUp
+                                    ? "오늘은 동작을 편안하게 잘 이어갔어요"
+                                    : "컨디션에 맞춰 천천히 진행했어요";
+                                } else if (absDiff <= 30) {
+                                  level = isUp
+                                    ? "움직임 흐름이 한층 더 자연스러워졌어요"
+                                    : "오늘은 몸을 쉬어가며 진행했어요";
+                                } else {
+                                  level = isUp
+                                    ? "오늘은 움직임이 아주 편안했어요"
+                                    : "오늘은 몸 상태를 살피며 진행했어요";
+                                }
+                                const detail = "";
+                                return (
+                                  <div
+                                    key={item.exerciseId ?? index}
+                                    className={`change-item ${index === 0 ? "upper" : "lower"}`}
+                                  >
+                                    {item.exerciseName}: {level}
+                                    {detail}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="info-card">
+                          <div>
+                            <div className="card-title">앞으로의 목표</div>
+                            <div className="card-meta goal-change-list">
+                              {goalLines.map((line, index) => (
+                                <div
+                                  key={line}
+                                  className={`change-item ${index === 0 ? "upper" : "lower"}`}
+                                >
+                                  {line}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </section>
+                {hasExercises && (
+                  <section className="result-right">
+                    <div className="result-top-actions">
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
+                      >
+                        오늘 마치기
+                      </button>
+                    </div>
+                    <div className="chart-card">
+                      <div className="card-title">
+                        {hasUpperExercise && hasLowerExercise
+                          ? "상체 + 하체 성공 횟수"
+                          : hasUpperExercise
+                            ? "상체 성공 횟수"
+                            : "하체 성공 횟수"}
+                      </div>
+                      <div className="card-meta">
+                        오늘 수행한 전체 동작 기준
+                      </div>
+                      <div
+                        className={`donut-grid${hasUpperExercise && hasLowerExercise ? "" : " single"}`}
+                      >
+                        {hasUpperExercise && (
+                          <div className="donut-item">
+                            <div className="donut-chart">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={[
+                                      {
+                                        name: "성공",
+                                        value: upper.successTries,
+                                      },
+                                      {
+                                        name: "나머지",
+                                        value: Math.max(
+                                          upper.totalTries - upper.successTries,
+                                          0,
+                                        ),
+                                      },
+                                    ]}
+                                    dataKey="value"
+                                    innerRadius={58}
+                                    outerRadius={90}
+                                    paddingAngle={2}
+                                  >
+                                    <Cell fill="#b56a6a" />
+                                    <Cell fill="#e6dfd6" />
+                                  </Pie>
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div className="donut-center">
+                                <div className="donut-value">
+                                  {upper.successTries}/{upper.totalTries}
+                                </div>
+                              </div>
+                              <div className="donut-label donut-label-float">
+                                <span className="legend-dot upper" />
+                                상체 성공
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {hasLowerExercise && (
+                          <div className="donut-item">
+                            <div className="donut-chart">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={[
+                                      {
+                                        name: "성공",
+                                        value: lower.successTries,
+                                      },
+                                      {
+                                        name: "나머지",
+                                        value: Math.max(
+                                          lower.totalTries - lower.successTries,
+                                          0,
+                                        ),
+                                      },
+                                    ]}
+                                    dataKey="value"
+                                    innerRadius={58}
+                                    outerRadius={90}
+                                    paddingAngle={2}
+                                  >
+                                    <Cell fill="#6f8fb8" />
+                                    <Cell fill="#e6dfd6" />
+                                  </Pie>
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div className="donut-center">
+                                <div className="donut-value">
+                                  {lower.successTries}/{lower.totalTries}
+                                </div>
+                              </div>
+                              <div className="donut-label donut-label-float">
+                                <span className="legend-dot lower" />
+                                하체 성공
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="chart-card">
+                      <div className="card-title">최근 5번 정확도 추이</div>
+                      <div className="chart-area">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={chartData}>
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            {hasUpperExercise && (
+                              <Line
+                                type="monotone"
+                                dataKey="upper"
+                                stroke="#b56a6a"
+                                strokeWidth={3}
+                                dot={{ r: 4 }}
+                              />
+                            )}
+                            {hasLowerExercise && (
+                              <Line
+                                type="monotone"
+                                dataKey="lower"
+                                stroke="#6f8fb8"
+                                strokeWidth={3}
+                                dot={{ r: 4 }}
+                              />
+                            )}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </section>
                 )}
               </div>
-            </section>
-            {hasExercises && (
-              <section className="result-right">
-                <div className="result-top-actions">
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => setScreen(SCREEN.PATIENT_CHECK)}
-                  >
-                    오늘 마치기
-                  </button>
-                </div>
-                <div className="chart-card">
-                  <div className="card-title">상체 + 하체 성공 횟수</div>
-                  <div className="card-meta">오늘 수행한 전체 동작 기준</div>
-                  <div className="donut-grid">
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: upper.successTries },
-                                { name: "나머지", value: Math.max(upper.totalTries - upper.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#b56a6a" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {upper.successTries}/{upper.totalTries}
-                          </div>
-                        </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot upper" />
-                          상체 성공
-                        </div>
-                      </div>
-                    </div>
-                    <div className="donut-item">
-                      <div className="donut-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "성공", value: lower.successTries },
-                                { name: "나머지", value: Math.max(lower.totalTries - lower.successTries, 0) },
-                              ]}
-                              dataKey="value"
-                              innerRadius={58}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              <Cell fill="#6f8fb8" />
-                              <Cell fill="#e6dfd6" />
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="donut-center">
-                          <div className="donut-value">
-                            {lower.successTries}/{lower.totalTries}
-                          </div>
-                        </div>
-                        <div className="donut-label donut-label-float">
-                          <span className="legend-dot lower" />
-                          하체 성공
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="chart-card">
-                  <div className="card-title">최근 5번 정확도 추이</div>
-                  <div className="chart-area">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={chartData}>
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="upper"
-                          stroke="#b56a6a"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="lower"
-                          stroke="#6f8fb8"
-                          strokeWidth={3}
-                          dot={{ r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </section>
-            )}
-          </div>
             );
           })()}
         </div>
@@ -1384,6 +1510,3 @@ export default function App() {
     </MainLayout>
   );
 }
-
-
-
