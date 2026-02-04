@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+ingest:
+  base-url: ${INGEST_BASE_URL:http://ingest-api:8000}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/rehab}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update  # 개발 단계: update / 운영이면 validate 권장
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+springdoc:
+  swagger-ui:
+    config-url: /iot-api/v3/api-docs/swagger-config
+    url: /iot-api/v3/api-docs
+
+logging:
+  level:
+    org.hibernate.SQL: debug
