@@ -1235,7 +1235,6 @@ export default function App() {
                 <video
                   src={guideVideoSrc}
                   autoPlay
-                  muted
                   playsInline
                   onEnded={() => setGuideEnded(true)}
                   controls={false}
