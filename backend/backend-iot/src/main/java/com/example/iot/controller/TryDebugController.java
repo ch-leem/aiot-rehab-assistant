@@ -16,31 +16,25 @@ public class TryDebugController {
 
     private final TryRawDumpService dumpService;
 
-//    @GetMapping("/{tryId}/fail-log")
-//    public ResponseEntity<Resource> downloadFailLog(
-//            @PathVariable Long tryId,
-//            @RequestParam(defaultValue = "true") boolean deleteAfter
-//    ) throws Exception {
+//    @GetMapping("/{tryId}/fail-log-file")
+//    public ResponseEntity<Resource> downloadFailLogFile(@PathVariable Long tryId) throws Exception {
 //
-//        Path file = dumpService.dumpRawAsJsonl(tryId, deleteAfter);
-//
+//        Path file = dumpService.findLatestDumpFile(tryId); // 디스크에서 최신 파일 찾기
 //        Resource resource = new FileSystemResource(file.toFile());
 //
 //        return ResponseEntity.ok()
-//                .header(HttpHeaders.CONTENT_DISPOSITION,
-//                        "attachment; filename=\"" + file.getFileName() + "\"")
 //                .contentType(MediaType.APPLICATION_OCTET_STREAM)
 //                .body(resource);
 //    }
 
-    @GetMapping("/{tryId}/fail-log-file")
+    @GetMapping(value="/{tryId}/fail-log-file", produces = "application/x-ndjson")
     public ResponseEntity<Resource> downloadFailLogFile(@PathVariable Long tryId) throws Exception {
 
         Path file = dumpService.findLatestDumpFile(tryId); // 디스크에서 최신 파일 찾기
         Resource resource = new FileSystemResource(file.toFile());
 
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentType(MediaType.parseMediaType("application/x-ndjson"))
                 .body(resource);
     }
 
