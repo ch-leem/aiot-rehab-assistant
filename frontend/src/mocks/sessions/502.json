@@ -1,0 +1,71 @@
+﻿{
+  "sequenceReportRequest": {
+    "sequenceId": 502,
+    "patientId": 2001,
+    "patientName": "박재활",
+    "side": "LEFT",
+    "rehabPhase": "ACTIVE",
+    "date": "2026-01-30T14:10:00",
+    "sessions": [
+      {
+        "exerciseName": "비대칭 체중 부하 운동 (하체)",
+        "previousSessionContext": {
+          "lastSessionDate": "2026-01-27T10:30:00",
+          "lastSessionAvgScore": 74,
+          "lastSessionMainGoalRate": 0.79,
+          "lastSessionNote": "골반 흔들림 빈번"
+        },
+        "totalTries": 3,
+        "successTries": 2,
+        "sessionAvgScore": 80,
+        "tries": [
+          {
+            "tryOrder": 1,
+            "totalScore": 83,
+            "resultStatus": "SUCCESS",
+            "failName": null,
+            "goalResults": [
+              {
+                "goalName": "균형 유지 및 중심 이동 안정화",
+                "goalType": "MAIN",
+                "measuredValue": 96.8,
+                "targetValue": 100.0,
+                "achievementRate": 0.97
+              }
+            ]
+          },
+          {
+            "tryOrder": 2,
+            "totalScore": 86,
+            "resultStatus": "SUCCESS",
+            "failName": null,
+            "goalResults": [
+              {
+                "goalName": "균형 유지 및 중심 이동 안정화",
+                "goalType": "MAIN",
+                "measuredValue": 98.4,
+                "targetValue": 100.0,
+                "achievementRate": 0.98
+              }
+            ]
+          },
+          {
+            "tryOrder": 3,
+            "totalScore": 71,
+            "resultStatus": "FAIL",
+            "failName": "골반 편차 증가",
+            "goalResults": [
+              {
+                "goalName": "균형 유지 및 중심 이동 안정화",
+                "goalType": "MAIN",
+                "measuredValue": 84.1,
+                "targetValue": 100.0,
+                "achievementRate": 0.84
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -297,6 +297,8 @@ export default function App() {
   const currentExerciseDetail = currentExerciseId
     ? exerciseDetails[currentExerciseId]
     : null;
+  const guideVideoSrc =
+    currentExerciseId === 2 ? "/down_guide.mp4" : "/up_guide.mp4";
   const currentExercise = {
     title:
       currentExerciseDetail?.name ??
@@ -1239,7 +1241,7 @@ export default function App() {
             {!guideEnded && (
               <div className="exercise-guide-video">
                 <video
-                  src="/IMG_4685.mov"
+                  src={guideVideoSrc}
                   autoPlay
                   muted
                   playsInline

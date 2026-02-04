@@ -1367,10 +1367,12 @@
 }
 
 .exercise-guide-video {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 720px;
-  margin: 12px 0 24px;
-  border-radius: 16px;
+  height: 100%;
+  margin: 0;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(48, 36, 20, 0.18);
   border: 1px solid rgba(197, 161, 120, 0.35);
@@ -1378,9 +1380,10 @@
 
 .exercise-guide-video video {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   background: #000;
+  object-fit: cover;
 }
 
 .power-gauge {
