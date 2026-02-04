@@ -32,8 +32,8 @@ public class SequenceAverageService {
 
         for (Session session : sessions) {
             int total = session.getTotalTries();
-            int success = session.getSuccessTries();
-            // int success = Integer.parseInt(session.getGoal());
+            // int success = session.getSuccessTries();
+            int success = Integer.parseInt(session.getGoal());
 
             if (total <= 0) continue;
 
@@ -64,11 +64,11 @@ public class SequenceAverageService {
 
         for (Session s : sessions) {
             int total = Math.max(0, s.getTotalTries());
-            int success = Math.max(0, s.getSuccessTries());
-            // int success = Math.max(0, Integer.parseInt(s.getGoal()));
+            // int success = Math.max(0, s.getSuccessTries());
+             int success = Math.max(0, Integer.parseInt(s.getGoal()));
 
             // 실패 횟수는 total - success 로 계산 (음수 방지)
-            int fail = Math.max(0, total - success);
+            // int fail = Math.max(0, total - success);
             Long exerciseId = s.getExercise().getId();
 
             // (선택) 세션별 성공률 %

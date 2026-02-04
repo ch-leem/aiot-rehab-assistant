@@ -25,7 +25,7 @@ public class PatientRehabReport {
     @Column(columnDefinition = "TEXT")
     private String overallAssessment;
 
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "TEXT")
     private String fullReportJson;
 
     // Sequence를 통해 요약 리스트에 접근할 수 있도록 일관성 유지
