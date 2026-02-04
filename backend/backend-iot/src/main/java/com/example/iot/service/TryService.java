@@ -137,7 +137,9 @@ public class TryService {
             }
         } else {
             t.setResult(TryResult.SUCCESS);
-            if (session != null) session.setSuccessTries(session.getSuccessTries() + 1);
+            if (session != null) {
+                session.addSuccessTries();
+            }
         }
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
 
@@ -148,6 +150,10 @@ public class TryService {
 
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
         JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel, patient);
+
+        if (session != null) {
+            session.setGoal(String.format("%.2f", totalAverage));
+        }
 
         // [로그 출력] 판정 직후 한 번에 출력
         log.info("==================== [TRY DEBUG LOG] ID: {} ====================", t.getId());
