@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ExercisePatientMappingRepository extends JpaRepository<ExercisePatientMapping, Long> {
@@ -22,4 +23,6 @@ public interface ExercisePatientMappingRepository extends JpaRepository<Exercise
     List<ExercisePatientMapping> findByPatient_Id(Long patientId);
     //현재 해야하는 운동 있는지 판단
     boolean existsByExercise_IdAndPatient_Id(Long exerciseId, Long patientId);
+
+    Optional<ExercisePatientMapping> findByPatient_IdAndExercise_Id(Long patientId, Long exerciseId);
 }

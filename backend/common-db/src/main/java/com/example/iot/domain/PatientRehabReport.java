@@ -28,6 +28,7 @@ public class PatientRehabReport {
     @Column(columnDefinition = "LONGTEXT")
     private String fullReportJson;
 
-    @OneToMany(mappedBy = "sequence", cascade = CascadeType.ALL)
+    // Sequence를 통해 요약 리스트에 접근할 수 있도록 일관성 유지
+    @OneToMany(mappedBy = "sequence", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SessionSummary> sessionSummaries;
 }

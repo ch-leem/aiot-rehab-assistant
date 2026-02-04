@@ -1,67 +1,42 @@
 package com.example.iot.controller;
 
-import com.example.iot.dto.request.SequenceStartRequest;
-import com.example.iot.dto.response.PatientRehabReportResponse;
-import com.example.iot.dto.response.SequenceStartResponse;
-import com.example.iot.dto.response.SessionTryCountResponse;
 import com.example.iot.service.PatientRehabReportService;
-import com.example.iot.service.SequenceAverageService;
-import com.example.iot.service.SequenceService;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-@Slf4j
 @RestController
-@RequestMapping("/api/sequence")
-public class SequenceController {
+@RequestMapping("/api/rehab/reports")
+@RequiredArgsConstructor
+public class PatientRehabReportController {
 
-    private final SequenceService sequenceService;
-    private final SequenceAverageService sequenceAverageService;
     private final PatientRehabReportService reportService;
 
-    public SequenceController(
-            SequenceService sequenceService,
-            SequenceAverageService sequenceAverageService,
-            PatientRehabReportService reportService
-    ) {
-        this.sequenceService = sequenceService;
-        this.sequenceAverageService = sequenceAverageService;
-        this.reportService = reportService;
+    /**
+     * [POST] AI 재활 분석 리포트 생성 요청
+     * 특정 시퀀스가 종료된 후, 이 API를 호출하여 AI 분석을 실행합니다.
+     */
+    @PostMapping("/generate/{sequenceId}")
+    public ResponseEntity<String> generateReport(@PathVariable Long sequenceId) {
+        try {
+            // 이 메서드는 데이터 조립 -> GMS 호출 -> 저장을 한 번에 수행합니다.
+            reportService.createAndSaveReport(sequenceId);
+            return ResponseEntity.accepted()
+                    .body("리포트 생성 요청이 접수되었습니다. 잠시 후 조회가 가능합니다. ID: " + sequenceId);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("리포트 생성 중 오류 발생: " + e.getMessage());
+        }
     }
 
-    @PostMapping("/{patientId}")
-    public ResponseEntity<SequenceStartResponse> startSequence(
-            @PathVariable Long patientId,
-            @RequestBody(required = false) SequenceStartRequest body
-    ) {
-        SequenceStartResponse res = sequenceService.startSequence(patientId, body);
-        return ResponseEntity.ok(res);
-    }
-
-    @PostMapping("/{sequenceId}/complete")
-    public ResponseEntity<String> completeSequence(@PathVariable Long sequenceId) {
-        // 1. 시퀀스 종료 처리 및 비동기 AI 분석 시작
-        sequenceService.completeSequence(sequenceId);
-
-        // 2. 비동기이므로 분석 결과를 기다리지 않고 즉시 응답
-        return ResponseEntity.accepted()
-                .body("시퀀스가 종료되었습니다. AI 분석 리포트 생성이 시작되었습니다.");
-    }
-
-    @GetMapping("/{sequenceId}/report")
-    public ResponseEntity<PatientRehabReportResponse> getReport(@PathVariable Long sequenceId) {
-        // 이미 저장된 리포트를 DB에서 조회하여 반환
+    /**
+     * [GET] 생성된 리포트 상세 조회
+     * 저장된 JSON 리포트를 그대로 반환하거나, 특정 요약본을 반환합니다.
+     */
+    @GetMapping("/{sequenceId}")
+    public ResponseEntity<?> getReport(@PathVariable Long sequenceId) {
+        // 이 부분은 기존에 작성했던 SequenceService나
+        // ReportRepository를 통해 저장된 데이터를 반환하도록 구현하면 됩니다.
         return ResponseEntity.ok(reportService.getSavedReport(sequenceId));
     }
-
-    @GetMapping("/{sequenceId}/average")
-    public ResponseEntity<List<SessionTryCountResponse>> getSessionTryCounts(
-            @PathVariable Long sequenceId
-    ) {
-        return ResponseEntity.ok(sequenceAverageService.getSessionTryCounts(sequenceId));
-    }
-
 }

@@ -7,6 +7,8 @@ import com.example.iot.dto.response.SessionTryResponse;
 import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -22,7 +24,6 @@ public class SequenceService {
     private final SessionRepository sessionRepo;
     private final TryRepository tryRepo;
     private final PatientRehabReportService reportService;
-
 
     public SequenceService(
             PatientRepository patientRepo,
@@ -109,7 +110,6 @@ public class SequenceService {
         // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
         boolean isAllFinished = sessions.stream().allMatch(s -> {
             // DB에 저장된 실제 Try 데이터의 총 개수를 가져옵니다.
-            // (성공/실패 여부와 상관없이 현재까지 수행한 횟수)
             int currentTryCount = tryRepo.countBySessionId(s.getId());
 
             // 현재 수행 횟수가 목표(totalTries)에 도달했는지 체크
@@ -133,8 +133,17 @@ public class SequenceService {
             sequenceRepo.save(sequence);
         }
 
-        // 2. AI 리포트 생성 서비스 호출 (비동기)
-        // 리포트 서비스 내부에서 @Async 처리가 되어 있으므로, 시퀀스 종료 로직은 즉시 완료됩니다.
-        reportService.createAndSaveReport(sequenceId);
+        // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    reportService.createAndSaveReport(sequenceId);
+                }
+            });
+        } else {
+            // 트랜잭션이 없는 상태라면 즉시 실행
+            reportService.createAndSaveReport(sequenceId);
+        }
     }
 }

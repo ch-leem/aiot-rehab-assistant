@@ -38,4 +38,5 @@ public interface SessionSummaryRepository extends JpaRepository<SessionSummary, 
      * flow: SessionSummary -> Sequence -> Patient (id 기준)
      */
     Optional<SessionSummary> findFirstBySequence_Patient_IdOrderByIdDesc(Long patientId);
+    Optional<SessionSummary> findFirstBySequence_Id(Long sequenceId);
 }

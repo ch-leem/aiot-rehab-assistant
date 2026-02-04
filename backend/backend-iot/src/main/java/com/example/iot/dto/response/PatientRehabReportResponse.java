@@ -28,7 +28,7 @@ public record PatientRehabReportResponse(
             String exerciseName,
             Performance performance,
             String summaryTag,         // STABLE | VARIABLE | UNSTABLE
-            String sessionTrend,       // IMPROVING | STABLE | DECLINING
+            String withinSessionTrend,       // IMPROVING | STABLE | DECLINING
             String sessionNote,
             List<String> keyObservations,
             ComparisonToPrevious comparisonToPrevious

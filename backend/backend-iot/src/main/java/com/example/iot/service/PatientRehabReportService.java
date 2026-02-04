@@ -39,17 +39,17 @@ public class PatientRehabReportService {
                 .orElseThrow(() -> new IllegalArgumentException("시퀀스를 찾을 수 없습니다. ID: " + sequenceId));
         Patient patient = sequence.getPatient();
 
-        // 시퀀스 내 모든 세션 조회 (fetch join을 통해 tries와 goalResults를 포함한 리스트 권장)
+        // [Fetch Join 활용] 세션 내 Tries와 GoalResults를 한 번에 긁어와 N+1 문제 방지
         List<Session> sessions = sessionRepository.findAllDetailBySequenceId(sequenceId);
 
-        // 이전 문맥 조회를 위한 직전 시퀀스 탐색
+        // [Repository 메서드 일치] findLastSequence 호출
         Optional<Sequence> lastSequence = sequenceRepository.findLastSequence(patient.getId(), sequenceId);
 
-        // [Side 조회] 시퀀스의 첫 번째 세션 운동을 기준으로 매핑 테이블에서 Side(Enum) 추출
         String sideValue = "N/A";
         if (!sessions.isEmpty()) {
-            sideValue = mappingRepository.findByPatientIdAndExerciseId(patient.getId(), sessions.get(0).getExercise().getId())
-                    .map(mapping -> mapping.getSide().name()) // Enum -> String
+            // [Repository 메서드 일치] findByPatient_IdAndExercise_Id 호출
+            sideValue = mappingRepository.findByPatient_IdAndExercise_Id(patient.getId(), sessions.get(0).getExercise().getId())
+                    .map(mapping -> mapping.getSide().name())
                     .orElse("N/A");
         }
 
@@ -61,7 +61,6 @@ public class PatientRehabReportService {
                     // 세션별 이전 기록 문맥 조립
                     PatientRehabReportRequest.PreviousSessionContext prevContext = lastSequence
                             .flatMap(lastSeq ->
-                                    // 수정된 레포지토리 메서드 명 호출 (ExerciseId 기반 조회)
                                     sessionSummaryRepository.findBySequenceIdAndSession_Exercise_Id(
                                             lastSeq.getId(),
                                             session.getExercise().getId()
@@ -81,14 +80,14 @@ public class PatientRehabReportService {
                                     0, // 순번 필드 부재 시 0
                                     t.getTotalScore(),
                                     t.getResult() != null ? t.getResult().name() : "UNKNOWN",
-                                    t.getFail() != null ? t.getFail().getName() : null, // Fail 엔티티: name
+                                    t.getFail() != null ? t.getFail().getName() : null,
                                     t.getGoalResults().stream()
                                             .map(gr -> new PatientRehabReportRequest.RehabGoalResult(
-                                                    gr.getExerciseGoal().getName(),       // ExerciseGoal: name
-                                                    gr.getExerciseGoal().getGoalType(),   // ExerciseGoal: goalType (String)
-                                                    gr.getMeasuredValue(),                // TryGoalResult: measuredValue
-                                                    gr.getExerciseGoal().getTargetValue(), // ExerciseGoal: targetValue
-                                                    gr.getAchievementRate()               // TryGoalResult: achievementRate
+                                                    gr.getExerciseGoal().getName(),
+                                                    gr.getExerciseGoal().getGoalType(),
+                                                    gr.getMeasuredValue(),
+                                                    gr.getExerciseGoal().getTargetValue(),
+                                                    gr.getAchievementRate()
                                             )).toList()
                             )).toList();
 
@@ -138,8 +137,6 @@ public class PatientRehabReportService {
         // 2. 세션별 요약 테이블 저장 (DTO에 추가된 sessionId 활용)
         List<SessionSummary> summaries = response.exerciseSummaries().stream()
                 .map(es -> {
-                    // LLM으로부터 받은 sessionId가 유효한지 검증하고 연관된 Exercise ID 추출
-                    // 만약 SessionSummary가 Session 엔티티 자체를 참조한다면 s.getId() 대신 s를 사용하세요.
                     Session session = sessionRepository.findById(es.sessionId())
                             .orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다. ID: " + es.sessionId()));
 
@@ -149,7 +146,7 @@ public class PatientRehabReportService {
                             .successRate(es.performance().successRate())
                             .averageScore(es.performance().averageScore())
                             .summaryTag(es.summaryTag())
-                            .sessionTrend(es.sessionTrend())
+                            .sessionTrend(es.withinSessionTrend()) // JSON의 withinSessionTrend 매핑
                             .sessionNote(es.sessionNote())
                             .trend(es.comparisonToPrevious().trend())
                             .trendDescription(es.comparisonToPrevious().trendDescription())
@@ -162,7 +159,7 @@ public class PatientRehabReportService {
     @Async("reportTaskExecutor")
     @Transactional
     public void createAndSaveReport(Long sequenceId) {
-        log.info("비동기 리포트 생성 시작 - Sequence ID: {}, Thread: {}", sequenceId, Thread.currentThread().getName());
+        log.info("비동기 리포트 생성 시작 - Sequence ID: {}", sequenceId);
 
         try {
             // 1. 데이터 조립
@@ -182,16 +179,12 @@ public class PatientRehabReportService {
 
     @Transactional(readOnly = true)
     public PatientRehabReportResponse getSavedReport(Long sequenceId) {
-        // 시퀀스 ID로 저장된 리포트 엔티티 조회
         PatientRehabReport report = patientRehabReportRepository.findBySequenceId(sequenceId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 시퀀스의 리포트가 존재하지 않습니다. ID: " + sequenceId));
-
+                .orElseThrow(() -> new IllegalArgumentException("리포트가 존재하지 않습니다."));
         try {
-            // DB에 저장된 JSON 문자열을 다시 Response DTO 객체로 변환하여 반환
             return objectMapper.readValue(report.getFullReportJson(), PatientRehabReportResponse.class);
         } catch (JsonProcessingException e) {
-            log.error("JSON 역직렬화 실패", e);
-            throw new RuntimeException("리포트 데이터를 읽는 중 오류가 발생했습니다.");
+            throw new RuntimeException("JSON 역직렬화 실패", e);
         }
     }
 
