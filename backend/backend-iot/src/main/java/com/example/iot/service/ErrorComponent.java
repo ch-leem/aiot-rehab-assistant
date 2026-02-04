@@ -27,9 +27,9 @@ public class ErrorComponent {
         double offset = 0.0;
         //점수
         if(isJitter) {
-            offset = 200;
+            perDegreeScore = 1.0;
         }
-        double score = 100.0 +  meanE * perDegreeScore + offset;
+        double score = 100.0 +  meanE * perDegreeScore;
 
         // 점수 범위 제한
         return (int) score;
