@@ -123,11 +123,12 @@ public class SequenceService {
         // 1. 종료 시간 기록 (마감 처리)
         if (sequence.getEndedAt() == null) {
             sequence.setEndedAt(LocalDateTime.now());
-            sequenceRepo.saveAndFlush(sequence); // DB에 즉시 반영
+            sequenceRepo.saveAndFlush(sequence);
+            log.info("Sequence 종료 시간 저장 완료");
         }
 
         // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
-        log.info("리포트 생성 비동기 호출 시도 - Sequence ID: {}", sequenceId);
         reportService.createAndSaveReport(sequenceId);
+        log.info("리포트 생성 비동기 호출 완료 - 호출 후 메서드 종료");
     }
 }
