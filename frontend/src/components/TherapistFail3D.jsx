@@ -6,7 +6,6 @@ import "./TherapistFail3D.css";
 
 const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
-const API_USER_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_USER_BASE_URL);
 
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
@@ -137,7 +136,7 @@ export default function TherapistFail3D() {
     setSequenceLoading(true);
     setSequenceError("");
     try {
-      const res = await fetch(`${API_USER_BASE_URL}/api/patients/${nextPatientId}/sequences`, {
+      const res = await fetch(`${API_IOT_BASE_URL}/api/patients/${nextPatientId}/sequences`, {
         method: "GET",
       });
       if (!res.ok) throw new Error("??? ??? ???? ?????.");
@@ -161,7 +160,7 @@ export default function TherapistFail3D() {
 
       const nextSequenceId = normalized[normalized.length - 1].sequenceId;
       const detailRes = await fetch(
-        `${API_USER_BASE_URL}/api/patients/sequences/${nextSequenceId}`,
+        `${API_IOT_BASE_URL}/api/patients/sequences/${nextSequenceId}`,
         { method: "GET" }
       );
       if (!detailRes.ok) throw new Error("??? ??? ???? ?????.");
@@ -187,7 +186,7 @@ export default function TherapistFail3D() {
     setTriesLoading(true);
     setTriesError("");
     try {
-      const res = await fetch(`${API_USER_BASE_URL}/sessions/${nextSessionId}/failed-tries`, {
+      const res = await fetch(`${API_IOT_BASE_URL}/sessions/${nextSessionId}/failed-tries`, {
         method: "GET",
       });
       if (!res.ok) throw new Error("실패 Try 목록을 불러오지 못했습니다.");
