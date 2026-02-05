@@ -6,6 +6,7 @@ import com.example.iot.dto.response.SequenceStartResponse;
 import com.example.iot.dto.response.SessionTryResponse;
 import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -13,6 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @Service
 public class SequenceService {
 
@@ -114,6 +116,7 @@ public class SequenceService {
 
     @Transactional
     public void completeSequence(Long sequenceId) {
+        log.info("!!! 리포트 생성 트리거 진입 !!!");
         Sequence sequence = sequenceRepo.findById(sequenceId)
                 .orElseThrow(() -> new IllegalArgumentException("Sequence not found: " + sequenceId));
 
