@@ -158,6 +158,19 @@ export default function App() {
 
   const audioRef = useRef(null);
 
+  const FAIL_TEXT_MAP = {
+    F_SH_FLEX: "팔을 더 들어주세요.",
+    F_EL_EXT: "팔을 편 상태로 운동해주세요.",
+    F_TR_TILT: "허리를 펴주세요.",
+    F_SH_HOR: "어깨를 맞춰주세요.",
+    F_ACCEL: "팔을 천천히 들어주세요.",
+    F_PR_LOAD: "발에 힘을 더 주세요.",
+    F_PL_HOR: "골반을 맞춰주세요.",
+    F_ANK_STB: "반대쪽 발에 발목을 고정해주세요.",
+    F_ELSE: "예외 발생 예외 발생",
+    T: "잘하셨어요.",
+  };
+
   const playFailAudio = useCallback((failId) => {
     const AUDIO_MAP = {
       F_SH_FLEX: "/audio/F_SH_FLEX_팔을_더_들어주세요.mp3",
@@ -851,7 +864,7 @@ export default function App() {
 
             setArmRaiseFeedback({
               id: Date.now(),
-              message: "잘하셨어요!",
+              message: FAIL_TEXT_MAP.T,
               duration: 2500,
             });
             nextDelayMs = 2500;
@@ -862,7 +875,7 @@ export default function App() {
 
             setArmRaiseFeedback({
               id: Date.now(),
-              message: result.failName || "예외 발생 예외 발생",
+              message: FAIL_TEXT_MAP[failId] || result.failName || FAIL_TEXT_MAP.F_ELSE,
               duration: 3500,
             });
             nextDelayMs = 3500;
@@ -916,7 +929,7 @@ export default function App() {
             playFailAudio("SUCCESS");
             setLowerBodyFeedback({
               id: Date.now(),
-              message: "잘하셨어요!",
+              message: FAIL_TEXT_MAP.T,
               duration: 2500,
             });
             nextDelayMs = 2500;
@@ -925,7 +938,7 @@ export default function App() {
             playFailAudio(failId);
             setLowerBodyFeedback({
               id: Date.now(),
-              message: result.failName || "예외 발생",
+              message: FAIL_TEXT_MAP[failId] || result.failName || FAIL_TEXT_MAP.F_ELSE,
               duration: 3500,
             });
             nextDelayMs = 3500;
@@ -1246,6 +1259,13 @@ export default function App() {
                   onEnded={() => setGuideEnded(true)}
                   controls={false}
                 />
+                <button
+                  type="button"
+                  className="guide-skip"
+                  onClick={() => setGuideEnded(true)}
+                >
+                  건너뛰기
+                </button>
               </div>
             )}
             {exerciseCompleteFeedback && exerciseCompleteFeedback.message && (
