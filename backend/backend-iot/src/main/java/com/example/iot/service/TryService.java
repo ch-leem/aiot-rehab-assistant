@@ -165,7 +165,19 @@ public class TryService {
         log.info("================================================================");
 
         if( !frontJudge.isFailed() ) {
-            session.setGoal(Integer.toString(Integer.parseInt(session.getGoal()) + 1));
+            int goal = 0;
+
+            if (session.getGoal() != null) {
+                try {
+                    goal = Integer.parseInt(session.getGoal());
+                } catch (NumberFormatException e) {
+                    goal = 0;
+                }
+            } else{
+                goal = 0;
+            }
+
+            session.setGoal(Integer.toString(goal + 1));
         }
 
         // 4. 최종 응답 생성 (DB 결과와 독립적으로 frontJudge 사용)
