@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "sequence")
@@ -27,6 +29,12 @@ public class Sequence {
 
     @Column(name = "feedback", columnDefinition = "TEXT")
     private String feedback;
+
+    @OneToOne(mappedBy = "sequence", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private PatientRehabReport report;
+
+    @OneToMany(mappedBy = "sequence", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<SessionSummary> sessionSummaries = new HashSet<>();
 
     protected Sequence() {}
 

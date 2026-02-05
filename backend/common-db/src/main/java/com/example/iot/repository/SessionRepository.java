@@ -36,9 +36,6 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     @Query("""
     select distinct s from Session s
     join fetch s.exercise e
-    left join fetch s.tries t
-    left join fetch t.goalResults gr
-    left join fetch gr.exerciseGoal
     where s.sequence.id = :sequenceId
     order by s.id asc
 """)
