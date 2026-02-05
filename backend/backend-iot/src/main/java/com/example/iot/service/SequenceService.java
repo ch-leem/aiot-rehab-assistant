@@ -123,20 +123,11 @@ public class SequenceService {
         // 1. 종료 시간 기록 (마감 처리)
         if (sequence.getEndedAt() == null) {
             sequence.setEndedAt(LocalDateTime.now());
-            sequenceRepo.saveAndFlush(sequence);
+            sequenceRepo.saveAndFlush(sequence); // DB에 즉시 반영
         }
 
         // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
-        if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    reportService.createAndSaveReport(sequenceId);
-                }
-            });
-        } else {
-            // 트랜잭션이 없는 상태라면 즉시 실행
-            reportService.createAndSaveReport(sequenceId);
-        }
+        log.info("리포트 생성 비동기 호출 시도 - Sequence ID: {}", sequenceId);
+        reportService.createAndSaveReport(sequenceId);
     }
 }
