@@ -151,9 +151,9 @@ public class TryService {
         // 3. 프론트엔드 응답 판정 (분기 점수 기준)
         JudgeResult frontJudge = determineJudge(mainResult, accelResult, otherSubResults, branchScores, branchScores, totalAverage, maxAccel, patient);
 
-        if (session != null) {
-            session.setGoal(String.format("%.2f", totalAverage));
-        }
+//        if (session != null) {
+//            session.setGoal( );
+//        }
 
         // [로그 출력] 판정 직후 한 번에 출력
         log.info("==================== [TRY DEBUG LOG] ID: {} ====================", t.getId());
