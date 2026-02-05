@@ -50,7 +50,14 @@ public class TryService {
                 .orElseThrow(() -> new IllegalArgumentException("Try not found: " + tryId));
 
         if (t.getEndedAt() != null) {
-            throw new IllegalStateException("이미 종료된 운동 시도입니다.");
+            log.warn("이미 종료된 운동 시도에 대한 중복 요청 무시 - Try ID: {}", tryId);
+
+            // 기존 결과 상태에 따라 SUCCESS/FAIL 문자열 결정
+            String resultStatus = (t.getResult() == TryResult.SUCCESS) ? "SUCCESS" : "FAIL";
+            String failName = (t.getFail() != null) ? t.getFail().getName() : null;
+            String failId = (t.getFail() != null) ? t.getFail().getId() : null;
+
+            return toResponse(t, resultStatus, failName, failId);
         }
 
         Session session = t.getSession();
