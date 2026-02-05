@@ -778,21 +778,47 @@ export default function App() {
     if (armRaiseCount >= armRaiseTotal && !autoAdvanceRef.current) {
       autoAdvanceRef.current = true;
       armRaiseCompleteRef.current = true;
-      setArmRaiseFeedback({
-        id: Date.now(),
-        message: "수고하셨습니다",
-        duration: 5000,
-      });
+      const isLastTry = totalTries > 0 && tryIndex >= totalTries - 1;
+      if (lowerBodyFeedbackTimerRef.current) {
+        clearTimeout(lowerBodyFeedbackTimerRef.current);
+        lowerBodyFeedbackTimerRef.current = null;
+      }
+      if (!isLastTry) {
+        setArmRaiseFeedback({
+          id: Date.now(),
+          message: "수고하셨습니다",
+          duration: 5000,
+        });
+      } else {
+        // 마지막 트라이: 결과 피드백 후 "수고하셨습니다" -> 다음 페이지
+        lowerBodyFeedbackTimerRef.current = setTimeout(() => {
+          setArmRaiseFeedback({
+            id: Date.now(),
+            message: "수고하셨습니다",
+            duration: 5000,
+          });
+          if (exerciseCompleteTimerRef.current) {
+            clearTimeout(exerciseCompleteTimerRef.current);
+          }
+          exerciseCompleteTimerRef.current = setTimeout(() => {
+            goToNextStep({ forceComplete: true, skipTryFinish: true });
+            exerciseCompleteTimerRef.current = null;
+          }, 5000);
+          lowerBodyFeedbackTimerRef.current = null;
+        }, 3500);
+      }
       if (armRaiseCompleteTimerRef.current) {
         clearTimeout(armRaiseCompleteTimerRef.current);
       }
       if (exerciseCompleteTimerRef.current) {
         clearTimeout(exerciseCompleteTimerRef.current);
       }
-      exerciseCompleteTimerRef.current = setTimeout(() => {
-        goToNextStep({ forceComplete: true, skipTryFinish: true });
-        exerciseCompleteTimerRef.current = null;
-      }, 5000);
+      if (!isLastTry) {
+        exerciseCompleteTimerRef.current = setTimeout(() => {
+          goToNextStep({ forceComplete: true, skipTryFinish: true });
+          exerciseCompleteTimerRef.current = null;
+        }, 5000);
+      }
     }
   }, [screen, currentExerciseId, armRaiseCount, armRaiseTotal, goToNextStep]);
 
@@ -804,18 +830,43 @@ export default function App() {
     if (!moleGameTotal) return;
     if (moleGameCount >= moleGameTotal && !moleAutoAdvanceRef.current) {
       moleAutoAdvanceRef.current = true;
-      setExerciseCompleteFeedback({
-        id: Date.now(),
-        message: "수고하셨습니다",
-        duration: 5000,
-      });
+      const isLastTry = totalTries > 0 && tryIndex >= totalTries - 1;
+      if (lowerBodyFeedbackTimerRef.current) {
+        clearTimeout(lowerBodyFeedbackTimerRef.current);
+        lowerBodyFeedbackTimerRef.current = null;
+      }
+      if (!isLastTry) {
+        setExerciseCompleteFeedback({
+          id: Date.now(),
+          message: "수고하셨습니다",
+          duration: 5000,
+        });
+      } else {
+        lowerBodyFeedbackTimerRef.current = setTimeout(() => {
+          setExerciseCompleteFeedback({
+            id: Date.now(),
+            message: "수고하셨습니다",
+            duration: 5000,
+          });
+          if (exerciseCompleteTimerRef.current) {
+            clearTimeout(exerciseCompleteTimerRef.current);
+          }
+          exerciseCompleteTimerRef.current = setTimeout(() => {
+            goToNextStep({ forceComplete: true, skipTryFinish: true });
+            exerciseCompleteTimerRef.current = null;
+          }, 5000);
+          lowerBodyFeedbackTimerRef.current = null;
+        }, 3500);
+      }
       if (exerciseCompleteTimerRef.current) {
         clearTimeout(exerciseCompleteTimerRef.current);
       }
-      exerciseCompleteTimerRef.current = setTimeout(() => {
-        goToNextStep({ forceComplete: true, skipTryFinish: true });
-        exerciseCompleteTimerRef.current = null;
-      }, 5000);
+      if (!isLastTry) {
+        exerciseCompleteTimerRef.current = setTimeout(() => {
+          goToNextStep({ forceComplete: true, skipTryFinish: true });
+          exerciseCompleteTimerRef.current = null;
+        }, 5000);
+      }
     }
   }, [screen, currentExerciseId, moleGameCount, moleGameTotal, goToNextStep]);
 
