@@ -767,6 +767,9 @@
   display: grid;
   gap: 12px;
   max-width: 760px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .therapist-card {
@@ -799,6 +802,53 @@
   font-size: 1.3rem;
   line-height: 1.5;
 }
+
+.therapist-sequence-list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(140, 150, 165, 0.35);
+}
+
+.therapist-sequence-toggle {
+  justify-self: start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 150, 165, 0.3);
+  background: #f7f9fc;
+  color: #2f3b50;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.therapist-sequence-items {
+  display: grid;
+  gap: 8px;
+}
+
+.therapist-sequence-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(140, 150, 165, 0.25);
+  background: #ffffff;
+  color: #2f3b50;
+  font-size: 1.05rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.therapist-sequence-item.active {
+  border-color: rgba(72, 101, 140, 0.55);
+  background: rgba(72, 101, 140, 0.12);
+  color: #1f2a3a;
+}
+
 
 .therapist-card.selected {
   border-color: rgba(72, 101, 140, 0.55);
