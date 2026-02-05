@@ -86,6 +86,7 @@ export default function TherapistFail3D() {
   const demoUrl = demoFileParam || "/try-2690-20260203-170451 (1).jsonl";
 
   const [patientId, setPatientId] = useState(getQueryParam("patientId"));
+const sequenceIdParam = getQueryParam("sequenceId");
   const [sessions, setSessions] = useState([]);
   const [sequenceError, setSequenceError] = useState("");
   const [sequenceLoading, setSequenceLoading] = useState(false);
@@ -136,37 +137,47 @@ export default function TherapistFail3D() {
     setSequenceLoading(true);
     setSequenceError("");
     try {
+      console.log("[FAIL3D] loadSequence patientId", nextPatientId, "sequenceIdParam", sequenceIdParam);
       const res = await fetch(`${API_IOT_BASE_URL}/api/patients/${nextPatientId}/sequences`, {
         method: "GET",
       });
-      if (!res.ok) throw new Error("??? ??? ???? ?????.");
+      if (!res.ok) throw new Error("시퀀스 정보를 불러오지 못했습니다.");
       const payload = await res.json();
       const sequenceList = Array.isArray(payload?.data)
         ? payload.data
         : Array.isArray(payload)
           ? payload
           : [];
-      const normalized = sequenceList
-        .map((item) => ({
-          sequenceId: item?.sequenceId ?? item?.sequence_id,
-        }))
-        .filter((item) => item.sequenceId != null);
 
-      if (normalized.length === 0) {
+      if (sequenceList.length == 0) {
         setSessions([]);
         setSessionId("");
         return;
       }
 
-      const nextSequenceId = normalized[normalized.length - 1].sequenceId;
+      let targetSequenceId = sequenceIdParam;
+      if (!targetSequenceId) {
+        const latest = sequenceList
+          .slice()
+          .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
+        targetSequenceId = latest?.sequence_id ?? latest?.sequenceId ?? null;
+      }
+
+      if (!targetSequenceId) {
+        setSessions([]);
+        setSessionId("");
+        return;
+      }
+
       const detailRes = await fetch(
-        `${API_IOT_BASE_URL}/api/patients/sequences/${nextSequenceId}`,
+        `${API_IOT_BASE_URL}/api/patients/sequences/${targetSequenceId}`,
         { method: "GET" }
       );
-      if (!detailRes.ok) throw new Error("??? ??? ???? ?????.");
+      if (!detailRes.ok) throw new Error("시퀀스 정보를 불러오지 못했습니다.");
       const detailPayload = await detailRes.json();
       const detail = detailPayload?.data ?? detailPayload ?? {};
       const nextSessions = Array.isArray(detail?.sessions) ? detail.sessions : [];
+      console.log("[FAIL3D] sequenceId", targetSequenceId, "sessions", nextSessions.map((s) => s.sessionId));
       setSessions(nextSessions);
 
       const hasCurrent = nextSessions.some((s) => String(s.sessionId) === String(sessionId));
@@ -174,24 +185,26 @@ export default function TherapistFail3D() {
         setSessionId(String(nextSessions[nextSessions.length - 1].sessionId));
       }
     } catch (err) {
-      setSequenceError(err?.message ?? "??? ??? ???? ?????.");
+      setSequenceError(err?.message ?? "시퀀스 정보를 불러오지 못했습니다.");
       setSessions([]);
     } finally {
       setSequenceLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, sequenceIdParam]);
 
   const loadFailedTries = useCallback(async (nextSessionId) => {
     if (!nextSessionId) return;
     setTriesLoading(true);
     setTriesError("");
     try {
+      console.log("[FAIL3D] loadFailedTries sessionId", nextSessionId);
       const res = await fetch(`${API_IOT_BASE_URL}/sessions/${nextSessionId}/failed-tries`, {
         method: "GET",
       });
       if (!res.ok) throw new Error("실패 Try 목록을 불러오지 못했습니다.");
       const payload = await res.json();
       const list = Array.isArray(payload?.failedTryIds) ? payload.failedTryIds : [];
+      console.log("[FAIL3D] failedTryIds", list);
       setFailedTryIds(list);
       if (!selectedTryId && list.length > 0) {
         setSelectedTryId(String(list[0]));
@@ -202,13 +215,14 @@ export default function TherapistFail3D() {
     } finally {
       setTriesLoading(false);
     }
-  }, [selectedTryId]);
+  }, []);
 
   const loadFailLogFrames = useCallback(async (nextTryId) => {
     if (!nextTryId) return;
     setFramesLoading(true);
     setFramesError("");
     try {
+      console.log("[FAIL3D] loadFailLogFrames tryId", nextTryId);
       const res = await fetch(
         `${API_IOT_BASE_URL}/tries/${nextTryId}/fail-log-file`,
         { method: "GET" }

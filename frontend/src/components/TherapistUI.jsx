@@ -258,6 +258,8 @@ export default function TherapistUI() {
   const [errorMessage, setErrorMessage] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [selectedSequenceId, setSelectedSequenceId] = useState(null);
+  const [showSequences, setShowSequences] = useState(false);
   const [sessionDetails, setSessionDetails] = useState({});
   const [sessionLoading, setSessionLoading] = useState({});
   const [reportData, setReportData] = useState({
@@ -334,7 +336,7 @@ export default function TherapistUI() {
     }
   };
 
-  const loadReport = async (patient) => {
+  const loadReport = async (patient, sequenceOverride = null) => {
     if (!patient) return;
     setReportLoading(true);
     setReportError("");
@@ -349,7 +351,27 @@ export default function TherapistUI() {
             ended_at: mockReport.date,
             feedback: "",
           },
+          {
+            sequence_id: mockReport.sequenceId + 1,
+            started_at: "2026-01-10T09:20:00",
+            ended_at: "2026-01-10T09:55:00",
+            feedback: "균형 유지가 개선됨",
+          },
+          {
+            sequence_id: mockReport.sequenceId + 2,
+            started_at: "2026-01-12T14:05:00",
+            ended_at: "2026-01-12T14:40:00",
+            feedback: "상체 가동 범위 향상",
+          },
+          {
+            sequence_id: mockReport.sequenceId + 3,
+            started_at: "2026-01-14T10:30:00",
+            ended_at: "2026-01-14T11:05:00",
+            feedback: "보상 동작 감소",
+          },
         ];
+        const nextSequenceId = sequenceOverride ?? mockReport.sequenceId;
+        setSelectedSequenceId(nextSequenceId ? String(nextSequenceId) : null);
 
         setReportData({
           profile: {
@@ -384,10 +406,13 @@ export default function TherapistUI() {
         .slice()
         .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
 
+      const targetSequenceId = sequenceOverride ?? latestSequence?.sequence_id ?? null;
+      setSelectedSequenceId(targetSequenceId ? String(targetSequenceId) : null);
+
       let reportInput = null;
-      if (latestSequence?.sequence_id) {
+      if (targetSequenceId) {
         const reportRes = await fetch(
-          `${API_IOT_BASE_URL}/api/rehab/reports/${latestSequence.sequence_id}`,
+          `${API_IOT_BASE_URL}/api/rehab/reports/${targetSequenceId}`,
           { method: "GET" }
         );
         if (reportRes.ok) {
@@ -510,6 +535,8 @@ export default function TherapistUI() {
                         }`}
                         onClick={() => {
                           setSelectedPatient(patient);
+                          setSelectedSequenceId(null);
+                          setShowSequences(false);
                           loadReport(patient);
                         }}
                       >
@@ -522,6 +549,56 @@ export default function TherapistUI() {
                           <br />
                           나이: {patient.age}세
                         </div>
+                        {selectedPatient?.patientId === patient.patientId &&
+                          reportData.sequences?.length > 0 && (
+                            <div className="therapist-sequence-list">
+                              <button
+                                type="button"
+                                className="therapist-sequence-toggle"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowSequences((prev) => !prev);
+                                }}
+                              >
+                                최근 시퀀스 {showSequences ? "닫기" : "보기"}
+                              </button>
+                              {showSequences && (
+                                <div className="therapist-sequence-items">
+                                  {reportData.sequences
+                                    .slice()
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.started_at ?? b.startedAt).getTime() -
+                                        new Date(a.started_at ?? a.startedAt).getTime()
+                                    )
+                                    .slice(0, 5)
+                                    .map((seq) => {
+                                      const seqId = seq.sequence_id ?? seq.sequenceId;
+                                      const isActive =
+                                        String(selectedSequenceId) === String(seqId);
+                                      return (
+                                        <button
+                                          key={seqId}
+                                          type="button"
+                                          className={`therapist-sequence-item${
+                                            isActive ? " active" : ""
+                                          }`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!seqId) return;
+                                            setSelectedSequenceId(String(seqId));
+                                            loadReport(patient, seqId);
+                                          }}
+                                        >
+                                          <span>Seq #{seqId}</span>
+                                          <span>{formatDateTime(seq.started_at ?? seq.startedAt)}</span>
+                                        </button>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </button>
                     ))
                   ) : (
@@ -545,7 +622,10 @@ export default function TherapistUI() {
                             님 재활 리포트
                           </div>
                           <div className="title-meta">
-                            <span>Seq #{reportData.reportInput?.sequenceId ?? "-"}</span> |{" "}
+                            <span>
+                              Seq #{selectedSequenceId ?? reportData.reportInput?.sequenceId ?? "-"}
+                            </span>{" "}
+                            |{" "}
                             <span>
                               운동 개수:{" "}
                               {reportData.reportInput?.overallSummary?.totalExercises ?? "-"}
@@ -561,7 +641,13 @@ export default function TherapistUI() {
                           type="button"
                           onClick={() => {
                             if (!selectedPatient?.patientId) return;
-                            window.location.href = `/therapist/fail_type?patientId=${selectedPatient.patientId}`;
+                            const params = new URLSearchParams({
+                              patientId: String(selectedPatient.patientId),
+                            });
+                            if (selectedSequenceId) {
+                              params.set("sequenceId", String(selectedSequenceId));
+                            }
+                            window.location.href = `/therapist/fail_type?${params.toString()}`;
                           }}
                           disabled={!selectedPatient?.patientId}
                           style={{ float: "right" }}
