@@ -11,36 +11,80 @@ const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
 const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
 
-const mockReports = import.meta.glob("../mocks/*.json", { eager: true });
-const mockSessions = import.meta.glob("../mocks/sessions/*.json", { eager: true });
-const mockTherapistDashboard = mockReports["../mocks/therapistDashboard.json"]?.default ?? null;
-
-const getMockReportById = (sequenceId, patientId) => {
-  if (!sequenceId || !patientId) return null;
-  const key = `../mocks/${sequenceId}_${patientId}.json`;
-  return mockReports[key]?.default ?? null;
+const mockTherapistDashboard = {
+  therapistName: "Therapist",
+  patients: [
+    {
+      patientId: 101,
+      name: "환자 A",
+      gender: "MALE",
+      age: 30,
+      diseaseName: "뇌졸중",
+      rehabPhase: "MIDDLE",
+    },
+    {
+      patientId: 105,
+      name: "환자 B",
+      gender: "FEMALE",
+      age: 45,
+      diseaseName: "파킨슨",
+      rehabPhase: "EARLY",
+    },
+  ],
 };
 
-const getLatestMockReportForPatient = (patientId) => {
-  if (!patientId) return null;
-  const entries = Object.entries(mockReports)
-    .filter(([path]) => path.endsWith(`_${patientId}.json`))
-    .map(([path, module]) => {
-      const file = path.split("/").pop() ?? "";
-      const seq = Number(file.split("_")[0]);
-      return Number.isNaN(seq) ? null : { sequenceId: seq, report: module?.default ?? null };
-    })
-    .filter(Boolean);
-  if (entries.length === 0) return null;
-  entries.sort((a, b) => b.sequenceId - a.sequenceId);
-  return entries[0];
-};
+const mockReportByPatientId = (patientId) => ({
+  sequenceId: 123,
+  patientName: `환자 ${patientId}`,
+  patientId,
+  date: "2026-02-05T10:30:00",
+  rehabPhase: "MIDDLE",
+  side: "RIGHT",
+  overallSummary: {
+    totalExercises: 2,
+    totalTrials: 20,
+    successTrials: 16,
+    avgScore: 84,
+  },
+  exerciseSummaries: [
+    {
+      exerciseName: "상지 들어올리기",
+      summaryTag: "STABLE",
+      withinSessionTrend: "STABLE",
+      performance: { successRate: 80, averageScore: 85 },
+      sessionId: 5001,
+      sessionNote: "자세 안정 유지.",
+      keyObservations: ["상지 가동 범위 안정적"],
+      comparisonToPrevious: { used: false },
+    },
+    {
+      exerciseName: "하지 균형",
+      summaryTag: "VARIABLE",
+      withinSessionTrend: "DECLINING",
+      performance: { successRate: 70, averageScore: 78 },
+      sessionId: 5002,
+      sessionNote: "후반 피로로 흔들림 증가.",
+      keyObservations: ["무릎 정렬 불안정"],
+      comparisonToPrevious: { used: false },
+    },
+  ],
+  riskSignals: ["좌측 골반 기울기", "상지 속도 저하"],
+  nextFocus: ["상지 유연성 유지", "하지 중심 안정화"],
+});
 
-const getMockSessionById = (sessionId) => {
-  if (!sessionId) return null;
-  const key = `../mocks/sessions/${sessionId}.json`;
-  return mockSessions[key]?.default ?? null;
-};
+const mockSessionById = (sessionId) => ({
+  session_id: sessionId,
+  exercise_name: "상지 들어올리기",
+  total_tries: 10,
+  success_tries: 8,
+  tries: Array.from({ length: 10 }).map((_, idx) => ({
+    try_id: idx + 1,
+    result: idx < 8 ? "SUCCESS" : "FAIL",
+    fail_name: idx < 8 ? null : "어깨 상승",
+    totalScore: 80 - idx,
+    goal_sensor: 120,
+  })),
+});
 
 const normalizeSessionDetail = (raw) => {
   if (!raw) return null;
@@ -266,7 +310,7 @@ export default function TherapistUI() {
     setSessionLoading((prev) => ({ ...prev, [sessionId]: true }));
     try {
       if (USE_MOCK) {
-        const mock = getMockSessionById(sessionId);
+        const mock = mockSessionById(sessionId);
         setSessionDetails((prev) => ({ ...prev, [sessionId]: normalizeSessionDetail(mock) }));
         return;
       }
@@ -290,21 +334,15 @@ export default function TherapistUI() {
     setExpandedExercise(null);
     try {
       if (USE_MOCK) {
-        const latestMock = getLatestMockReportForPatient(patient.patientId);
-        const mockSequenceId = latestMock?.sequenceId ?? null;
-        const mockReport = mockSequenceId
-          ? getMockReportById(mockSequenceId, patient.patientId)
-          : null;
-        const mockSequences = mockSequenceId
-          ? [
-              {
-                sequence_id: mockSequenceId,
-                started_at: mockReport?.date ?? null,
-                ended_at: mockReport?.date ?? null,
-                feedback: "",
-              },
-            ]
-          : [];
+        const mockReport = mockReportByPatientId(patient.patientId);
+        const mockSequences = [
+          {
+            sequence_id: mockReport.sequenceId,
+            started_at: mockReport.date,
+            ended_at: mockReport.date,
+            feedback: "",
+          },
+        ];
 
         setReportData({
           profile: {
