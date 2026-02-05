@@ -28,7 +28,32 @@ import java.util.Map;
 public class TryDebugController {
 
     private final RestTemplate restTemplate;
-    private final TryRepository tryRepository;
+
+
+    @GetMapping(value = "/{tryId}/fail-log-file", produces = "application/x-ndjson")
+    public ResponseEntity<byte[]> getFailLogAsNdjson(@PathVariable Long tryId) {
+        String url = "http://iot-api:8080/tries/" + tryId + "/fail-log-file";
+
+//        ResponseEntity<byte[]> resp = restTemplate.exchange(
+//                url,
+//                HttpMethod.GET,
+//                new HttpEntity<>(new HttpHeaders()),
+//                byte[].class
+//        );
+        ResponseEntity<byte[]> resp = restTemplate.exchange(url, HttpMethod.GET, null, byte[].class);
+
+        HttpHeaders headers = new HttpHeaders();
+//            // iot 서버가 주는 content-type을 최대한 유지
+//        MediaType ct = resp.getHeaders().getContentType();
+//        if (ct != null) headers.setContentType(ct);
+//
+//            // 파일 다운로드처럼 보이게 하고 싶으면(선택)
+//        String disposition = resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION);
+//        if (disposition != null) headers.set(HttpHeaders.CONTENT_DISPOSITION, disposition);
+
+        headers.setContentType(MediaType.parseMediaType("application/x-ndjson; charset=utf-8"));
+        return new ResponseEntity<>(resp.getBody(), headers, resp.getStatusCode());
+    }
 
 //    @GetMapping("/{tryId}/fail-log-file")
 //    public ResponseEntity<byte[]> getFailLog(@PathVariable Long tryId) {
@@ -88,42 +113,42 @@ public class TryDebugController {
 //        }
 //    }
 
-    @GetMapping(value = "/{tryId}/fail-log-file", produces = "application/x-ndjson")
-    public ResponseEntity<byte[]> getFailLogAsNdjson(@PathVariable Long tryId) {
-        String url = "http://iot-api:8080/tries/" + tryId + "/fail-log-file";
-
-        try {
-            ResponseEntity<byte[]> resp = restTemplate.exchange(url, HttpMethod.GET, null, byte[].class);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType("application/x-ndjson; charset=utf-8"));
-            headers.setCacheControl(CacheControl.noCache());
-
-            // ✅ iot-api가 혹시 gzip/chunked 등 헤더를 주면 굳이 복사하지 말고
-            // content-type만 확실히 박아주는 게 안전
-            return new ResponseEntity<>(resp.getBody(), headers, resp.getStatusCode());
-
-        } catch (HttpStatusCodeException e) {
-            // ✅ 에러도 content-type 명확히
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.TEXT_PLAIN);
-            headers.setCacheControl(CacheControl.noCache());
-
-            byte[] body = e.getResponseBodyAsByteArray();
-            return new ResponseEntity<>(body, headers, e.getStatusCode());
-
-        } catch (Exception e) {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.TEXT_PLAIN);
-            headers.setCacheControl(CacheControl.noCache());
-
-            return new ResponseEntity<>(
-                    ("Internal Proxy Error: " + e.getMessage()).getBytes(),
-                    headers,
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
+//    @GetMapping(value = "/{tryId}/fail-log-file", produces = "application/x-ndjson")
+//    public ResponseEntity<byte[]> getFailLogAsNdjson(@PathVariable Long tryId) {
+//        String url = "http://iot-api:8080/tries/" + tryId + "/fail-log-file";
+//
+//        try {
+//            ResponseEntity<byte[]> resp = restTemplate.exchange(url, HttpMethod.GET, null, byte[].class);
+//
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.parseMediaType("application/x-ndjson; charset=utf-8"));
+//            headers.setCacheControl(CacheControl.noCache());
+//
+//            // ✅ iot-api가 혹시 gzip/chunked 등 헤더를 주면 굳이 복사하지 말고
+//            // content-type만 확실히 박아주는 게 안전
+//            return new ResponseEntity<>(resp.getBody(), headers, resp.getStatusCode());
+//
+//        } catch (HttpStatusCodeException e) {
+//            // ✅ 에러도 content-type 명확히
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.TEXT_PLAIN);
+//            headers.setCacheControl(CacheControl.noCache());
+//
+//            byte[] body = e.getResponseBodyAsByteArray();
+//            return new ResponseEntity<>(body, headers, e.getStatusCode());
+//
+//        } catch (Exception e) {
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.TEXT_PLAIN);
+//            headers.setCacheControl(CacheControl.noCache());
+//
+//            return new ResponseEntity<>(
+//                    ("Internal Proxy Error: " + e.getMessage()).getBytes(),
+//                    headers,
+//                    HttpStatus.INTERNAL_SERVER_ERROR
+//            );
+//        }
+//    }
 
 
 
