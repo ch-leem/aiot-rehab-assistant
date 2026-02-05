@@ -43,8 +43,7 @@ public class PatientRehabReportService {
         // [Fetch Join 활용] 세션 내 Tries와 GoalResults를 한 번에 긁어와 N+1 문제 방지
         List<Session> sessions = sessionRepository.findAllDetailBySequenceId(sequenceId);
 
-        // [Repository 메서드 일치] findLastSequence 호출
-        Optional<Sequence> lastSequence = sequenceRepository.findLastSequence(patient.getId(), sequenceId);
+        Optional<Sequence> lastSequence = sequenceRepository.findFirstByPatientIdAndIdLessThanOrderByIdDesc(patient.getId(), sequenceId);
 
         String sideValue = "N/A";
         if (!sessions.isEmpty()) {

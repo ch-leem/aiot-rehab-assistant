@@ -37,7 +37,6 @@ public interface SequenceRepository extends JpaRepository<Sequence, Long> {
     """)
     List<Sequence> findPreviousSequences(Long patientId, Long currentSequenceId, Pageable pageable);
 
-    @Query("SELECT s FROM Sequence s WHERE s.patient.id = :patientId AND s.id < :currentSequenceId ORDER BY s.id DESC")
-    Optional<Sequence> findLastSequence(@Param("patientId") Long patientId, @Param("currentSequenceId") Long currentSequenceId);
+    Optional<Sequence> findFirstByPatientIdAndIdLessThanOrderByIdDesc(Long patientId, Long currentSequenceId);
 
 }

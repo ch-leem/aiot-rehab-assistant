@@ -60,13 +60,7 @@ public class SequenceService {
 
         // 1) Sequence 생성
         Sequence sequence = sequenceRepo.save(new Sequence(patient));
-        Set<Exercise> exerciseSet = new TreeSet<>(new Comparator<Exercise>() {
-            @Override
-            public int compare(Exercise o1, Exercise o2) {
-                return (int) (o1.getId() - o2.getId());
-            }
-        });
-
+        Set<Exercise> exerciseSet = new TreeSet<>((o1, o2) -> (int) (o1.getId() - o2.getId()));
         for(ExercisePatientMapping m : mappings) {
             exerciseSet.add(m.getExercise());
         }
@@ -75,7 +69,6 @@ public class SequenceService {
 
         // 2) Session + Try 생성
         for (Exercise m : exerciseSet) {
-
             Session session = new Session(sequence, m);
             session.setTotalTries(finalTryCount);
             session = sessionRepo.save(session);
@@ -92,15 +85,12 @@ public class SequenceService {
                     .map(Try::getId)
                     .toList();
 
-            sessionResponses.add(
-                    new SessionTryResponse(session.getId(), tryIds)
-            );
+            sessionResponses.add(new SessionTryResponse(session.getId(), tryIds));
         }
 
-        return new SequenceStartResponse(
-                sequence.getId(),
-                sessionResponses
-        );
+        tryRepo.flush();
+
+        return new SequenceStartResponse(sequence.getId(), sessionResponses);
     }
 
     @Transactional
@@ -130,7 +120,7 @@ public class SequenceService {
         // 1. 종료 시간 기록 (마감 처리)
         if (sequence.getEndedAt() == null) {
             sequence.setEndedAt(LocalDateTime.now());
-            sequenceRepo.save(sequence);
+            sequenceRepo.saveAndFlush(sequence);
         }
 
         // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
