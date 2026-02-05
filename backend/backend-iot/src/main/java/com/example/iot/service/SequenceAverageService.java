@@ -65,7 +65,7 @@ public class SequenceAverageService {
         for (Session s : sessions) {
             int total = Math.max(0, s.getTotalTries());
             // int success = Math.max(0, s.getSuccessTries());
-             int success = Math.max(0, Integer.parseInt(s.getGoal()));
+             int success = Math.max(0, Integer.parseInt(normalizeGoal(s.getGoal())));
 
             // 실패 횟수는 total - success 로 계산 (음수 방지)
             // int fail = Math.max(0, total - success);
@@ -88,5 +88,12 @@ public class SequenceAverageService {
         }
 
         return result;
+    }
+
+    private static String normalizeGoal(String g) {
+        if (g == null) return "0";
+        String t = g.trim();
+        if (t.isEmpty()) return "0";
+        return t.replace("%", "");
     }
 }
