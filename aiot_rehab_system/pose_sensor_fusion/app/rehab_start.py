@@ -382,15 +382,15 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 if is_ingest:
                     sender.push({"frames": [frame_obj]})
 
-                cv2.putText(
-                    disp,
-                    f"FPS {fps_ema:.1f}",
-                    (10, disp.shape[0] - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2,
-                )
+                # cv2.putText(
+                #     disp,
+                #     f"FPS {fps_ema:.1f}",
+                #     (10, disp.shape[0] - 15),
+                #     cv2.FONT_HERSHEY_SIMPLEX,
+                #     0.7,
+                #     (0, 255, 0),
+                #     2,
+                # )
 
                 # WebRTC로 보낼 프레임 push
                 if is_webrtc_in:
@@ -416,6 +416,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 # debug_lines.append(f"  hip_flexion (L/R):       {fmt_deg(l_hip_flex)}, {fmt_deg(r_hip_flex)}")
                 # debug_lines.append(f"  heel_tilt (L/R):         {fmt_deg(l_heel_tilt)}, {fmt_deg(r_heel_tilt)}")
 
+                # debug_lines.append(f"  strength      :         {imu_v}")
+                # debug_lines.append(f"  power      :            {weight_kg}")
                 # put_lines(disp, x=10, y=25, lines=debug_lines, scale=0.55, thickness=2, line_gap=18)
 
                 if is_local_vis:
