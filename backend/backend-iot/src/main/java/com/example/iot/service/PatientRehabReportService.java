@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -160,9 +161,11 @@ public class PatientRehabReportService {
     }
 
     @Async("reportTaskExecutor")
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void createAndSaveReport(Long sequenceId) {
         log.info("비동기 리포트 생성 시작 - Sequence ID: {}", sequenceId);
+
+        try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
 
         try {
             // 1. 데이터 조립 전 로그
@@ -178,7 +181,7 @@ public class PatientRehabReportService {
             saveLlmReportResponse(response);
             log.info("== [REPORT ASYNC SUCCESS] Sequence ID: {} ==", sequenceId);
         } catch (Exception e) {
-            log.error("!! [REPORT ASYNC FAILED] Sequence ID: {} - Error: {}", sequenceId, e.getMessage(), e);
+            log.error("!! [REPORT ASYNC FAILED] !! 사유: {}", e.getMessage(), e);
         }
     }
 
