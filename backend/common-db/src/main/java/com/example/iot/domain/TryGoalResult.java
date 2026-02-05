@@ -1,15 +1,15 @@
 package com.example.iot.domain;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Table(name = "try_goal_result")
-@Getter @Setter
+@Getter
+@Setter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class TryGoalResult {
 
     @Id
@@ -17,7 +17,6 @@ public class TryGoalResult {
     @Column(name = "result_id")
     private Long id;
 
-    // 'try'는 자바 예약어이므로 'exerciseTry' 또는 'tryEntity'로 변경
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "try_id", nullable = false)
     private Try exerciseTry;

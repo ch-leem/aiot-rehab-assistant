@@ -2,11 +2,13 @@ package com.example.user.service;
 
 import com.example.iot.domain.Patient;
 import com.example.iot.domain.PatientTherapistMapping;
+import com.example.iot.domain.Session;
 import com.example.iot.domain.SessionSummary;
 import com.example.iot.domain.Therapist;
 import com.example.iot.domain.constant.PatientTherapistMappingStatus;
 import com.example.iot.repository.PatientRepository;
-import com.example.iot.repository.PatientTherapistMappingRepository; // 추가
+import com.example.iot.repository.PatientTherapistMappingRepository;
+import com.example.iot.repository.SessionRepository;
 import com.example.iot.repository.SessionSummaryRepository;
 import com.example.iot.repository.TherapistRepository;
 import com.example.user.dto.PatientReportResponse;
@@ -26,9 +28,10 @@ import java.util.stream.Collectors;
 public class TherapistService {
 
     private final TherapistRepository therapistRepository;
-    private final PatientRepository patientRepository; // 환자 상세 조회용으로 유지
+    private final PatientRepository patientRepository;
     private final SessionSummaryRepository summaryRepository;
-    private final PatientTherapistMappingRepository mappingRepository; // 매핑 조회용 추가
+    private final PatientTherapistMappingRepository mappingRepository;
+    private final SessionRepository sessionRepository;
 
     /**
      * 치료사 대시보드 - 담당 환자 목록 조회 (매핑 테이블 기반)
@@ -64,21 +67,31 @@ public class TherapistService {
      * 특정 환자의 리포트 상세 데이터 조회
      */
     public PatientReportResponse getPatientReport(Long patientId) {
-        // 특정 환자 1명을 찾을 때는 기존 patientRepository를 써도 무방합니다.
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new IllegalArgumentException("환자를 찾을 수 없습니다."));
 
+        // 1. 환자의 가장 최신 요약본 하나를 가져옵니다.
         SessionSummary summary = summaryRepository.findFirstBySequence_Patient_IdOrderByIdDesc(patientId)
                 .orElse(null);
+
+        long total = 0L;
+        long success = 0L;
+
+        // 2. 요약본이 있다면, 해당 회차(Sequence)의 모든 세션을 가져와 시도 횟수를 합산합니다.
+        if (summary != null && summary.getSequence() != null) {
+            List<Session> sessions = sessionRepository.findAllDetailBySequenceId(summary.getSequence().getId());
+            total = sessions.stream().mapToLong(Session::getTotalTries).sum();
+            success = sessions.stream().mapToLong(Session::getSuccessTries).sum();
+        }
 
         return PatientReportResponse.builder()
                 .patientId(patient.getId())
                 .patientName(patient.getName())
-                .totalTrials(summary != null ? summary.getTotalTrials() : 0L)
-                .successTrials(summary != null ? summary.getSuccessTrials() : 0L)
-                .avgAngle(summary != null ? summary.getAvgAngle() : 0.0)
-                .inTargetRate(summary != null ? summary.getInTargetRate() : 0.0)
-                .stabilityLevel(summary != null ? summary.getStabilityLevel() : "데이터 없음")
+                .totalTrials(total)
+                .successTrials(success)
+                .averageScore(summary != null ? summary.getAverageScore() : 0.0)
+                .successRate(summary != null ? summary.getSuccessRate() : 0.0)
+                .summaryTag(summary != null ? summary.getSummaryTag() : "데이터 없음")
                 .build();
     }
 

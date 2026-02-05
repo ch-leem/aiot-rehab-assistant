@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import org.springframework.data.domain.Pageable;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SequenceRepository extends JpaRepository<Sequence, Long> {
@@ -35,5 +36,8 @@ public interface SequenceRepository extends JpaRepository<Sequence, Long> {
     order by s.id desc
     """)
     List<Sequence> findPreviousSequences(Long patientId, Long currentSequenceId, Pageable pageable);
+
+    @Query("SELECT s FROM Sequence s WHERE s.patient.id = :patientId AND s.id < :currentSequenceId ORDER BY s.id DESC")
+    Optional<Sequence> findLastSequence(@Param("patientId") Long patientId, @Param("currentSequenceId") Long currentSequenceId);
 
 }
