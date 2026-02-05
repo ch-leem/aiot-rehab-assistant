@@ -4,6 +4,8 @@
   color: #111827;
   display: flex;
   flex-direction: column;
+  font-size: 24px;
+  line-height: 1.5;
 }
 
 .fail3d-header {
@@ -24,15 +26,15 @@
 .fail3d-badge {
   background: #3b82f6;
   color: #fff;
-  padding: 6px 12px;
+  padding: 12px 21px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 24px;
   font-weight: 700;
 }
 
 .fail3d-subtitle {
   color: #64748b;
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .fail3d-controls {
@@ -45,7 +47,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 24px;
   color: #64748b;
 }
 
@@ -55,17 +57,17 @@
   border: 1px solid #d8e0ea;
   color: #111827;
   border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 12px 18px;
+  font-size: 24px;
 }
 
 .fail3d-back {
   background: #ffffff;
   border: 1px solid #d8e0ea;
   color: #111827;
-  padding: 8px 14px;
+  padding: 15px 27px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 24px;
   cursor: pointer;
 }
 
@@ -105,9 +107,9 @@
   background: rgba(248, 250, 252, 0.95);
   border: 1px solid #e2e8f0;
   color: #475569;
-  padding: 4px 8px;
+  padding: 9px 15px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 21px;
 }
 
 .fail3d-analysis {
@@ -123,7 +125,7 @@
 
 .fail3d-empty {
   color: #64748b;
-  font-size: 13px;
+  font-size: 24px;
   padding: 12px;
 }
 
@@ -146,7 +148,7 @@
 
 .fail3d-card-title {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 27px;
 }
 
 .fail3d-try-list {
@@ -161,11 +163,11 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   color: #1f2937;
-  padding: 8px 10px;
+  padding: 15px 18px;
   border-radius: 10px;
   text-align: left;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 24px;
 }
 
 .fail3d-try-item.active {
@@ -218,9 +220,9 @@
   color: #111827;
   border: 1px solid #d8e0ea;
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 12px 18px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 24px;
 }
 
 .btn-primary {
@@ -234,12 +236,12 @@
   color: #111827;
   border-radius: 8px;
   border: 1px solid #d8e0ea;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 9px 15px;
+  font-size: 24px;
 }
 
 .speed-label {
-  font-size: 12px;
+  font-size: 21px;
   color: #64748b;
 }
 

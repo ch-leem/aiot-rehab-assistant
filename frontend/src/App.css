@@ -1299,6 +1299,7 @@
 .info-value {
   font-weight: 600;
   color: var(--ink);
+  margin-left: 30px;
 }
 
 .info-title {
