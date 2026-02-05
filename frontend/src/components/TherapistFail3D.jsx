@@ -147,6 +147,7 @@ export default function TherapistFail3D() {
   const cursorRef = useRef(0);
   const playingRef = useRef(false);
   const speedRef = useRef(1);
+  const sessionIdRef = useRef(sessionId);
   const rafIdRef = useRef(null);
   const lastNowRef = useRef(null);
   const accMsRef = useRef(0);
@@ -167,6 +168,9 @@ export default function TherapistFail3D() {
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   const frame = useMemo(() => frames[cursor] ?? null, [frames, cursor]);
 
@@ -218,17 +222,20 @@ export default function TherapistFail3D() {
       console.log("[FAIL3D] sequenceId", targetSequenceId, "sessions", nextSessions.map((s) => s.sessionId));
       setSessions(nextSessions);
 
-      const hasCurrent = nextSessions.some((s) => String(s.sessionId) === String(sessionId));
-      if ((!sessionId || !hasCurrent) && nextSessions.length > 0) {
-        setSessionId(String(nextSessions[nextSessions.length - 1].sessionId));
-      }
+      setSessionId((prev) => {
+        const hasCurrent = nextSessions.some((s) => String(s.sessionId) === String(prev));
+        if ((!prev || !hasCurrent) && nextSessions.length > 0) {
+          return String(nextSessions[nextSessions.length - 1].sessionId);
+        }
+        return prev;
+      });
     } catch (err) {
       setSequenceError(err?.message ?? "시퀀스 정보를 불러오지 못했습니다.");
       setSessions([]);
     } finally {
       setSequenceLoading(false);
     }
-  }, [sessionId, sequenceIdParam]);
+  }, [sequenceIdParam]);
 
   const loadFailedTries = useCallback(async (nextSessionId) => {
     if (!nextSessionId) return;
@@ -245,8 +252,8 @@ export default function TherapistFail3D() {
       console.log("[FAIL3D] failedTryIds", list);
       setFailedTryIds(list);
       setFailTryLabels({});
-      if (!selectedTryId && list.length > 0) {
-        setSelectedTryId(String(list[0]));
+      if (list.length > 0) {
+        setSelectedTryId((prev) => (prev ? prev : String(list[0])));
       }
     } catch (err) {
       setTriesError(err?.message ?? "실패 Try 목록을 불러오지 못했습니다.");
@@ -255,7 +262,7 @@ export default function TherapistFail3D() {
     } finally {
       setTriesLoading(false);
     }
-  }, [selectedTryId]);
+  }, []);
 
   const loadFailLogFrames = useCallback(async (nextTryId) => {
     if (!nextTryId) return;
@@ -355,7 +362,7 @@ export default function TherapistFail3D() {
     }
   };
 
-    const fetchFailLabel = useCallback(async (tryId) => {
+  const fetchFailLabel = useCallback(async (tryId) => {
     if (!tryId) return null;
     try {
       const res = await fetch(`${API_IOT_BASE_URL}/tries/${tryId}/fail-log-file`, {
@@ -364,17 +371,14 @@ export default function TherapistFail3D() {
       if (!res.ok) return null;
       const contentType = res.headers.get("content-type") || "";
       let frames = [];
-      let failId = "";
       if (contentType.includes("application/json")) {
         const payload = await res.json();
-        failId = payload?.fail_id ?? payload?.data?.fail_id ?? "";
         frames = extractFramesFromPayload(payload);
       } else {
         const text = await res.text();
         frames = parseAnyText(text);
       }
       const first =
-        failId ||
         frames.find((f) => f?.fail_id || f?.failId)?.fail_id ||
         frames.find((f) => f?.fail_id || f?.failId)?.failId ||
         "F_ELSE";
