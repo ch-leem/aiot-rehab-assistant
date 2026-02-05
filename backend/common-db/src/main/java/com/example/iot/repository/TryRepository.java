@@ -14,7 +14,7 @@ public interface TryRepository extends JpaRepository<Try, Long> {
     List<Try> findBySessionId(Long sessionId);
 
     //Session아이디 몇 개인지 count
-    int countBySessionId(Long sessionId);
+    int countBySession_Id(Long sessionId);
     //성공 횟수 세기
 //    long countBySession_IdCountSuccess(Long sessionId);
     //실패 횟수 세기

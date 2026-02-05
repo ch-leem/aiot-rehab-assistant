@@ -110,7 +110,7 @@ public class SequenceService {
         // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
         boolean isAllFinished = sessions.stream().allMatch(s -> {
             // DB에 저장된 실제 Try 데이터의 총 개수를 가져옵니다.
-            int currentTryCount = tryRepo.countBySessionId(s.getId());
+            int currentTryCount = tryRepo.countBySession_Id(s.getId());
 
             // 현재 수행 횟수가 목표(totalTries)에 도달했는지 체크
             return currentTryCount >= s.getTotalTries();
