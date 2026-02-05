@@ -89,9 +89,9 @@ public class TherapistService {
                 .patientName(patient.getName())
                 .totalTrials(total)
                 .successTrials(success)
-                .avgAngle(summary != null ? summary.getAverageScore() : 0.0)
-                .inTargetRate(summary != null ? summary.getSuccessRate() : 0.0)
-                .stabilityLevel(summary != null ? summary.getSummaryTag() : "데이터 없음")
+                .averageScore(summary != null ? summary.getAverageScore() : 0.0)
+                .successRate(summary != null ? summary.getSuccessRate() : 0.0)
+                .summaryTag(summary != null ? summary.getSummaryTag() : "데이터 없음")
                 .build();
     }
 

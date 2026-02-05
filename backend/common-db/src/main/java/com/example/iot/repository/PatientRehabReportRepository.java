@@ -13,8 +13,9 @@ public interface PatientRehabReportRepository extends JpaRepository<PatientRehab
 
     /**
      * [리포트용 추가] 특정 세션에 저장된 AI의 정밀 분석 소견 조회
+     * 경로: Report -> Sequence -> SessionSummaries 리스트 중 특정 세션 ID 매칭
      */
-    @Query("SELECT r.aiNote FROM PatientRehabReport r WHERE r.sessionId = :sessionId")
+    @Query("SELECT s.sessionNote FROM SessionSummary s WHERE s.session.id = :sessionId")
     Optional<String> findAiNoteBySessionId(@Param("sessionId") Long sessionId);
 
     /**

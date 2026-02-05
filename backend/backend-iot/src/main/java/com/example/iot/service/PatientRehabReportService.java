@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -92,8 +93,11 @@ public class PatientRehabReportService {
                             )).toList();
 
                     Double sessionAvgScore = tryDetails.stream()
-                            .mapToDouble(PatientRehabReportRequest.RehabTryDetail::totalScore)
-                            .average().orElse(0.0);
+                            .map(PatientRehabReportRequest.RehabTryDetail::totalScore)
+                            .filter(Objects::nonNull) // null 값 필터링
+                            .mapToDouble(Double::doubleValue) // 안전하게 double로 변환
+                            .average()
+                            .orElse(0.0);
 
                     return new PatientRehabReportRequest.RehabSessionSummary(
                             session.getId(),
