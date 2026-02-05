@@ -25,4 +25,6 @@ public interface ExercisePatientMappingRepository extends JpaRepository<Exercise
     boolean existsByExercise_IdAndPatient_Id(Long exerciseId, Long patientId);
 
     Optional<ExercisePatientMapping> findByPatient_IdAndExercise_Id(Long patientId, Long exerciseId);
+
+    List<ExercisePatientMapping> findAllByPatient_IdAndExercise_Id(Long patientId, Long exerciseId);
 }
