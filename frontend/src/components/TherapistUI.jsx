@@ -445,7 +445,7 @@ export default function TherapistUI() {
             </div>
             <div className="therapist-gooey">
               <GooeyText
-                texts={["Rehab", "Insight", "Care", "Support", "Progress", "Empathy"]}
+                texts={["Walfare", "Insight", "Care", "Support", "Progress", "Empathy"]}
                 morphTime={1.6}
                 cooldownTime={0.55}
               />

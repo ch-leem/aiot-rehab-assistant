@@ -30,6 +30,7 @@ export default function MainLayout({
     stageIndex && stageTotal ? `${stageIndex}/${stageTotal} 단계` : null;
 
   const [connected, setConnected] = useState(false);
+  const [streamActive, setStreamActive] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const [wsState, setWsState] = useState<WebSocket | null>(null);
   const [confirmAction, setConfirmAction] = useState<"restart" | "stop" | null>(null);
@@ -50,6 +51,7 @@ export default function MainLayout({
     ws.onclose = () => {
       console.log("WS closed");
       setConnected(false);
+      setStreamActive(false);
       wsRef.current = null;
       setWsState(null);
     };
@@ -105,10 +107,10 @@ export default function MainLayout({
                     <input
                       className="bubble"
                       type="checkbox"
-                      checked={connected}
+                      checked={streamActive}
                       readOnly
                       disabled
-                      aria-label={connected ? "WS 연결됨" : "WS 끊김"}
+                      aria-label={streamActive ? "WS 연결됨" : "WS 끊김"}
                     />
                   </label>
                 </div>
@@ -158,7 +160,7 @@ export default function MainLayout({
               
 
             <div className="camera-feed">
-              <StreamingViewer ws={wsState} />
+              <StreamingViewer ws={wsState} onStreamActive={setStreamActive} />
               <div className="camera-overlay">
                 <span className="overlay-dot" />
                 <span className="overlay-ring" />

@@ -1,13 +1,20 @@
 import { useEffect, useRef } from "react";
 
-export default function StreamingViewer({ ws }) {
+export default function StreamingViewer({ ws, onStreamActive }) {
   const videoRef = useRef(null);
   const pcRef = useRef(null);
+  const streamActiveRef = useRef(false);
 
   useEffect(() => {
     if (!ws) return;
 
     let disposed = false;
+
+    const updateStreamActive = (next) => {
+      if (streamActiveRef.current === next) return;
+      streamActiveRef.current = next;
+      if (onStreamActive) onStreamActive(next);
+    };
 
     const start = () => {
       if (disposed) return;
@@ -20,6 +27,9 @@ export default function StreamingViewer({ ws }) {
 
       pc.onconnectionstatechange = () => {
         console.log("[WebRTC] connectionState:", pc.connectionState);
+        if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
+          updateStreamActive(false);
+        }
       };
 
       pc.onicecandidate = (event) => {
@@ -34,6 +44,7 @@ export default function StreamingViewer({ ws }) {
         if (video.srcObject !== event.streams[0]) {
           video.srcObject = event.streams[0];
         }
+        updateStreamActive(true);
       };
     };
 
@@ -82,8 +93,9 @@ export default function StreamingViewer({ ws }) {
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
+      updateStreamActive(false);
     };
-  }, [ws]);
+  }, [ws, onStreamActive]);
 
   return <video ref={videoRef} className="camera-video" autoPlay playsInline muted />;
 }

@@ -1288,6 +1288,8 @@ export default function App() {
             {guideEnded && currentExerciseId === 2 ? (
               <MoleGame
                 onCountChange={(count, total) => {
+                  if (countdownStep || countdownActiveRef.current) return;
+                  if (moleTryTimeoutRef.current || lowerBodyFeedbackTimerRef.current) return;
                   setMoleGameCount(count);
                   setMoleGameTotal(total);
                 }}
@@ -1299,6 +1301,8 @@ export default function App() {
             ) : guideEnded ? (
               <ArmRaiseGame
                 onCountChange={(count, total) => {
+                  if (countdownStep || countdownActiveRef.current) return;
+                  if (armRaiseTimeoutRef.current) return;
                   setArmRaiseCount(count);
                   setArmRaiseTotal(total);
                 }}
