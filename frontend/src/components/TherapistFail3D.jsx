@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DetailCharts, { FooterTimeline } from "./fail3d/Timeline";
 import Pose3D from "./fail3d/Pose3D";
 import JointPanel from "./fail3d/JointPanel";
@@ -8,6 +8,18 @@ const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
 
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+
+const FAIL_LABEL_MAP = {
+  F_SH_FLEX: "어깨 외전 각도 미달",
+  F_EL_EXT: "팔꿈치 신전 불량",
+  F_TR_TILT: "상체 기울기 불안정",
+  F_SH_HOR: "어깨 수평 불균형",
+  F_ACCEL: "수행 속도 급격",
+  F_PR_LOAD: "마비측 압력 부족",
+  F_PL_HOR: "골반 수평 편차",
+  F_ANK_STB: "발목 흔들림 심함",
+  F_ELSE: "기타 실패",
+};
 
 function estimatePeriodMs(frames) {
   if (frames.length < 2) return 33;
@@ -74,6 +86,17 @@ function parseAnyText(text) {
   return parseJsonlText(text);
 }
 
+function extractFramesFromPayload(payload) {
+  if (!payload) return [];
+  const normalized = normalizeFrames(payload);
+  if (normalized.length > 0) return normalized;
+  const inlineFrames = payload?.data?.frames ?? payload?.frames;
+  if (typeof inlineFrames === "string") {
+    return parseAnyText(inlineFrames);
+  }
+  return [];
+}
+
 function getQueryParam(name) {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
@@ -86,13 +109,14 @@ export default function TherapistFail3D() {
   const demoUrl = demoFileParam || "/try-2690-20260203-170451 (1).jsonl";
 
   const [patientId, setPatientId] = useState(getQueryParam("patientId"));
-const sequenceIdParam = getQueryParam("sequenceId");
+  const sequenceIdParam = getQueryParam("sequenceId");
   const [sessions, setSessions] = useState([]);
   const [sequenceError, setSequenceError] = useState("");
   const [sequenceLoading, setSequenceLoading] = useState(false);
 
   const [sessionId, setSessionId] = useState(getQueryParam("sessionId"));
   const [failedTryIds, setFailedTryIds] = useState([]);
+  const [failTryLabels, setFailTryLabels] = useState({});
   const [triesError, setTriesError] = useState("");
   const [triesLoading, setTriesLoading] = useState(false);
 
@@ -141,7 +165,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
       const res = await fetch(`${API_IOT_BASE_URL}/api/patients/${nextPatientId}/sequences`, {
         method: "GET",
       });
-      if (!res.ok) throw new Error("??? ??? ???? ?????.");
+      if (!res.ok) throw new Error("시퀀스 정보를 불러오지 못했습니다.");
       const payload = await res.json();
       const sequenceList = Array.isArray(payload?.data)
         ? payload.data
@@ -173,7 +197,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
         `${API_IOT_BASE_URL}/api/patients/sequences/${targetSequenceId}`,
         { method: "GET" }
       );
-      if (!detailRes.ok) throw new Error("??? ??? ???? ?????.");
+      if (!detailRes.ok) throw new Error("시퀀스 정보를 불러오지 못했습니다.");
       const detailPayload = await detailRes.json();
       const detail = detailPayload?.data ?? detailPayload ?? {};
       const nextSessions = Array.isArray(detail?.sessions) ? detail.sessions : [];
@@ -185,7 +209,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
         setSessionId(String(nextSessions[nextSessions.length - 1].sessionId));
       }
     } catch (err) {
-      setSequenceError(err?.message ?? "??? ??? ???? ?????.");
+      setSequenceError(err?.message ?? "시퀀스 정보를 불러오지 못했습니다.");
       setSessions([]);
     } finally {
       setSequenceLoading(false);
@@ -206,16 +230,18 @@ const sequenceIdParam = getQueryParam("sequenceId");
       const list = Array.isArray(payload?.failedTryIds) ? payload.failedTryIds : [];
       console.log("[FAIL3D] failedTryIds", list);
       setFailedTryIds(list);
+      setFailTryLabels({});
       if (!selectedTryId && list.length > 0) {
         setSelectedTryId(String(list[0]));
       }
     } catch (err) {
       setTriesError(err?.message ?? "실패 Try 목록을 불러오지 못했습니다.");
       setFailedTryIds([]);
+      setFailTryLabels({});
     } finally {
       setTriesLoading(false);
     }
-  }, []);
+  }, [selectedTryId]);
 
   const loadFailLogFrames = useCallback(async (nextTryId) => {
     if (!nextTryId) return;
@@ -233,13 +259,13 @@ const sequenceIdParam = getQueryParam("sequenceId");
 
       if (contentType.includes("application/json")) {
         const payload = await res.json();
-        nextFrames = normalizeFrames(payload);
+        nextFrames = extractFramesFromPayload(payload);
       } else {
         const text = await res.text();
         if (text.trim().startsWith("<!doctype") || text.trim().startsWith("<html")) {
           throw new Error("Fail log 응답이 HTML입니다. API 경로/권한을 확인해주세요.");
         }
-        nextFrames = parseJsonlText(text);
+        nextFrames = parseAnyText(text);
       }
 
       setFrames(nextFrames);
@@ -266,7 +292,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
     setFramesError("");
     try {
       const res = await fetch(demoUrl, { method: "GET" });
-      if (!res.ok) throw new Error("더미 JSONL을 불러오지 못했습니다.");
+      if (!res.ok) throw new Error("데모 JSONL을 불러오지 못했습니다.");
       const text = await res.text();
       const nextFrames = parseAnyText(text);
       setFrames(nextFrames);
@@ -281,7 +307,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     } catch (err) {
-      setFramesError(err?.message ?? "더미 JSONL을 불러오지 못했습니다.");
+      setFramesError(err?.message ?? "데모를 불러오지 못했습니다.");
       setFrames([]);
     } finally {
       setFramesLoading(false);
@@ -314,6 +340,55 @@ const sequenceIdParam = getQueryParam("sequenceId");
       setFramesLoading(false);
     }
   };
+
+  const fetchFailLabel = useCallback(async (tryId) => {
+    if (!tryId) return null;
+    try {
+      const res = await fetch(`${API_IOT_BASE_URL}/tries/${tryId}/fail-log-file`, {
+        method: "GET",
+      });
+      if (!res.ok) return null;
+      const contentType = res.headers.get("content-type") || "";
+      let frames = [];
+      if (contentType.includes("application/json")) {
+        const payload = await res.json();
+        frames = extractFramesFromPayload(payload);
+      } else {
+        const text = await res.text();
+        frames = parseAnyText(text);
+      }
+      const first =
+        frames.find((f) => f?.fail_id || f?.failId)?.fail_id ??
+        frames.find((f) => f?.fail_id || f?.failId)?.failId ??
+        "F_ELSE";
+      return { id: first, label: FAIL_LABEL_MAP[first] ?? "기타 실패" };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (failedTryIds.length === 0) return;
+    let cancelled = false;
+    const run = async () => {
+      const entries = await Promise.all(
+        failedTryIds.map(async (id) => {
+          const info = await fetchFailLabel(id);
+          return [String(id), info];
+        })
+      );
+      if (cancelled) return;
+      const next = {};
+      entries.forEach(([id, info]) => {
+        if (info) next[id] = info;
+      });
+      setFailTryLabels(next);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [failedTryIds, fetchFailLabel]);
 
   useEffect(() => {
     if (!patientId) return;
@@ -472,7 +547,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
             type="button"
             onClick={loadDemoFrames}
           >
-            더미 로드
+            데모 로드
           </button>
           <label className="fail3d-back" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             파일 선택
@@ -515,7 +590,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
         </div>
 
         <div className="fail3d-analysis">
-          {sequenceLoading && <div className="fail3d-empty">시퀀스 불러오는 중...</div>}
+          {sequenceLoading && <div className="fail3d-empty">세션을 불러오는 중...</div>}
           {!sequenceLoading && sequenceError && <div className="fail3d-empty">{sequenceError}</div>}
           {triesLoading && <div className="fail3d-empty">실패 목록 불러오는 중...</div>}
           {!triesLoading && triesError && <div className="fail3d-empty">{triesError}</div>}
@@ -546,7 +621,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
                   type="button"
                   onClick={() => setSelectedTryId(String(id))}
                 >
-                  Try #{id}
+                  {`${failTryLabels[String(id)]?.label ?? "기타 실패"} #${id}`}
                 </button>
               ))}
             </div>
@@ -573,7 +648,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
                   setCursor((c) => Math.max(0, c - 1));
                 }}
               >
-                ◀
+                이전
               </button>
               <button
                 className={`btn ${playing ? "btn-primary" : ""}`}
@@ -597,7 +672,7 @@ const sequenceIdParam = getQueryParam("sequenceId");
                   setCursor((c) => Math.min(framesRef.current.length - 1, c + 1));
                 }}
               >
-                ▶
+                다음
               </button>
             </div>
             <div className="control-row">
