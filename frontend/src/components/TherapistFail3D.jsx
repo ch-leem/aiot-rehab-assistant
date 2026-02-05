@@ -210,7 +210,7 @@ export default function TherapistFail3D() {
     setFramesError("");
     try {
       const res = await fetch(
-        `${API_IOT_BASE_URL}/api/iot/tries/${nextTryId}/fail-log-file`,
+        `${API_IOT_BASE_URL}/tries/${nextTryId}/fail-log-file`,
         { method: "GET" }
       );
       if (!res.ok) throw new Error("Fail log 데이터를 불러오지 못했습니다.");
