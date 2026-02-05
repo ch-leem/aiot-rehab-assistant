@@ -53,6 +53,10 @@ body {
   line-height: 1.6;
 }
 
+body.therapist-body {
+  background: #ffffff;
+}
+
 #root {
   min-height: 100vh;
 }

@@ -6,6 +6,7 @@ import "./TherapistFail3D.css";
 
 const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
+const API_USER_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_USER_BASE_URL);
 
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
@@ -136,19 +137,45 @@ export default function TherapistFail3D() {
     setSequenceLoading(true);
     setSequenceError("");
     try {
-      const res = await fetch(`${API_IOT_BASE_URL}/api/sequence/${nextPatientId}`, {
+      const res = await fetch(`${API_USER_BASE_URL}/api/patients/${nextPatientId}/sequences`, {
         method: "GET",
       });
-      if (!res.ok) throw new Error("시퀀스 정보를 불러오지 못했습니다.");
+      if (!res.ok) throw new Error("??? ??? ???? ?????.");
       const payload = await res.json();
-      const nextSessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+      const sequenceList = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+      const normalized = sequenceList
+        .map((item) => ({
+          sequenceId: item?.sequenceId ?? item?.sequence_id,
+        }))
+        .filter((item) => item.sequenceId != null);
+
+      if (normalized.length === 0) {
+        setSessions([]);
+        setSessionId("");
+        return;
+      }
+
+      const nextSequenceId = normalized[normalized.length - 1].sequenceId;
+      const detailRes = await fetch(
+        `${API_USER_BASE_URL}/api/patients/sequences/${nextSequenceId}`,
+        { method: "GET" }
+      );
+      if (!detailRes.ok) throw new Error("??? ??? ???? ?????.");
+      const detailPayload = await detailRes.json();
+      const detail = detailPayload?.data ?? detailPayload ?? {};
+      const nextSessions = Array.isArray(detail?.sessions) ? detail.sessions : [];
       setSessions(nextSessions);
+
       const hasCurrent = nextSessions.some((s) => String(s.sessionId) === String(sessionId));
       if ((!sessionId || !hasCurrent) && nextSessions.length > 0) {
         setSessionId(String(nextSessions[nextSessions.length - 1].sessionId));
       }
     } catch (err) {
-      setSequenceError(err?.message ?? "시퀀스 정보를 불러오지 못했습니다.");
+      setSequenceError(err?.message ?? "??? ??? ???? ?????.");
       setSessions([]);
     } finally {
       setSequenceLoading(false);
@@ -160,7 +187,7 @@ export default function TherapistFail3D() {
     setTriesLoading(true);
     setTriesError("");
     try {
-      const res = await fetch(`${API_IOT_BASE_URL}/sessions/${nextSessionId}/failed-tries`, {
+      const res = await fetch(`${API_USER_BASE_URL}/sessions/${nextSessionId}/failed-tries`, {
         method: "GET",
       });
       if (!res.ok) throw new Error("실패 Try 목록을 불러오지 못했습니다.");

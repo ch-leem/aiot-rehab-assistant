@@ -18,18 +18,29 @@
 }
 
 .app-shell.therapist-shell {
-  background: #f5f7fa;
+  background-color: #ffffff;
   background-image: none;
 }
 
 .therapist-shell .app-header {
-  padding-bottom: 6px;
+  background: #ffffff;
+  padding-bottom: 10px;
+  box-shadow: none;
+}
+
+.therapist-shell .layout-body {
+  background: #ffffff;
 }
 
 .therapist-shell .right-panel {
   background: #ffffff;
   border-color: rgba(140, 150, 165, 0.25);
   box-shadow: 0 16px 40px rgba(20, 24, 30, 0.08);
+}
+
+.therapist-shell .camera-panel {
+  background: #ffffff;
+  border-color: rgba(140, 150, 165, 0.25);
 }
 
 .therapist-shell .meta-pill {

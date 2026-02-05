@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MainLayout from "./MainLayout";
 import GooeyText from "./GooeyText";
 
@@ -240,6 +240,13 @@ const getTrendDescription = (trend) => {
 };
 
 export default function TherapistUI() {
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.classList.add("therapist-body");
+      return () => document.body.classList.remove("therapist-body");
+    }
+    return undefined;
+  }, []);
   const [view, setView] = useState(VIEW.LOGIN);
   const [therapistId, setTherapistId] = useState("");
   const [therapistName, setTherapistName] = useState("");
@@ -402,8 +409,9 @@ export default function TherapistUI() {
 
   return (
     <MainLayout
-      stageLabel="의료진 조회"
+      stageLabel="환자 조회"
       nurseId={therapistId}
+      patientId={selectedPatient?.patientId ? String(selectedPatient.patientId) : ""}
       hideCamera
       variant="therapist"
     >
