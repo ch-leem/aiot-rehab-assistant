@@ -17,6 +17,7 @@ import MainLayout from "./components/MainLayout";
 import PatientCheck from "./components/PatientCheck";
 import Login from "./components/Login";
 import TherapistUI from "./components/TherapistUI";
+import TherapistFail3D from "./components/TherapistFail3D";
 import ArmRaiseGame from "./components/ArmRaiseGame";
 import MoleGame from "./components/MoleGame";
 
@@ -91,6 +92,8 @@ const RESULT_RULES = [
 
 export default function App() {
   const useMock = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const isTherapistFailTypeRoute = pathname.startsWith("/therapist/fail_type");
   const isTherapistRoute =
     typeof window !== "undefined" &&
     window.location.pathname.startsWith("/therapist");
@@ -1095,6 +1098,10 @@ export default function App() {
     };
     fetchAverages();
   }, [screen, sequenceId]);
+
+  if (isTherapistFailTypeRoute) {
+    return <TherapistFail3D />;
+  }
 
   if (isTherapistRoute) {
     return <TherapistUI />;

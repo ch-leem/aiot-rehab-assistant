@@ -379,7 +379,21 @@ export default function TherapistUI() {
                 {!reportLoading && !reportError && selectedPatient && (
                   <>
                     <div className="report-card">
-                      <div className="report-card-title">환자 요약</div>
+                      <div className="report-card-title">
+                        환자 요약
+                        <button
+                          className="therapist-ghost"
+                          type="button"
+                          onClick={() => {
+                            if (!selectedPatient?.patientId) return;
+                            window.location.href = `/therapist/fail_type?patientId=${selectedPatient.patientId}`;
+                          }}
+                          disabled={!selectedPatient?.patientId}
+                          style={{ float: "right" }}
+                        >
+                          실패유형
+                        </button>
+                      </div>
                       <div className="report-card-body">
                         {reportData.profile ? (
                           <>

@@ -609,6 +609,29 @@
   color: #2f3b50;
 }
 
+.report-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.report-action-button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 58, 138, 0.45);
+  background: rgba(30, 58, 138, 0.12);
+  color: #1e3a8a;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.report-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .report-card-body {
   color: #4b5568;
   line-height: 1.7;
