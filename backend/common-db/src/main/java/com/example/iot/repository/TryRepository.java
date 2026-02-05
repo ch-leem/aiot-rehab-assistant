@@ -20,4 +20,6 @@ public interface TryRepository extends JpaRepository<Try, Long> {
     //실패 횟수 세기
     //long countBySession_IdCountFail(Long sessionId);
     List<Try> findBySession_IdAndResult(Long sessionId, TryResult result);
+
+    boolean existsBySession_IdAndEndedAtIsNull(Long sessionId);
 }
