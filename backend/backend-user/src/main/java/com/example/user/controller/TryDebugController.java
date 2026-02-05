@@ -17,7 +17,9 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -86,58 +88,153 @@ public class TryDebugController {
 //        }
 //    }
 
+//    @GetMapping(value = "/{tryId}/fail-log-file", produces = MediaType.APPLICATION_JSON_VALUE)
+//    public ResponseEntity<?> getFailLogWrapped(@PathVariable Long tryId) {
+//        String url = "http://iot-api:8080/tries/" + tryId + "/fail-log-file";
+//
+//        try {
+//            ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
+//
+//            // NDJSON -> frames[]
+//            ObjectMapper om = new ObjectMapper();
+//            List<JsonNode> frames = new ArrayList<>();
+//
+//            String body = resp.getBody();
+//            if (body != null && !body.isBlank()) {
+//                for (String line : body.split("\n")) {
+//                    if (line.isBlank()) continue;
+//                    frames.add(om.readTree(line)); // line이 프레임 1개 JSON이라고 가정
+//                }
+//            }
+//
+//
+//            // fail_id는 “어디서 가져오냐”가 중요함:
+//            // 1) tryId로 Fail을 조회해서 얻거나(추천)
+//            // 2) 프레임 JSON 안에 fail_id가 이미 있거나
+//            // 여기선 예시로 DB에서 조회한다고 가정:
+//            Try t = tryRepository.findById(tryId)
+//                    .orElseThrow(() -> new IllegalArgumentException("Try가 존재하지 않습니다. id=" + tryId));
+//
+//            Fail fail = t.getFail();
+//
+//            ObjectNode root = om.createObjectNode();
+//            root.put("fail_id", fail.getId());
+//
+//            ObjectNode data = om.createObjectNode();
+//            ArrayNode framesArr = om.createArrayNode();
+//            frames.forEach(framesArr::add);
+//
+//            data.set("frames", framesArr);
+//            root.set("data", data);
+//
+//            return ResponseEntity.ok(root);
+//
+//        } catch (HttpStatusCodeException e) {
+//            // iot-api가 404/400 준 거 그대로 전달
+//            return ResponseEntity.status(e.getStatusCode())
+//                    .contentType(MediaType.TEXT_PLAIN)
+//                    .body(e.getResponseBodyAsString());
+//
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .contentType(MediaType.TEXT_PLAIN)
+//                    .body("Internal Proxy Error: " + e.getMessage());
+//        }
+//    }
+
     @GetMapping(value = "/{tryId}/fail-log-file", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> getFailLogWrapped(@PathVariable Long tryId) {
         String url = "http://iot-api:8080/tries/" + tryId + "/fail-log-file";
 
+        ObjectMapper om = new ObjectMapper();
+
         try {
             ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 
-            // NDJSON -> frames[]
-            ObjectMapper om = new ObjectMapper();
-            List<JsonNode> frames = new ArrayList<>();
-
             String body = resp.getBody();
-            if (body != null && !body.isBlank()) {
-                for (String line : body.split("\n")) {
-                    if (line.isBlank()) continue;
-                    frames.add(om.readTree(line)); // line이 프레임 1개 JSON이라고 가정
-                }
-            }
+            if (body == null) body = "";
 
-
-            // fail_id는 “어디서 가져오냐”가 중요함:
-            // 1) tryId로 Fail을 조회해서 얻거나(추천)
-            // 2) 프레임 JSON 안에 fail_id가 이미 있거나
-            // 여기선 예시로 DB에서 조회한다고 가정:
+            // ✅ 1) fail_id 만들기 (Try -> Fail)
             Try t = tryRepository.findById(tryId)
                     .orElseThrow(() -> new IllegalArgumentException("Try가 존재하지 않습니다. id=" + tryId));
 
             Fail fail = t.getFail();
+            String failId = (fail != null ? fail.getId() :  String.valueOf(tryId) ); // fail이 null이면 tryId라도 넣어줌(프론트 보호)
 
+            ArrayNode framesArr = om.createArrayNode();
+
+            String trimmed = body.trim();
+            if (!trimmed.isEmpty()) {
+                char first = trimmed.charAt(0);
+
+                if (first == '{') {
+                    // CASE A) "일반 JSON" 이라면
+                    JsonNode rootFromIot = om.readTree(trimmed);
+
+                    // 1) 혹시 iot-api가 이미 { data: { frames: [...] } } 형태로 주는 경우
+                    JsonNode framesNode = rootFromIot.at("/data/frames");
+                    if (framesNode.isArray()) {
+                        framesArr.addAll((ArrayNode) framesNode);
+                    } else if (rootFromIot.has("frames") && rootFromIot.get("frames").isArray()) {
+                        // 2) { frames: [...] } 형태
+                        framesArr.addAll((ArrayNode) rootFromIot.get("frames"));
+                    } else {
+                        // 3) 그냥 객체 1개만 주면 frames[0]로 넣기
+                        framesArr.add(rootFromIot);
+                    }
+
+                } else if (first == '[') {
+                    // CASE B) 최상위가 배열 JSON
+                    JsonNode arr = om.readTree(trimmed);
+                    if (arr.isArray()) framesArr.addAll((ArrayNode) arr);
+
+                } else {
+                    // CASE C) NDJSON / JSONL (한 줄에 JSON 하나)
+                    for (String line : body.split("\\R")) { // \n, \r\n 모두 대응
+                        String l = line.trim();
+                        if (l.isEmpty()) continue;
+                        framesArr.add(om.readTree(l));
+                    }
+                }
+            }
+
+            // ✅ 3) 프론트가 기대하는 최종 래핑 JSON 만들기
             ObjectNode root = om.createObjectNode();
-            root.put("fail_id", fail.getId());
+            root.put("fail_id", failId);
 
             ObjectNode data = om.createObjectNode();
-            ArrayNode framesArr = om.createArrayNode();
-            frames.forEach(framesArr::add);
-
             data.set("frames", framesArr);
             root.set("data", data);
 
-            return ResponseEntity.ok(root);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .cacheControl(CacheControl.noCache())
+                    .body(root);
 
         } catch (HttpStatusCodeException e) {
-            // iot-api가 404/400 준 거 그대로 전달
+            // iot-api가 4xx/5xx 주면 그대로 전달하되, 프론트 파싱 깨질까봐 JSON 에러로 내려주는 게 더 안전
+            ObjectNode err = om.createObjectNode();
+            err.put("error", "IOT_API_ERROR");
+            err.put("status", e.getRawStatusCode());
+            err.put("message", safeTrunc(e.getResponseBodyAsString(), 2000));
             return ResponseEntity.status(e.getStatusCode())
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(e.getResponseBodyAsString());
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(err);
 
         } catch (Exception e) {
+            ObjectNode err = om.createObjectNode();
+            err.put("error", "PROXY_INTERNAL_ERROR");
+            err.put("message", safeTrunc(e.getMessage(), 2000));
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("Internal Proxy Error: " + e.getMessage());
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(err);
         }
+    }
+
+    private String safeTrunc(String s, int max) {
+        if (s == null) return "";
+        if (s.length() <= max) return s;
+        return s.substring(0, max) + "...";
     }
 
 }

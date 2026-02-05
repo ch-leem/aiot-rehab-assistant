@@ -165,18 +165,20 @@ public class PatientRehabReportService {
         log.info("비동기 리포트 생성 시작 - Sequence ID: {}", sequenceId);
 
         try {
-            // 1. 데이터 조립
+            // 1. 데이터 조립 전 로그
+            log.info("1. 리포트 데이터 조립 시작...");
             PatientRehabReportRequest request = createReportRequest(sequenceId);
+            log.info("2. 데이터 조립 완료. GMS 호출 시도 (Patient: {})", request.patientName());
 
-            // 2. LLM 분석 요청 (GmsClient 호출 - 내부 block()은 비동기 스레드 안에서 실행되므로 안전)
+            // 2. GMS 호출
             PatientRehabReportResponse response = gmsClient.getLlmAnalysis(request);
+            log.info("3. GMS 응답 수신 성공. DB 저장 시작...");
 
             // 3. 결과 저장
             saveLlmReportResponse(response);
-
-            log.info("비동기 리포트 생성 및 저장 완료 - Sequence ID: {}", sequenceId);
+            log.info("== [REPORT ASYNC SUCCESS] Sequence ID: {} ==", sequenceId);
         } catch (Exception e) {
-            log.error("비동기 리포트 생성 중 오류 발생 - Sequence ID: {}", sequenceId, e);
+            log.error("!! [REPORT ASYNC FAILED] Sequence ID: {} - Error: {}", sequenceId, e.getMessage(), e);
         }
     }
 
