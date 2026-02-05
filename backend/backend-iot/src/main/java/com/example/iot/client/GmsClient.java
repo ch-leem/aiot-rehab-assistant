@@ -149,7 +149,7 @@ public class GmsClient {
         );
 
         Map<String, Object> payload = Map.of(
-                "model", "gpt-4o", // GMS에서 지원하는 모델명으로 기입
+                "model", "gpt-5.2", // GMS에서 지원하는 모델명으로 기입
                 "temperature", 0.2,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
