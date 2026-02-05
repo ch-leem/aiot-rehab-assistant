@@ -91,11 +91,25 @@ function extractFramesFromPayload(payload) {
   const normalized = normalizeFrames(payload);
   if (normalized.length > 0) return normalized;
   const inlineFrames = payload?.data?.frames ?? payload?.frames;
+  if (Array.isArray(inlineFrames)) {
+    const flattened = [];
+    inlineFrames.forEach((item) => {
+      if (item && typeof item === "object" && Array.isArray(item.frames)) {
+        item.frames.forEach((frame) => flattened.push(frame));
+      } else {
+        flattened.push(item);
+      }
+    });
+    const collapsed = normalizeFrames({ frames: flattened });
+    if (collapsed.length > 0) return collapsed;
+    return normalizeFrames(flattened);
+  }
   if (typeof inlineFrames === "string") {
     return parseAnyText(inlineFrames);
   }
   return [];
 }
+
 
 function getQueryParam(name) {
   if (typeof window === "undefined") return "";
@@ -341,7 +355,7 @@ export default function TherapistFail3D() {
     }
   };
 
-  const fetchFailLabel = useCallback(async (tryId) => {
+    const fetchFailLabel = useCallback(async (tryId) => {
     if (!tryId) return null;
     try {
       const res = await fetch(`${API_IOT_BASE_URL}/tries/${tryId}/fail-log-file`, {
@@ -350,22 +364,26 @@ export default function TherapistFail3D() {
       if (!res.ok) return null;
       const contentType = res.headers.get("content-type") || "";
       let frames = [];
+      let failId = "";
       if (contentType.includes("application/json")) {
         const payload = await res.json();
+        failId = payload?.fail_id ?? payload?.data?.fail_id ?? "";
         frames = extractFramesFromPayload(payload);
       } else {
         const text = await res.text();
         frames = parseAnyText(text);
       }
       const first =
-        frames.find((f) => f?.fail_id || f?.failId)?.fail_id ??
-        frames.find((f) => f?.fail_id || f?.failId)?.failId ??
+        failId ||
+        frames.find((f) => f?.fail_id || f?.failId)?.fail_id ||
+        frames.find((f) => f?.fail_id || f?.failId)?.failId ||
         "F_ELSE";
       return { id: first, label: FAIL_LABEL_MAP[first] ?? "기타 실패" };
     } catch {
       return null;
     }
   }, []);
+
 
   useEffect(() => {
     if (failedTryIds.length === 0) return;
@@ -700,3 +718,4 @@ export default function TherapistFail3D() {
     </div>
   );
 }
+
