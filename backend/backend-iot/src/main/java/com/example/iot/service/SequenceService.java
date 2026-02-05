@@ -101,14 +101,14 @@ public class SequenceService {
 
         // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
         boolean isAllFinished = sessions.stream().allMatch(s -> {
-            // DB에 저장된 실제 Try 데이터의 총 개수를 가져옵니다.
-            int currentTryCount = tryRepo.countBySession_Id(s.getId());
-
-            // 현재 수행 횟수가 목표(totalTries)에 도달했는지 체크
-            return currentTryCount >= s.getTotalTries();
+            // 이 세션에 속한 트라이 중 아직 끝나지 않은(endedAt IS NULL) 트라이가 있는지 확인
+            boolean hasUnfinishedTry = tryRepo.existsBySession_IdAndEndedAtIsNull(s.getId());
+            return !hasUnfinishedTry;
         });
 
         // 2. 조건이 맞으면 이미 작성하신 '마감 실행' 메서드 호출
+        log.info("시퀀스 완료 체크 - ID: {}, 완료여부: {}", sequenceId, isAllFinished);
+
         if (isAllFinished) {
             this.completeSequence(sequenceId);
         }

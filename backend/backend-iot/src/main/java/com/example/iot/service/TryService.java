@@ -27,6 +27,7 @@ public class TryService {
     private final FailRepository failRepository;
     private final ExerciseGoalRepository exerciseGoalRepository;
     private final ExercisePatientMappingRepository mappingRepository;
+    private final SessionRepository sessionRepository;
     private final SequenceService sequenceService;
     private final FrameAnalyzer frameAnalyzer;
     private final TryRawDumpService tryRawDumpService;
@@ -149,6 +150,12 @@ public class TryService {
             }
         }
         t.setTotalScore(totalAverage); // DB에는 계산된 전체 평균 저장
+
+        tryRepository.saveAndFlush(t);
+
+        if (session != null) {
+            sessionRepository.saveAndFlush(session);
+        }
 
         // 현재 Try -> Session -> Sequence ID를 타고 올라가서 체크를 요청합니다.
         if (session != null && session.getSequence() != null) {
