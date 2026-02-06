@@ -121,6 +121,57 @@ const normalizeReportInput = (raw) => {
   const report = raw.data ?? raw;
   if (!report) return null;
 
+  const rawOverall = report.overallSummary ?? report.overall_summary ?? null;
+  const overallSummary = rawOverall
+    ? {
+        ...rawOverall,
+        title:
+          rawOverall.title ??
+          rawOverall.overallTitle ??
+          rawOverall.overall_title ??
+          rawOverall.summary_title ??
+          null,
+        totalExercises:
+          rawOverall.totalExercises ??
+          rawOverall.total_exercises ??
+          rawOverall.totalExercise ??
+          rawOverall.total_exercise ??
+          null,
+        overallAssessment:
+          rawOverall.overallAssessment ??
+          rawOverall.overall_assessment ??
+          rawOverall.assessment ??
+          null,
+      }
+    : null;
+
+  const exerciseSummaries = (report.exerciseSummaries ?? report.exercise_summaries ?? []).map((es) => {
+    const rawPerformance = es.performance ?? es.performance_summary ?? {};
+    const comparison = es.comparisonToPrevious ?? es.comparison_to_previous ?? {};
+    return {
+      ...es,
+      sessionId: es.sessionId ?? es.session_id ?? null,
+      exerciseName: es.exerciseName ?? es.exercise_name ?? "",
+      summaryTag: es.summaryTag ?? es.summary_tag ?? "",
+      withinSessionTrend:
+        es.withinSessionTrend ?? es.sessionTrend ?? es.session_trend ?? es.within_session_trend ?? "",
+      sessionNote: es.sessionNote ?? es.session_note ?? "",
+      keyObservations: es.keyObservations ?? es.key_observations ?? [],
+      performance: {
+        ...rawPerformance,
+        successRate: rawPerformance.successRate ?? rawPerformance.success_rate ?? null,
+        averageScore: rawPerformance.averageScore ?? rawPerformance.average_score ?? null,
+      },
+      comparisonToPrevious: {
+        ...comparison,
+        used: comparison.used ?? false,
+        trend: comparison.trend ?? null,
+        trendDescription:
+          comparison.trendDescription ?? comparison.trend_description ?? comparison.description ?? null,
+      },
+    };
+  });
+
   return {
     sequenceId: report.sequenceId ?? report.sequence_id ?? null,
     patientName: report.patientName ?? report.patient_name ?? "",
@@ -128,11 +179,8 @@ const normalizeReportInput = (raw) => {
     date: report.date ?? null,
     rehabPhase: report.rehabPhase ?? report.rehab_phase ?? null,
     side: report.side ?? null,
-    overallSummary: report.overallSummary ?? report.overall_summary ?? null,
-    exerciseSummaries: (report.exerciseSummaries ?? report.exercise_summaries ?? []).map((es) => ({
-      ...es,
-      withinSessionTrend: es.withinSessionTrend ?? es.sessionTrend ?? es.session_trend ?? "",
-    })),
+    overallSummary,
+    exerciseSummaries,
     riskSignals: report.riskSignals ?? report.risk_signals ?? [],
     nextFocus: report.nextFocus ?? report.next_focus ?? [],
   };
