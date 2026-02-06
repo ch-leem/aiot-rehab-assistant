@@ -131,12 +131,22 @@ public class PatientRehabReportService {
         Sequence sequence = sequenceRepository.findById(response.sequenceId())
                 .orElseThrow(() -> new IllegalArgumentException("시퀀스를 찾을 수 없습니다. ID: " + response.sequenceId()));
 
+        com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.valueToTree(response);
+
+        if (rootNode instanceof com.fasterxml.jackson.databind.node.ObjectNode) {
+            // null이거나 비어있던 patientId에 실제 DB의 환자 ID 주입
+            ((com.fasterxml.jackson.databind.node.ObjectNode) rootNode)
+                    .put("patientId", sequence.getPatient().getId());
+        }
+
+        String fixedJson = rootNode.toString();
+
         // 1. 메인 리포트 테이블 저장
         PatientRehabReport report = PatientRehabReport.builder()
                 .sequence(sequence)
                 .overallTitle(response.overallSummary().title())
                 .overallAssessment(response.overallSummary().overallAssessment())
-                .fullReportJson(serializeToJson(response))
+                .fullReportJson(fixedJson)
                 .build();
         patientRehabReportRepository.save(report);
 
