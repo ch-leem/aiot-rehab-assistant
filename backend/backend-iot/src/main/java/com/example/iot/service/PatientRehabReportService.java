@@ -48,8 +48,10 @@ public class PatientRehabReportService {
 
         String sideValue = "N/A";
         if (!sessions.isEmpty()) {
-            // [Repository 메서드 일치] findByPatient_IdAndExercise_Id 호출
-            sideValue = mappingRepository.findByPatient_IdAndExercise_Id(patient.getId(), sessions.get(0).getExercise().getId())
+            // findBy 대신 findAllBy를 호출하여 리스트로 받습니다.
+            List<ExercisePatientMapping> mappings = mappingRepository.findAllByPatient_IdAndExercise_Id(patient.getId(), sessions.get(0).getExercise().getId());
+            sideValue = mappings.stream()
+                    .findFirst()
                     .map(mapping -> mapping.getSide().name())
                     .orElse("N/A");
         }
