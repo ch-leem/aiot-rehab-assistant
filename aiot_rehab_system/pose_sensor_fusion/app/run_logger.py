@@ -216,6 +216,10 @@ def main(cfg: Dict[str, Any]) -> None:
 
                 video_ts_ms = float(bundle.timestamp_ms)
                 host_ts_ms = time.time() * 1000.0
+                color_ts_ms = bundle.color_timestamp_ms if bundle.color_timestamp_ms is not None else video_ts_ms
+                depth_ts_ms = bundle.depth_timestamp_ms
+                color_frame_no = bundle.color_frame_number
+                depth_frame_no = bundle.depth_frame_number
 
                 # IMU 매칭
                 if IMU_MATCH == "interp":
@@ -263,6 +267,7 @@ def main(cfg: Dict[str, Any]) -> None:
 
                 inp, scale, dx, dy = preprocess_bgr_letterbox(frame, 640)
                 out_trt = trt_engine.infer(inp)
+                infer_done_host_ms = time.time() * 1000.0
 
                 boxes, scores, kpts = decode_pose(out_trt, conf_th=conf_th, iou_th=iou_th)
                 pick = pick_person(boxes, scores, kpts, st, stick_iou=stick_iou)
@@ -282,6 +287,13 @@ def main(cfg: Dict[str, Any]) -> None:
                     kpts_640 = st.kpts_640.copy()
 
                 disp = frame.copy()
+
+                # 카메라 영상 비활성화
+                # disp = np.zeros_like(frame)
+                # 오버레이를 disp에 그림
+                # alpha = 0.0
+                # disp = cv2.addWeighted(frame, alpha, disp, 1.0, 0)
+                
 
                 # Outputs to store
                 joint_xyz: List[Optional[np.ndarray]] = [None] * num_joints
@@ -339,6 +351,7 @@ def main(cfg: Dict[str, Any]) -> None:
                         v = int(round(float(y)))
 
                         ds = robust_depth_at(
+                            # Use depth snapshot captured with this RGB bundle.
                             depth_z16=depth_z16,
                             depth_scale=depth_scale,
                             intr=intr,
@@ -348,6 +361,11 @@ def main(cfg: Dict[str, Any]) -> None:
                             min_valid_ratio=min_valid_ratio,
                             outlier_mad_k=outlier_mad_k,
                         )
+
+
+                        #  2d 비활성화
+                        # ds.valid = False
+                        # ds.xyz_m = None
 
                         if not ds.valid or ds.xyz_m is None:
                             joint_states[i] = Joint3DState(None, None, None, None, False)
@@ -507,6 +525,18 @@ def main(cfg: Dict[str, Any]) -> None:
                     power=weight_kg,
                 )
 
+                frame_obj["camera_sync"] = {
+                    "color_ts_ms": float(color_ts_ms) if color_ts_ms is not None else None,
+                    "depth_ts_ms": float(depth_ts_ms) if depth_ts_ms is not None else None,
+                    "color_frame_number": int(color_frame_no) if color_frame_no is not None else None,
+                    "depth_frame_number": int(depth_frame_no) if depth_frame_no is not None else None,
+                    "color_depth_delta_ms": (
+                        float(depth_ts_ms - color_ts_ms)
+                        if (depth_ts_ms is not None and color_ts_ms is not None) else None
+                    ),
+                    "infer_done_host_ms": float(infer_done_host_ms),
+                }
+
                 logger.write_frame(frame_obj)
                 frame_idx += 1
 
@@ -522,23 +552,25 @@ def main(cfg: Dict[str, Any]) -> None:
 
                 debug_lines = []
 
-                # arm_raise
-                debug_lines.append("[arm_raise] 팔 들어올리기")
-                debug_lines.append(f"  shoulder_flexion (L/R): {fmt_deg(l_shoulder_flex)}, {fmt_deg(r_shoulder_flex)}")
-                debug_lines.append(f"  elbow_extension (L/R):  {fmt_deg(l_elbow)}, {fmt_deg(r_elbow)}")
-                debug_lines.append(f"  trunk_forward_tilt (M): {fmt_deg(trunk_tilt)}")
-                debug_lines.append(f"  trunk_rot_lat_flex (M): {fmt_deg(trunk_rot_lat)}")
-                debug_lines.append("")  # blank line
+                # # arm_raise
+                # debug_lines.append("[arm_raise] 팔 들어올리기")
+                # debug_lines.append(f"  shoulder_flexion (L/R): {fmt_deg(l_shoulder_flex)}, {fmt_deg(r_shoulder_flex)}")
+                # debug_lines.append(f"  elbow_extension (L/R):  {fmt_deg(l_elbow)}, {fmt_deg(r_elbow)}")
+                # debug_lines.append(f"  trunk_forward_tilt (M): {fmt_deg(trunk_tilt)}")
+                # debug_lines.append(f"  trunk_rot_lat_flex (M): {fmt_deg(trunk_rot_lat)}")
+                # debug_lines.append("")  # blank line
 
-                # single_leg_raise
-                debug_lines.append("[single_leg_raise] 한 쪽 발 올리기")
-                debug_lines.append(f"  ankle_plantarflex (L/R): {fmt_deg(l_ankle_pf)}, {fmt_deg(r_ankle_pf)}")
-                debug_lines.append(f"  knee_flexion (L/R):      {fmt_deg(l_knee_flex)}, {fmt_deg(r_knee_flex)}")
-                debug_lines.append(f"  pelvis_level (M):        {fmt_deg(pelvis_level)}")
-                debug_lines.append(f"  trunk_lateral_tilt (M):  {fmt_deg(trunk_tilt)}")
-                debug_lines.append(f"  ankle_inv_ev (L/R):      {fmt_deg(l_ankle_inv_ev)}, {fmt_deg(r_ankle_inv_ev)}")
-                debug_lines.append(f"  hip_flexion (L/R):       {fmt_deg(l_hip_flex)}, {fmt_deg(r_hip_flex)}")
-                debug_lines.append(f"  heel_tilt (L/R):         {fmt_deg(l_heel_tilt)}, {fmt_deg(r_heel_tilt)}")
+                # # single_leg_raise
+                # debug_lines.append("[single_leg_raise] 한 쪽 발 올리기")
+                # debug_lines.append(f"  ankle_plantarflex (L/R): {fmt_deg(l_ankle_pf)}, {fmt_deg(r_ankle_pf)}")
+                # debug_lines.append(f"  knee_flexion (L/R):      {fmt_deg(l_knee_flex)}, {fmt_deg(r_knee_flex)}")
+                # debug_lines.append(f"  pelvis_level (M):        {fmt_deg(pelvis_level)}")
+                # debug_lines.append(f"  trunk_lateral_tilt (M):  {fmt_deg(trunk_tilt)}")
+                # debug_lines.append(f"  ankle_inv_ev (L/R):      {fmt_deg(l_ankle_inv_ev)}, {fmt_deg(r_ankle_inv_ev)}")
+                # debug_lines.append(f"  hip_flexion (L/R):       {fmt_deg(l_hip_flex)}, {fmt_deg(r_hip_flex)}")
+                # debug_lines.append(f"  heel_tilt (L/R):         {fmt_deg(l_heel_tilt)}, {fmt_deg(r_heel_tilt)}")
+
+                debug_lines.append(f"  power:         {weight_kg}")
 
                 put_lines(disp, x=10, y=25, lines=debug_lines, scale=0.55, thickness=2, line_gap=18)
 

@@ -60,6 +60,10 @@ class FrameBundle:
     rgb: np.ndarray
     depth: Optional[np.ndarray]
     timestamp_ms: float
+    color_timestamp_ms: Optional[float] = None
+    depth_timestamp_ms: Optional[float] = None
+    color_frame_number: Optional[int] = None
+    depth_frame_number: Optional[int] = None
 
 
 # -----------------------------------------------------------------------------
@@ -334,15 +338,24 @@ class RealSenseAIApi:
         if not color_frame:
             raise RuntimeError("No color frame received.")
 
-        rgb = np.asanyarray(color_frame.get_data())  # BGR8
+        color_ts_ms = float(color_frame.get_timestamp())
+        color_frame_no = int(color_frame.get_frame_number())
+
+        rgb = np.asanyarray(color_frame.get_data())  # BGR8 view
 
         if self.rgb_format == "rgb":
-            rgb = rgb[:, :, ::-1].copy()
+            rgb = rgb[:, :, ::-1]
+        # Freeze frame snapshot: avoid SDK buffer reuse across next waits.
+        rgb = np.ascontiguousarray(rgb).copy()
 
         depth_np = None
+        depth_ts_ms = None
+        depth_frame_no = None
         if self.enable_depth and want_depth_frame:
             depth_frame = frames.get_depth_frame()
             if depth_frame:
+                depth_ts_ms = float(depth_frame.get_timestamp())
+                depth_frame_no = int(depth_frame.get_frame_number())
                 if postprocess_depth:
                     # Safety: keep pixel grid for pose queries.
                     # Applying decimation here can break 1:1 mapping. Force decimation=1 on aligned frame.
@@ -356,14 +369,21 @@ class RealSenseAIApi:
                         self.depth_decimation = original_dec
                         self._dec.set_option(rs.option.filter_magnitude, float(max(1, original_dec)))
 
-                depth_np = np.asanyarray(depth_frame.get_data())
+                depth_np = np.ascontiguousarray(np.asanyarray(depth_frame.get_data())).copy()
 
         # Apply rotation to BOTH so AI (x,y) works on rotated depth too
         rgb = self._rotate_np(rgb)
         depth_np = self._rotate_np(depth_np)
 
-        ts_ms = float(color_frame.get_timestamp())
-        return FrameBundle(rgb=rgb, depth=depth_np, timestamp_ms=ts_ms)
+        return FrameBundle(
+            rgb=rgb,
+            depth=depth_np,
+            timestamp_ms=color_ts_ms,
+            color_timestamp_ms=color_ts_ms,
+            depth_timestamp_ms=depth_ts_ms,
+            color_frame_number=color_frame_no,
+            depth_frame_number=depth_frame_no,
+        )
 
     # -------------------------
     # Depth query at pixel

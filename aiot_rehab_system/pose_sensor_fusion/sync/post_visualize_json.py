@@ -271,8 +271,8 @@ def render_pose_panel_backview(w: int, h: int, pts21: np.ndarray, valid21: np.nd
 
     # 고정 범위(카메라 좌표계 기준, 필요하면 조절)
     # x: 좌우 1.2m, y: 상하 1.2m 정도로 시작
-    x_min, x_max = -1.2, 1.2
-    y_min, y_max = -1.2, 1.2
+    x_min, x_max = -0.6, 0.6
+    y_min, y_max = -0.6, 0.6
 
     # 원근: z(깊이)가 커질수록 축소
     # z0는 기준 거리, z_gain은 원근 강도
@@ -443,7 +443,7 @@ def main(cfg: Dict[str, Any]) -> None:
 
             cv2.putText(
                 canvas,
-                f"frame {frame_id}  valid_pts {n_valid}/21  strength {cur_strength:.3f}  power {cur_power:.3f}  wrist_speed {cur_spd:.3f} m/s  conf_th {conf_th:.2f}",
+                f"frame {frame_id}  valid_pts {n_valid}/21  strength {cur_strength:.3f}  power {cur_power:.3f}",
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
