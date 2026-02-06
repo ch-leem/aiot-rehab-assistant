@@ -365,23 +365,12 @@ export default function TherapistFail3D() {
   const fetchFailLabel = useCallback(async (tryId) => {
     if (!tryId) return null;
     try {
-      const res = await fetch(`${API_IOT_BASE_URL}/tries/${tryId}/fail-log-file`, {
+      const res = await fetch(`${API_IOT_BASE_URL}/tries/${tryId}/fail`, {
         method: "GET",
       });
       if (!res.ok) return null;
-      const contentType = res.headers.get("content-type") || "";
-      let frames = [];
-      if (contentType.includes("application/json")) {
-        const payload = await res.json();
-        frames = extractFramesFromPayload(payload);
-      } else {
-        const text = await res.text();
-        frames = parseAnyText(text);
-      }
-      const first =
-        frames.find((f) => f?.fail_id || f?.failId)?.fail_id ||
-        frames.find((f) => f?.fail_id || f?.failId)?.failId ||
-        "F_ELSE";
+      const payload = await res.json();
+      const first = payload?.fail_id || payload?.failId || "F_ELSE";
       return { id: first, label: FAIL_LABEL_MAP[first] ?? "기타 실패" };
     } catch {
       return null;
