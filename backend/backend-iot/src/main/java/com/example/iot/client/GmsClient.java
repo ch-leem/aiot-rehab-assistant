@@ -64,6 +64,7 @@ public class GmsClient {
             {
               "sequenceId": number,
               "patientName": string,
+              "patientId": number,
               "date": string,
               "rehabPhase": string,
               "side": string,
