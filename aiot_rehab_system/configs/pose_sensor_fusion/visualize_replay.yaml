@@ -1,5 +1,5 @@
 ndjson:
-  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/pose21_imu_20260122_015242.ndjson"
+  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/예진센서.ndjson"
 
 range:
   start_idx: 0
@@ -13,25 +13,25 @@ replay:
   no_sleep: false
 
 render:
-  o3d_w: 900
-  o3d_h: 800
-  win_w: 1600
-  win_h: 900
-  left_w: 980
+  o3d_w: 1100
+  o3d_h: 880
+  left_w: 1100
+  win_w: 1900
+  win_h: 950
 
 plot:
   strength:
-    title: IMU (Strength)
+    title: IMU (Speed)
     y_label: strength
     y_min: 0
-    y_max: 200
+    y_max: 400
     color_bgr: [0, 255, 0]
 
   power:
     title: Load cell (Power)
     y_label: kg
     y_min: 0
-    y_max: 200
+    y_max: 60
     color_bgr: [255, 0, 0]
 
   speed:
