@@ -553,13 +553,6 @@ export default function TherapistFail3D() {
               ))}
             </select>
           </div>
-          <button
-            className="fail3d-back"
-            type="button"
-            onClick={loadDemoFrames}
-          >
-            데모 로드
-          </button>
           <label className="fail3d-back" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             파일 선택
             <input
@@ -577,7 +570,7 @@ export default function TherapistFail3D() {
             className="fail3d-back"
             type="button"
             onClick={() => {
-              window.location.href = "/therapist";
+              window.location.href = "/therapist?view=lookup";
             }}
           >
             돌아가기

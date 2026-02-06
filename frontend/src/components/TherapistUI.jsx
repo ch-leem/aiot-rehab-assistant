@@ -7,6 +7,12 @@ const VIEW = {
   LOOKUP: "lookup",
 };
 
+const getQueryParam = (name) => {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name) ?? "";
+};
+
 const normalizeApiBase = (value) => (value ?? "").replace(/\/+$/g, "");
 const API_IOT_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_IOT_BASE_URL);
 const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === "true";
@@ -295,7 +301,8 @@ export default function TherapistUI() {
     }
     return undefined;
   }, []);
-  const [view, setView] = useState(VIEW.LOGIN);
+  const initialView = getQueryParam("view") === "lookup" ? VIEW.LOOKUP : VIEW.LOGIN;
+  const [view, setView] = useState(initialView);
   const [therapistId, setTherapistId] = useState("");
   const [therapistName, setTherapistName] = useState("");
   const [patients, setPatients] = useState([]);
