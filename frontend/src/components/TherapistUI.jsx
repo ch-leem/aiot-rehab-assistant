@@ -461,6 +461,7 @@ export default function TherapistUI() {
         name: d.name ?? patient.name,
         disease_name: d.diseaseName ?? d.disease_name ?? "정보 없음",
         birth_date: d.birthDate ?? d.birth_date ?? null,
+        age: d.age,
         gender: d.gender ?? "UNKNOWN",
         rehab_phase: d.rehabPhase ?? d.rehab_phase ?? "MIDDLE",
       };
@@ -727,7 +728,7 @@ export default function TherapistUI() {
                           <>
                             ID : {reportData.profile.patient_id ?? reportData.reportInput?.patientName ?? "-"}{" "}
                              |{" "}{reportData.profile.gender === "MALE" ? "M" : "F"} |{" "}
-                            {calcAge(reportData.profile.birth_date) ?? "-"}세
+                            {reportData.profile.age ?? "-"}세
                             <br />
                             질환: {reportData.profile.disease_name} | 재활 단계:{" "}
                             {reportData.reportInput?.rehabPhase ??
