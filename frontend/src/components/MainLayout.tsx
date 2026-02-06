@@ -34,6 +34,7 @@ export default function MainLayout({
   const wsRef = useRef<WebSocket | null>(null);
   const [wsState, setWsState] = useState<WebSocket | null>(null);
   const [confirmAction, setConfirmAction] = useState<"restart" | "stop" | null>(null);
+  const wsConnecting = wsState?.readyState === WebSocket.CONNECTING;
 
   useEffect(() => {
     const WS_URL = "test/ws";
@@ -105,12 +106,12 @@ export default function MainLayout({
                 <div className="ws-pill">
                   <label className="ws-bubble">
                     <input
-                      className="bubble"
+                      className={`bubble${wsConnecting ? " is-connecting" : ""}`}
                       type="checkbox"
                       checked={streamActive}
                       readOnly
                       disabled
-                      aria-label={streamActive ? "WS 연결됨" : "WS 끊김"}
+                      aria-label={wsConnecting ? "WS connecting" : streamActive ? "WS connected" : "WS disconnected"}
                     />
                   </label>
                 </div>

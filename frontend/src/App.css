@@ -455,6 +455,15 @@
     0 0.1em 0.4em hsl(120, 80%, 60%) inset;
 }
 
+.ws-bubble .bubble.is-connecting {
+  box-shadow: 0 -0.06em 0.1em hsl(48, 90%, 100%) inset,
+    0 -0.15em 0.4em hsl(48, 80%, 45%) inset,
+    0 0.05em 0.05em hsl(48, 80%, 45%) inset,
+    0.05em 0 0.1em hsl(48, 90%, 100%) inset,
+    -0.05em 0 0.1em hsl(48, 90%, 100%) inset,
+    0 0.1em 0.4em hsl(48, 80%, 60%) inset;
+}
+
 .ws-bubble .bubble:checked:before {
   border-radius: 0.25em;
   width: 0.5em;
