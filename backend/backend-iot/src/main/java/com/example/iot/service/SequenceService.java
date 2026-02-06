@@ -8,8 +8,6 @@ import com.example.iot.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -99,46 +97,45 @@ public class SequenceService {
     public void checkSequenceCompletion(Long sequenceId) {
         List<Session> sessions = sessionRepo.findAllDetailBySequenceId(sequenceId);
 
-        // 1. 모든 세션이 끝났는지 확인 (예: 10/10, 10/10 ...)
-        boolean isAllFinished = sessions.stream().allMatch(s -> {
-            // 이 세션에 속한 트라이 중 아직 끝나지 않은(endedAt IS NULL) 트라이가 있는지 확인
-            boolean hasUnfinishedTry = tryRepo.existsBySession_IdAndEndedAtIsNull(s.getId());
-            return !hasUnfinishedTry;
-        });
+        // 1. 전체 목표 개수 계산
+        long totalTargetCount = sessions.stream()
+                .mapToLong(Session::getTotalTries)
+                .sum();
 
-        // 2. 조건이 맞으면 이미 작성하신 '마감 실행' 메서드 호출
-        log.info("시퀀스 완료 체크 - ID: {}, 완료여부: {}", sequenceId, isAllFinished);
+        // 2. 실제 완료된(endedAt이 찍힌) 트라이 개수 확인 (Repository에 메서드 추가 필요)
+        long finishedCount = tryRepo.countBySession_Sequence_IdAndEndedAtIsNotNull(sequenceId);
 
-        if (isAllFinished) {
+        log.info("시퀀스 완료 체크 - ID: {}, 진행: {}/{}", sequenceId, finishedCount, totalTargetCount);
+
+        // 3. 목표치에 근접했거나(유령 트라이 감안 -2) 모두 완료되면 종료
+        // (프런트엔드 누락 이슈 방어 로직)
+        if (finishedCount >= totalTargetCount - 2) {
             this.completeSequence(sequenceId);
         }
     }
 
     @Transactional
     public void completeSequence(Long sequenceId) {
-        log.info("!!! 리포트 생성 트리거 진입 !!!");
-        Sequence sequence = sequenceRepo.findById(sequenceId)
-                .orElseThrow(() -> new IllegalArgumentException("Sequence not found: " + sequenceId));
+        log.info("!!! 리포트 생성 트리거 진입 - 락 획득 시도 !!!");
 
-        // 이미 종료된 시퀀스라면 아무것도 하지 않고 리턴 (중복 호출 방지 핵심!)
+        // 1. 락 획득 (여기서 동시 요청들은 대기 상태가 됨)
+        Sequence sequence = sequenceRepo.findByIdWithLock(sequenceId)
+                .orElseThrow(() -> new IllegalArgumentException("Sequence not found"));
+
+        // 2. 이미 처리되었는지 확인 (Check)
         if (sequence.getEndedAt() != null) {
-            log.warn("이미 종료된 시퀀스입니다. 리포트 생성을 생략합니다. ID: {}", sequenceId);
+            log.warn("이미 처리된 시퀀스입니다. (중복 요청 방어)");
             return;
         }
 
-        // 1. 종료 시간 기록 (마감 처리)
+        // 3. 종료 마킹 (Act)
         sequence.setEndedAt(LocalDateTime.now());
-        sequenceRepo.saveAndFlush(sequence);
-        log.info("Sequence 종료 시간 저장 완료");
+        // saveAndFlush는 @Transactional 안에서 불필요하지만 명시적으로 둬도 무방함
 
-        // 2. 트랜잭션 커밋 후 리포트 생성 (데이터 무결성 보장)
-        // 현재 트랜잭션이 DB에 반영된 직후에 비동기 메서드를 실행합니다.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                log.info("트랜잭션 커밋 완료. 리포트 생성 서비스 호출");
-                reportService.createAndSaveReport(sequenceId);
-            }
-        });
+        log.info("Sequence 종료 마킹 완료. 리포트 생성 시작.");
+
+        // 4. 리포트 생성 호출
+        // (트랜잭션이 커밋되면서 락이 풀리고, 비동기 스레드는 작업을 이어감)
+        reportService.createAndSaveReport(sequenceId);
     }
 }

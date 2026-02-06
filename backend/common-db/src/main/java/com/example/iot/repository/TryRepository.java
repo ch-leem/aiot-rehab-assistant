@@ -22,4 +22,6 @@ public interface TryRepository extends JpaRepository<Try, Long> {
     List<Try> findBySession_IdAndResult(Long sessionId, TryResult result);
 
     boolean existsBySession_IdAndEndedAtIsNull(Long sessionId);
+
+    long countBySession_Sequence_IdAndEndedAtIsNotNull(Long sequenceId);
 }

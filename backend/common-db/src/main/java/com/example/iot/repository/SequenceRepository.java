@@ -1,7 +1,9 @@
 package com.example.iot.repository;
 
 import com.example.iot.domain.Sequence;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -38,5 +40,9 @@ public interface SequenceRepository extends JpaRepository<Sequence, Long> {
     List<Sequence> findPreviousSequences(Long patientId, Long currentSequenceId, Pageable pageable);
 
     Optional<Sequence> findFirstByPatientIdAndIdLessThanOrderByIdDesc(Long patientId, Long currentSequenceId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Sequence s where s.id = :id")
+    Optional<Sequence> findByIdWithLock(@Param("id") Long id);
 
 }
