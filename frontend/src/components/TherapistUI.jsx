@@ -460,7 +460,7 @@ export default function TherapistUI() {
       let reportInput = null;
       if (targetSequenceId) {
         const reportRes = await fetch(
-          `${API_IOT_BASE_URL}/api/rehab/reports/${targetSequenceId}`,
+          `/api/iot/rehab/reports/${targetSequenceId}`, 
           { method: "GET" }
         );
         if (reportRes.ok) {

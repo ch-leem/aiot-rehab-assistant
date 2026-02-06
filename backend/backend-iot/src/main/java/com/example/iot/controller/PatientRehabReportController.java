@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/rehab/reports")
+@RequestMapping("/rehab/reports")
 @RequiredArgsConstructor
 public class PatientRehabReportController {
 
