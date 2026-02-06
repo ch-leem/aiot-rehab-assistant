@@ -120,15 +120,25 @@ public class SequenceService {
         Sequence sequence = sequenceRepo.findById(sequenceId)
                 .orElseThrow(() -> new IllegalArgumentException("Sequence not found: " + sequenceId));
 
-        // 1. 종료 시간 기록 (마감 처리)
-        if (sequence.getEndedAt() == null) {
-            sequence.setEndedAt(LocalDateTime.now());
-            sequenceRepo.saveAndFlush(sequence);
-            log.info("Sequence 종료 시간 저장 완료");
+        // 이미 종료된 시퀀스라면 아무것도 하지 않고 리턴 (중복 호출 방지 핵심!)
+        if (sequence.getEndedAt() != null) {
+            log.warn("이미 종료된 시퀀스입니다. 리포트 생성을 생략합니다. ID: {}", sequenceId);
+            return;
         }
 
-        // 2. DB 트랜잭션이 완전히 '커밋'된 후 AI 리포트 생성을 시작합니다.
-        reportService.createAndSaveReport(sequenceId);
-        log.info("리포트 생성 비동기 호출 완료 - 호출 후 메서드 종료");
+        // 1. 종료 시간 기록 (마감 처리)
+        sequence.setEndedAt(LocalDateTime.now());
+        sequenceRepo.saveAndFlush(sequence);
+        log.info("Sequence 종료 시간 저장 완료");
+
+        // 2. 트랜잭션 커밋 후 리포트 생성 (데이터 무결성 보장)
+        // 현재 트랜잭션이 DB에 반영된 직후에 비동기 메서드를 실행합니다.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                log.info("트랜잭션 커밋 완료. 리포트 생성 서비스 호출");
+                reportService.createAndSaveReport(sequenceId);
+            }
+        });
     }
 }
