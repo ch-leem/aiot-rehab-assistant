@@ -438,29 +438,40 @@ export default function TherapistUI() {
       }
 
       const [profileRes, sequencesRes] = await Promise.all([
-        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}`, { method: "GET" }),
-        fetch(`${API_IOT_BASE_URL}/api/patients/${patient.patientId}/sequences`, {
-          method: "GET",
-        }),
+        fetch(`/api/user/api/patients/${patient.patientId}`, { method: "GET" }),
+        fetch(`/api/user/api/patients/${patient.patientId}/sequences`, { method: "GET" }),
       ]);
 
       if (!profileRes.ok) throw new Error("환자 정보를 불러오지 못했습니다.");
 
       const profilePayload = await profileRes.json();
+
+      const d = profilePayload?.data ?? profilePayload; 
+      const normalizedProfile = {
+        ...d,
+        // 백엔드 필드명(diseaseName, birthDate)을 UI가 쓰는 이름(disease_name, birth_date)으로 매핑
+        patient_id: d.patientId ?? d.patient_id ?? patient.patientId,
+        name: d.name ?? patient.name,
+        disease_name: d.diseaseName ?? d.disease_name ?? "정보 없음",
+        birth_date: d.birthDate ?? d.birth_date ?? null,
+        gender: d.gender ?? "UNKNOWN",
+        rehab_phase: d.rehabPhase ?? d.rehab_phase ?? "MIDDLE",
+      };
+
       const sequencesPayload = sequencesRes.ok ? await sequencesRes.json() : { data: [] };
       const sequences = Array.isArray(sequencesPayload?.data) ? sequencesPayload.data : [];
 
       const latestSequence = sequences
         .slice()
-        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
+        .sort((a, b) => new Date(b.started_at ?? b.startedAt).getTime() - new Date(a.started_at ?? a.startedAt).getTime())[0];
 
-      const targetSequenceId = sequenceOverride ?? latestSequence?.sequence_id ?? null;
+      const targetSequenceId = sequenceOverride ?? latestSequence?.sequence_id ?? latestSequence?.sequenceId ?? null;
       setSelectedSequenceId(targetSequenceId ? String(targetSequenceId) : null);
 
       let reportInput = null;
       if (targetSequenceId) {
         const reportRes = await fetch(
-          `/api/iot/rehab/reports/${targetSequenceId}`, 
+          `/api/iot/rehab/reports/${targetSequenceId}`,
           { method: "GET" }
         );
         if (reportRes.ok) {
@@ -469,11 +480,12 @@ export default function TherapistUI() {
       }
 
       setReportData({
-        profile: profilePayload?.data ?? null,
+        profile: normalizedProfile,
         sequences,
         reportInput,
       });
     } catch (_err) {
+      console.error(_err);
       setReportError("리포트를 불러오지 못했습니다.");
     } finally {
       setReportLoading(false);
