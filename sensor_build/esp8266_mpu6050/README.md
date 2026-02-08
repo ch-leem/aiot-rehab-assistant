@@ -18,7 +18,7 @@ ESP8266(NodeMCU v2) + MPU6050 기반 상체 운동 속도/강도 감지 펌웨�
   - SCL: D1 (GPIO5)
 
 ## 설정 파일
-`include/secrets_exam.h`를 복사해 `include/secrets.h`로 만들고 값 채우기:
+[`include/secrets_exam.h`](./include/secrets_exam.h)를 복사해 `include/secrets.h`로 만들고 값 채우기:
 - `WIFI_SSID`, `WIFI_PASS`
 - 고정 IP 사용 시 `WIFI_USE_STATIC` 및 IP/DNS
 - UDP 수신지: `UDP_TARGET_IP`, `UDP_TARGET_PORT`
@@ -45,6 +45,8 @@ pio run -t upload
 # serial monitor
 pio device monitor
 ```
+
+코드 위치: [`src/main.cpp`](./src/main.cpp)
 
 ## 참고 파라미터
 - `sampleHz`: 100Hz 샘플링

@@ -44,6 +44,9 @@ sensor_build/
 
 - 각 프로젝트의 `platformio.ini` 확인  
   보드 타입, 업로드 포트, 라이브러리 의존성을 반드시 확인합니다.
+  - [`camera_movement/platformio.ini`](./camera_movement/platformio.ini)
+  - [`esp8266_mpu6050/platformio.ini`](./esp8266_mpu6050/platformio.ini)
+  - [`uno_r4_wifi_hx711/platformio.ini`](./uno_r4_wifi_hx711/platformio.ini)
 
 ---
 

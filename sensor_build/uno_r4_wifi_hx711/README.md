@@ -16,7 +16,7 @@ Arduino UNO R4 WiFi + HX711 기반 하체 운동 힘(로드셀) 측정 펌웨어
 - 핀: DOUT=3, SCK=2
 
 ## 설정 파일
-`include/secrets_exam.h`를 복사해 `include/secrets.h`로 만들고 값 채우기:
+[`include/secrets_exam.h`](./include/secrets_exam.h)를 복사해 `include/secrets.h`로 만들고 값 채우기:
 - `WIFI_SSID`, `WIFI_PASS`
 - 수신지 IP/PORT: `RECV_IP_*`, `RECV_PORT`
 
@@ -52,3 +52,5 @@ pio run -t upload
 # serial monitor
 pio device monitor
 ```
+
+코드 위치: [`src/main.cpp`](./src/main.cpp)

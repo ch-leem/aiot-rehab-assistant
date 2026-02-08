@@ -7,8 +7,10 @@
 ```bash
 python get_imu_strength.py
 ```
+스크립트: [`get_imu_strength.py`](./get_imu_strength.py)
 
 - 로드셀 힘 측정
 ```bash
 python get_load_cell_power.py
 ```
+스크립트: [`get_load_cell_power.py`](./get_load_cell_power.py)

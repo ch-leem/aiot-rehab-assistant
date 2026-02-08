@@ -42,8 +42,8 @@
 
 ## 실행 흐름
 
-1. `configs/pose_sensor_fusion/default.yaml`을 참고하여 `run.yaml`을 작성합니다.
-2. 메인 실행 모듈(`rehab_start`)을 실행합니다.
+1. [`configs/pose_sensor_fusion/default.yaml`](./configs/pose_sensor_fusion/default.yaml)을 참고하여 `run.yaml`을 작성합니다.
+2. 메인 실행 모듈([`rehab_start.py`](./pose_sensor_fusion/app/rehab_start.py))을 실행합니다.
 3. 필요 시 외부 디바이스에서 WebSocket을 통해 실행 및 종료를 제어합니다.
 
 ---
@@ -52,10 +52,10 @@
 
 Heartbeat는 **디바이스 외부에서 메인 실행 프로세스를 제어하기 위한 모듈**입니다.  
 WebSocket 서버와 지속적으로 연결을 유지하며,  
-외부에서 전달되는 명령에 따라 `rehab_start`를 시작하거나 종료합니다.
+외부에서 전달되는 명령에 따라 [`rehab_start.py`](./pose_sensor_fusion/app/rehab_start.py)를 시작하거나 종료합니다.
 
 - 제어 주체: 외부 시스템 또는 원격 클라이언트
-- 제어 대상: 디바이스 내부의 `rehab_start` 프로세스
+- 제어 대상: 디바이스 내부의 [`rehab_start.py`](./pose_sensor_fusion/app/rehab_start.py) 프로세스
 - 제어 방식: WebSocket 기반 명령(run, stop)
 
 ---
@@ -68,7 +68,7 @@ WebSocket 서버와 지속적으로 연결을 유지하며,
 - heartbeat는 디바이스 내부에서 실행되며 WebSocket 서버에 연결합니다.
 - 연결이 끊길 경우 backoff 기반 재시도로 자동 재연결합니다.
 - 외부에서 `run`, `stop` 명령을 보내면  
-  heartbeat가 `rehab_start` 프로세스를 시작하거나 종료합니다.
+  heartbeat가 [`rehab_start.py`](./pose_sensor_fusion/app/rehab_start.py) 프로세스를 시작하거나 종료합니다.
 - 이를 통해 디바이스에 직접 접근하지 않고도 안전한 원격 제어가 가능합니다.
 
 ---
@@ -76,10 +76,10 @@ WebSocket 서버와 지속적으로 연결을 유지하며,
 ## 설정 파일 구조
 
 - 기본 설정  
-  `configs/pose_sensor_fusion/default.yaml`
+  [`configs/pose_sensor_fusion/default.yaml`](./configs/pose_sensor_fusion/default.yaml)
 
 - 사용자 설정  
-  `configs/pose_sensor_fusion/run.yaml`
+  `configs/pose_sensor_fusion/run.yaml` (사용자 생성)
 
 ### 주요 설정 항목
 
@@ -123,7 +123,7 @@ WebSocket 서버와 지속적으로 연결을 유지하며,
 
 - REST ingest 전송 (주요 데이터 파이프라인)
 - WebRTC 스트리밍 (원격 모니터링 및 시각화)
-- NDJSON 로그 저장 (`run_logger`, 디버깅 및 분석용)
+- NDJSON 로그 저장 ([`run_logger.py`](./pose_sensor_fusion/app/run_logger.py), 디버깅 및 분석용)
 - 로컬 시각화 (OpenCV, 개발 및 테스트용)
 
 ---
@@ -146,6 +146,7 @@ WebSocket 서버와 지속적으로 연결을 유지하며,
 # pwd : aiot_rehab_system/
 python -m pose_sensor_fusion.app.run_logger
 ```
+스크립트: [`pose_sensor_fusion/app/run_logger.py`](./pose_sensor_fusion/app/run_logger.py)
 
 ### 저장된 로그 재생 및 시각화
 
@@ -153,9 +154,10 @@ python -m pose_sensor_fusion.app.run_logger
 # pwd : aiot_rehab_system/
 python -m pose_sensor_fusion.sync.post_visualize_json --input <path_to_ndjson>
 ```
+스크립트: [`pose_sensor_fusion/sync/post_visualize_json.py`](./pose_sensor_fusion/sync/post_visualize_json.py)
 
 - 재생 설정 파일 예시  
-  `configs/pose_sensor_fusion/visualize_replay.yaml`
+  [`configs/pose_sensor_fusion/visualize_replay.yaml`](./configs/pose_sensor_fusion/visualize_replay.yaml)
 
 ---
 
@@ -173,6 +175,7 @@ WebRTC 스트리밍을 사용하는 경우
 # pwd : aiot_rehab_system/
 python -m pose_sensor_fusion.app.rehab_start
 ```
+스크립트: [`pose_sensor_fusion/app/rehab_start.py`](./pose_sensor_fusion/app/rehab_start.py)
 
 ---
 
@@ -185,6 +188,7 @@ Heartbeat는 외부 제어를 활성화하기 위해
 # pwd : aiot_rehab_system/
 python -m pose_sensor_fusion.app.heartbeat
 ```
+스크립트: [`pose_sensor_fusion/app/heartbeat.py`](./pose_sensor_fusion/app/heartbeat.py)
 
 ---
 
@@ -193,6 +197,6 @@ python -m pose_sensor_fusion.app.heartbeat
 
 각 모듈의 상세 구현 내용은 아래 문서를 참고합니다.
 
-- [`pose_sensor_fusion`](./pose_sensor_fusion/README.md)
-- [`configs`](./configs/README.md)
-- [`model_performance_test`](./model_performance_test/README.md)
+- [`pose_sensor_fusion`](./pose_sensor_fusion/READMD.md)
+- [`configs`](./configs/READMD.md)
+- [`model_performance_test`](./model_performance_test/READMD.md)

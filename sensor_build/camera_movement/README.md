@@ -54,3 +54,5 @@ pio run -t upload
 # serial monitor
 pio device monitor
 ```
+
+코드 위치: [`src/main.cpp`](./src/main.cpp)

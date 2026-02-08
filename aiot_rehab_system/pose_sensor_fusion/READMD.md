@@ -7,32 +7,32 @@
 
 ## 모듈 구성
 
-- `app/rehab_start.py`
+- [`app/rehab_start.py`](./app/rehab_start.py)
   - 메인 실행 루프
   - 카메라 프레임 수집 → 포즈 추론 → 센서 매칭 → 페이로드 생성 → 전송
 
-- `app/run_logger.py`
+- [`app/run_logger.py`](./app/run_logger.py)
   - 메인 루프와 동일한 파이프라인을 수행
   - 결과를 NDJSON으로 저장 (디버깅/분석 목적)
 
-- `app/heartbeat.py`
+- [`app/heartbeat.py`](./app/heartbeat.py)
   - WebSocket 서버와 연결 유지
   - `run` / `stop` 명령으로 `rehab_start` 프로세스 제어
 
-- `imu/imu_udp_buffer.py`
+- [`imu/imu_udp_buffer.py`](./imu/imu_udp_buffer.py)
   - IMU UDP 수신 버퍼
   - host timestamp 기준 nearest/interp 매칭
 
-- `load_cell/load_cell_udp_buffer.py`
+- [`load_cell/load_cell_udp_buffer.py`](./load_cell/load_cell_udp_buffer.py)
   - Load cell UDP 수신 버퍼
   - host timestamp 기준 nearest/interp 매칭
 
 - `utils/`
-  - `config_loader.py`: YAML 로딩
-  - `create_payload.py`: 템플릿 기반 페이로드 생성
-  - `json_logger.py`: NDJSON 로거
-  - `ingest_sender.py`: REST ingest 비동기 전송
-  - `webrtc_streamer.py`: WebRTC 스트리밍
+  - [`config_loader.py`](./utils/config_loader.py): YAML 로딩
+  - [`create_payload.py`](./utils/create_payload.py): 템플릿 기반 페이로드 생성
+  - [`json_logger.py`](./utils/json_logger.py): NDJSON 로거
+  - [`ingest_sender.py`](./utils/ingest_sender.py): REST ingest 비동기 전송
+  - [`webrtc_streamer.py`](./utils/webrtc_streamer.py): WebRTC 스트리밍
 
 - `vision_utills/`
   - RealSense 프레임 수집
@@ -97,8 +97,8 @@ python -m pose_sensor_fusion.app.heartbeat
 
 ## 페이로드 구조
 
-페이로드 템플릿은 `configs/data_format_exam/data_payload.json`에 정의되어 있으며,
-`utils/create_payload.py`가 템플릿을 복사하여 관절 좌표/각도/센서 값을 삽입합니다.
+페이로드 템플릿은 [`configs/data_format_exam/data_payload.json`](../configs/data_format_exam/data_payload.json)에 정의되어 있으며,
+[`utils/create_payload.py`](./utils/create_payload.py)가 템플릿을 복사하여 관절 좌표/각도/센서 값을 삽입합니다.
 
 주요 필드:
 - `ts.video_ms`, `ts.host_ms`
@@ -111,7 +111,7 @@ python -m pose_sensor_fusion.app.heartbeat
 ## 설정 연계
 
 실행 시 `configs/pose_sensor_fusion/run.yaml`을 사용하며,
-기본 템플릿은 `configs/pose_sensor_fusion/default.yaml`에 있습니다.
+기본 템플릿은 [`configs/pose_sensor_fusion/default.yaml`](../configs/pose_sensor_fusion/default.yaml)에 있습니다.
 
 주요 설정:
 - `engine.path`: TensorRT 엔진 경로
@@ -123,10 +123,10 @@ python -m pose_sensor_fusion.app.heartbeat
 
 ## 동기화/재생
 
-NDJSON 저장 파일은 `sync/post_visualize_json.py`로 재생할 수 있습니다.
+NDJSON 저장 파일은 [`sync/post_visualize_json.py`](./sync/post_visualize_json.py)로 재생할 수 있습니다.
 
 ```bash
 python -m pose_sensor_fusion.sync.post_visualize_json --input <path_to_ndjson>
 ```
 
-재생 파라미터 예시는 `configs/pose_sensor_fusion/visualize_replay.yaml` 참고.
+재생 파라미터 예시는 [`configs/pose_sensor_fusion/visualize_replay.yaml`](../configs/pose_sensor_fusion/visualize_replay.yaml) 참고.

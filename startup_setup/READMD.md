@@ -1,4 +1,4 @@
-# heartbeat.py 자동 시작 설정 스크립트
+# [`heartbeat.py`](../aiot_rehab_system/pose_sensor_fusion/app/heartbeat.py) 자동 시작 설정 스크립트
 
 
 ## 실행 방법
@@ -9,6 +9,7 @@
 chmod +x setup_heartbeat_service.sh
 ./setup_heartbeat_service.sh
 ```
+스크립트: [`setup_heartbeat_service.sh`](./setup_heartbeat_service.sh)
 
 
 프로그램 에러로 종료 시에만 재시작 (직접 종료하거나, 프로그램 정상 종료시는 재시작 없음)
@@ -17,6 +18,7 @@ chmod +x setup_heartbeat_service.sh
 chmod +x update_heartbeat_restart_on_failure.sh
 ./update_heartbeat_restart_on_failure.sh
 ```
+스크립트: [`update_heartbeat_restart_on_failure.sh`](./update_heartbeat_restart_on_failure.sh)
 
 
 수동 실행

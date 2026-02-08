@@ -34,6 +34,8 @@ python create_onnx.py \
   --opset 17
 ```
 
+스크립트: [`create_onnx.py`](./create_onnx.py)
+
 #### Arguments
 
 ```text
@@ -89,13 +91,13 @@ python create_onnx.py \
 
 ### 3. 변환된 TensorRT 엔진 비교
 
-[`compare_engines.py`](./compare_engines.py)
+[`compare_engine.py`](./compare_engine.py)
 
 이 스크립트는 TensorRT 엔진 교체 시 기존 wrapper 코드를 수정하지 않고  
 재사용할 수 있는지 빠르게 판단하기 위한 검증 도구입니다.
 
 ```bash
-python compare_engines.py \
+python compare_engine.py \
   --engine_a yolo11m-pose_fp16.engine \
   --engine_b yolo11n-pose_fp16.engine
 ```
