@@ -62,13 +62,8 @@ WebSocket 서버와 지속적으로 연결을 유지하며,
 
 ## Heartbeat 동작 흐름
 
-```mermaid
-flowchart LR
-    EXT["External Controller"] -->|run / stop| WS["WebSocket Server"]
-    HB["heartbeat.py"] -->|connect & heartbeat| WS
-    WS -->|command| HB
-    HB -->|start / stop| APP["rehab_start"]
-```
+![](./img/heartbeat.png)
+
 
 - heartbeat는 디바이스 내부에서 실행되며 WebSocket 서버에 연결합니다.
 - 연결이 끊길 경우 backoff 기반 재시도로 자동 재연결합니다.
@@ -135,20 +130,8 @@ flowchart LR
 
 ## 통신 구조 요약
 
-```mermaid
-flowchart LR
-    IMU["IMU Sensor<br>ESP8266 + MPU6050"] -- UDP 9999 --> APP[pose_sensor_fusion]
-    LC["Load Cell<br>UNO R4 + HX711"] -- UDP 9998 --> APP
-    CAM[RealSense] --> APP
+![](./img/transmission.png)
 
-    APP -- REST ingest --> INGEST[(Ingest API)]
-    APP -- WebRTC --> VIEWER[Viewer / Client]
-
-    EXT["External Controller"]
-    EXT -- WebSocket --> WS[WebSocket Server]
-    WS <-- heartbeat --> HB[heartbeat.py]
-    HB -- process control --> APP
-```
 
 ---
 
@@ -205,25 +188,6 @@ python -m pose_sensor_fusion.app.heartbeat
 
 ---
 
-## UDP 입력 포맷
-
-### IMU (상체 속도, 강도)
-
-파일: `pose_sensor_fusion/imu/imu_udp_buffer.py`
-
-```json
-{"strength":12.345,"seq":10,"ts":123456}
-```
-
-### Load Cell (하체 힘)
-
-파일: `pose_sensor_fusion/load_cell/load_cell_udp_buffer.py`
-
-```json
-{"weight_kg":12.345,"ts":123456,"seq":10}
-```
-
----
 
 ## 상세 기술 문서 링크
 
