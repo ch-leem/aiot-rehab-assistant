@@ -81,7 +81,7 @@
 
 ## 5️⃣ 전체 아키텍처 개요
 <img
-  src="./README_IMG/architecture.png"
+  src="./img/architecture.png"
   width="70%"
   height="70%"
 />
