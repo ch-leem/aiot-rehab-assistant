@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # =========================
 # Environment / Secrets
 # =========================
@@ -350,3 +351,36 @@ gms.yaml
 tts_mp3/
 tts_test.py
 >>>>>>> origin/dockerdev
+=======
+# training outputs
+runs/
+weights/**/**/*.pt
+weights/**/**/*.onnx
+
+# env
+.conda/
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# jupyter
+.ipynb_checkpoints/
+
+# system
+.DS_Store
+
+>>>>>>> origin/ai-vision
+
+# raw datasets
+raw/
+processed/
+input_images/
+
+# generated lists / large files
+*.json
+*.txt
+
+# cache
+__pycache__/
