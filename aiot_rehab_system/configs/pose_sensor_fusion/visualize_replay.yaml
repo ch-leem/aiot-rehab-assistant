@@ -1,0 +1,42 @@
+ndjson:
+  path: "/home/a203/workspace/S14P11A203/aiot_rehab_system/logs/예진센서.ndjson"
+
+range:
+  start_idx: 0
+  end_idx: -1
+
+replay:
+  conf_th: 0.1
+  history_sec: 6.0
+  target_fps: 25.0
+  use_timestamp: true
+  no_sleep: false
+
+render:
+  o3d_w: 1100
+  o3d_h: 880
+  left_w: 1100
+  win_w: 1900
+  win_h: 950
+
+plot:
+  strength:
+    title: IMU (Speed)
+    y_label: strength
+    y_min: 0
+    y_max: 400
+    color_bgr: [0, 255, 0]
+
+  power:
+    title: Load cell (Power)
+    y_label: kg
+    y_min: 0
+    y_max: 60
+    color_bgr: [255, 0, 0]
+
+  speed:
+    title: Wrist speed
+    y_label: cm/s
+    y_min: 0
+    y_max: 200
+    color_bgr: [0, 255, 255]
