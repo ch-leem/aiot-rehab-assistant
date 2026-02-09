@@ -1,0 +1,155 @@
+version: "3.9"
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: rehab-iot-timescale
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [appnet]
+    ports:
+    - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: rehab-iot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks: [appnet]
+
+  ingest-api:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile
+    container_name: ingest-api
+    expose:
+      - "8000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ACTIVE_TRY_KEY: ingest:active_try
+      REDIS_AGG_PREFIX: agg:try
+      AGG_METRICS: strength=sensor.strength,l_ankle_x=position.left.left_ankle.x,l_ankle_y=position.left.left_ankle.y,l_ankle_z=position.left.left_ankle.z,r_ankle_x=position.right.right_ankle.x,r_ankle_y=position.right.right_ankle.y,r_ankle_z=position.right.right_ankle.z,power=sensor.power,trunk_forward_tilt=deg.mid.trunk_forward_tilt,pelvis_level=deg.mid.pelvis_level,l_elbow_extension=deg.left.elbow_extension,r_elbow_extension=deg.right.elbow_extension,trunk_rotation_lateral_flexion=deg.mid.trunk_rotation_lateral_flexion,l_shoulder_flexion=deg.left.shoulder_flexion,r_shoulder_flexion=deg.right.shoulder_flexion
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+  iot-api:
+    build:
+      context: ./backend
+      dockerfile: backend-iot/Dockerfile
+    container_name: rehab-iot-api-server
+    volumes:
+     - ./fail-logs:/data/fail-logs
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      # Postgres JDBC
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      # GMS
+      GMS_KEY: ${GMS_KEY}
+
+      # base url
+      INGEST_BASE_URL: http://ingest-api:8000
+    expose:
+      - "8080"
+    networks: [appnet]
+
+  user-api:
+    build:
+      context: ./backend
+      dockerfile: backend-user/Dockerfile
+    container_name: rehab-user-api-server
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Seoul
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    expose:
+      - "8080"
+    networks: [appnet]
+
+  frontend:
+    build: ./frontend
+    container_name: rehab-frontend-ui
+    restart: unless-stopped
+    depends_on: [iot-api, user-api]
+    env_file:
+      - .env
+    expose:
+      - "80"
+    networks: [appnet]
+
+  frontend-test:
+    build: ./frontendTest
+    container_name: frontend-test
+    expose:
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - appnet
+  
+  nginx:
+    image: nginx:alpine
+    container_name: rehab-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
+    depends_on:
+      - user-api
+      - iot-api
+      - frontend
+      - ingest-api
+    networks:
+      - appnet
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    container_name: rehab-certbot
+    volumes:
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/certs:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do
+               certbot renew;
+               sleep 12h;
+             done"
+
+networks:
+  appnet:
+
+volumes:
+  db-data:
+  redis-data:

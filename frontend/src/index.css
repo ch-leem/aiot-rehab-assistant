@@ -1,0 +1,79 @@
+:root {
+  /* 기본 색상 - 대비 강화 */
+  --ink: #1a1714;
+  --muted: #4a4540;
+  --antique-ink: #2a251f;
+  --shadow: 0 20px 48px rgba(36, 32, 26, 0.12);
+  
+  /* 배경 색상 */
+  --warm-sand: #f7e8c8;
+  --warm-cream: #fffdf8;
+  
+  /* 액센트 색상 - 더 선명하게 */
+  --warm-accent: #f0b84a;
+  --warm-accent-ink: #3d2508;
+  --warm-accent-hover: #f5c55e;
+  
+  /* 게이미피케이션 색상 */
+  --success-green: #4caf50;
+  --success-green-light: #e8f5e9;
+  --achievement-gold: #ffd700;
+  --achievement-gold-light: #fff9e6;
+  --encourage-blue: #2196f3;
+  --encourage-blue-light: #e3f2fd;
+  --warning-orange: #ff9800;
+  --warning-orange-light: #fff3e0;
+  
+  /* 상태 색상 */
+  --active-state: #ff6b35;
+  --focus-ring: rgba(240, 184, 74, 0.6);
+  
+  /* 폰트 */
+  --font-display: "Gmarket Sans", "Pretendard", "Noto Sans KR",
+    "Apple SD Gothic Neo", sans-serif;
+  --font-serif: "Nanum Myeongjo", "Noto Serif KR", "Times New Roman", serif;
+  
+  /* 타이포그래피 크기 - 노년층 최적화 */
+  font-size: 20px;
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:root,
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-display);
+  background: #f7e8c8;
+  color: var(--ink);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+body.therapist-body {
+  background: #ffffff;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
