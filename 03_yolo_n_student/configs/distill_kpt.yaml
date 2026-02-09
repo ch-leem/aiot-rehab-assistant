@@ -1,0 +1,14 @@
+teacher:
+  weight: "weights/teacher/yolom_kpt.pt"
+  freeze: true
+
+distill:
+  use_kpt: true
+  use_attention: true
+
+loss_weight:
+  kpt: 0.3
+  attention: 0.2
+
+hook:
+  index: 22   # YOLO11 pose 기준 확정

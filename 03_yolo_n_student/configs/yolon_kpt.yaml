@@ -1,0 +1,11 @@
+task: pose
+model: ../weights/yolo11n-pose.pt
+kpt_shape: [21, 3]
+
+imgsz: 640
+batch: 16
+epochs: 30
+
+optimizer: AdamW
+lr0: 0.001
+weight_decay: 0.0005
