@@ -208,7 +208,7 @@ def main(cfg: Dict[str, Any]) -> None:
             cv2.resizeWindow(win_name, 1280, 960)
 
             while True:
-                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
+                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=True)
                 frame = bundle.rgb
                 depth_z16 = bundle.depth
                 if frame is None or depth_z16 is None:

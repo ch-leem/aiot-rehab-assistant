@@ -30,6 +30,8 @@ def robust_depth_at(
     outlier_mad_k: float = 3.5,
     seed_gate_mm: float = 120.0,
     nearest_k: int = 9,
+    min_depth_m: float = 0.2,
+    max_depth_m: float = 3.0,
 ) -> DepthSample:
     if depth_z16 is None:
         return DepthSample(None, None, False, "no depth frame")
@@ -93,5 +95,11 @@ def robust_depth_at(
             dbg = "mad ok"
 
     z_m = final * depth_scale
+    if z_m < min_depth_m:
+        z_m = min_depth_m
+        dbg = f"{dbg}|clamped_min"
+    elif z_m > max_depth_m:
+        z_m = max_depth_m
+        dbg = f"{dbg}|clamped_max"
     xyz = deproject_pixel_to_point_pinhole(intr, u, v, z_m)
     return DepthSample(z_m, xyz, True, dbg)

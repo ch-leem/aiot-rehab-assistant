@@ -167,7 +167,8 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 cv2.resizeWindow(win_name, 1280, 960)
 
             while not stop_flag.is_set():
-                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
+                # bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=False)
+                bundle: FrameBundle = cam.get_frames(want_depth_frame=True, postprocess_depth=True)
                 frame = bundle.rgb
                 depth_z16 = bundle.depth
                 if frame is None or depth_z16 is None:
@@ -407,14 +408,14 @@ def main_loop(cfg: Dict[str, Any], buf: LatestFrameBuffer, stop_flag: threading.
                 # debug_lines.append("")  # blank line
 
                 # # single_leg_raise
-                # debug_lines.append("[single_leg_raise] 한 쪽 발 올리기")
-                # debug_lines.append(f"  ankle_plantarflex (L/R): {fmt_deg(l_ankle_pf)}, {fmt_deg(r_ankle_pf)}")
-                # debug_lines.append(f"  knee_flexion (L/R):      {fmt_deg(l_knee_flex)}, {fmt_deg(r_knee_flex)}")
-                # debug_lines.append(f"  pelvis_level (M):        {fmt_deg(pelvis_level)}")
-                # debug_lines.append(f"  trunk_lateral_tilt (M):  {fmt_deg(trunk_tilt)}")
-                # debug_lines.append(f"  ankle_inv_ev (L/R):      {fmt_deg(l_ankle_inv_ev)}, {fmt_deg(r_ankle_inv_ev)}")
-                # debug_lines.append(f"  hip_flexion (L/R):       {fmt_deg(l_hip_flex)}, {fmt_deg(r_hip_flex)}")
-                # debug_lines.append(f"  heel_tilt (L/R):         {fmt_deg(l_heel_tilt)}, {fmt_deg(r_heel_tilt)}")
+                # # debug_lines.append("[single_leg_raise] 한 쪽 발 올리기")
+                # # debug_lines.append(f"  ankle_plantarflex (L/R): {fmt_deg(l_ankle_pf)}, {fmt_deg(r_ankle_pf)}")
+                # # debug_lines.append(f"  knee_flexion (L/R):      {fmt_deg(l_knee_flex)}, {fmt_deg(r_knee_flex)}")
+                # # debug_lines.append(f"  pelvis_level (M):        {fmt_deg(pelvis_level)}")
+                # # debug_lines.append(f"  trunk_lateral_tilt (M):  {fmt_deg(trunk_tilt)}")
+                # # debug_lines.append(f"  ankle_inv_ev (L/R):      {fmt_deg(l_ankle_inv_ev)}, {fmt_deg(r_ankle_inv_ev)}")
+                # # debug_lines.append(f"  hip_flexion (L/R):       {fmt_deg(l_hip_flex)}, {fmt_deg(r_hip_flex)}")
+                # # debug_lines.append(f"  heel_tilt (L/R):         {fmt_deg(l_heel_tilt)}, {fmt_deg(r_heel_tilt)}")
 
                 # debug_lines.append(f"  strength      :         {imu_v}")
                 # debug_lines.append(f"  power      :            {weight_kg}")
