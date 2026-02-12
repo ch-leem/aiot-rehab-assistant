@@ -379,7 +379,6 @@ processed/
 input_images/
 
 # generated lists / large files
-*.json
 *.txt
 
 # cache
