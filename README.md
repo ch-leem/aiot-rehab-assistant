@@ -11,6 +11,7 @@
 * **서비스명**: 행가래 (行家來)
 * **형태**: 병원 설치형 AI 재활 운동 보조 시스템
 * **핵심 가치**: 자율성 · 정확성 · 지속성
+* [발표 자료](AIoT_재활운동보조_발표자료.pdf)
 
 <img width="384" height="240" alt="image68" src="https://github.com/user-attachments/assets/9ed91001-749e-4b6c-a786-72f0d950aeed" />  <img width="384" height="240" alt="image69" src="https://github.com/user-attachments/assets/ed776899-dc27-48ec-be27-ef8eec632a0d" />
 
